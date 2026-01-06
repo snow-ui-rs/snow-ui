@@ -40,12 +40,10 @@ macro_rules! widget {
     };
 }
 
-
 pub mod prelude {
     pub use super::{
-        Appearance, Board, BodyType, Card, Girl, GirlActions, HAlign, HairColor,
-        IntoWidget, Row, SkinColor, Text, TextTimer, VAlign, VIEWPORT_HEIGHT,
-        VIEWPORT_WIDTH, Widget, World,
+        Appearance, Board, BodyType, Card, Girl, GirlActions, HAlign, HairColor, IntoWidget, Row,
+        SkinColor, Text, TextTimer, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, Widget, World,
     };
 
     // Re-export the derive macro so examples can `use snow_ui::prelude::*` and write

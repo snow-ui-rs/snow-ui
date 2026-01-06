@@ -1,12 +1,78 @@
-# snow-ui
-Pure Rust UI framework
+# Snow UI: Pure Rust UI Framework
 
-## Examples ✅
+## Philosophy
 
-- Run the minimal example:
+The UI is a projection of a virtual world onto the screen.
 
-```bash
-cargo run --example basic
+
+## Example: A lovely girl
+
+A minimal component example demonstrating `#[derive(IntoWidget)]` and constructing a component with several fields.
+
+```rust
+use snow_ui::prelude::*;
+
+#[derive(IntoWidget)]
+struct LovelyGirl {
+    girl: Girl,
+}
+
+fn lovely_girl() -> Widget {
+    widget![LovelyGirl {
+        girl: Girl {
+            hair_color: HairColor::Black,
+            skin_color: SkinColor::Yellow,
+            body_type: BodyType::Slim,
+            appearance: Appearance::Beautiful,
+            every_morning: vec![GirlActions::SayHi, GirlActions::PrepareBreakfast],
+        },
+    }]
+}
+
+fn world() -> World {
+    World {
+        root: lovely_girl(),
+    }
+}
+
+fn main() {
+    snow_ui::launch(world);
+}
 ```
 
-This example demonstrates building a simple `World` with `Board`, `Card`, `Row`, `Text`, and `TextTimer`.
+---
+
+## Example: Clock
+
+A simple board example: a `Board` containing a `Card` with two rows (`Text` and `TextTimer`).
+
+```rust
+use snow_ui::prelude::*;
+
+fn world() -> World {
+    World {
+        root: widget![Board {
+            width: VIEWPORT_WIDTH,
+            height: VIEWPORT_HEIGHT,
+            h_align: HAlign::Center,
+            v_align: VAlign::Middle,
+            children: widgets![Card {
+                children: widgets![
+                    Row {
+                        children: widgets![Text {
+                            text: "Carpe diem 🎉",
+                        },],
+                    },
+                    Row {
+                        children: widgets![TextTimer { format: "%H:%M:%S" },],
+                    },
+                ],
+            },],
+        }],
+    }
+}
+
+fn main() {
+    snow_ui::launch(world);
+}
+```
