@@ -17,5 +17,5 @@ readme = "./README.md"
 keywords = ["ui", "gui", "framework", "client", "app"]
 license = "Apache-2.0"
 categories = [
-    "GUI",
+    "gui",
 ]
