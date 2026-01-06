@@ -9,7 +9,7 @@ struct LovelyGirl {
     girl: Girl,
 }
 
-fn lovely_girl() -> LovelyGirl {
+fn lovely_girl() -> Widget {
     LovelyGirl {
             girl: Girl {
                 hair_color: HairColor::Black,
@@ -22,12 +22,12 @@ fn lovely_girl() -> LovelyGirl {
                 ],
                 ..default()
             },
-    }
+    }.into()
 }
 
 fn world() -> World {
     World {
-        root: lovely_girl().into(),
+        root: lovely_girl(),
         ..default()
     }
 }
