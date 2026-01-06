@@ -15,7 +15,7 @@ license = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
-snow-ui-macros = "0"
+snow-ui-macros = { workspace = true }
 
 [[example]]
 name = "clock"

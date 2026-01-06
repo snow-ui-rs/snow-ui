@@ -19,3 +19,9 @@ license = "Apache-2.0"
 categories = [
     "gui",
 ]
+
+[workspace.dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
+snow-ui-macros = { path = "crates/macros", version = "0.0.0" }
