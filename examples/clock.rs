@@ -4,32 +4,24 @@ use snow_ui::prelude::*;
 
 fn world() -> World {
     World {
-        root: Board {
+        root: widget![Board {
             width: VIEWPORT_WIDTH,
             height: VIEWPORT_HEIGHT,
             h_align: HAlign::Center,
             v_align: VAlign::Middle,
-            children: vec![Card {
-                children: vec![
+            children: widgets![Card {
+                children: widgets![
                     Row {
-                        children: vec![Text{
+                        children: widgets![Text {
                             text: "Carpe diem 🎉",
-                            ..default()
-                        }.into()],
-                        ..default()
+                        },],
                     },
                     Row {
-                        children: vec![TextTimer{
-                            format: "%H:%M:%S",
-                            ..default()
-                        }.into()],
-                        ..default()
+                        children: widgets![TextTimer { format: "%H:%M:%S" },],
                     },
                 ],
-                ..default()
-            }],
-            ..default()
-        }.into(),
+            },],
+        }],
     }
 }
 

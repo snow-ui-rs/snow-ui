@@ -10,25 +10,20 @@ struct LovelyGirl {
 }
 
 fn lovely_girl() -> Widget {
-    LovelyGirl {
-            girl: Girl {
-                hair_color: HairColor::Black,
-                skin_color: SkinColor::Yellow,
-                body_type: BodyType::Slim,
-                appearance: Appearance::Beautiful,
-                every_morning: vec![
-                    GirlActions::SayHi,
-                    GirlActions::PrepareBreakfast,
-                ],
-                ..default()
-            },
-    }.into()
+    widget![LovelyGirl {
+        girl: Girl {
+            hair_color: HairColor::Black,
+            skin_color: SkinColor::Yellow,
+            body_type: BodyType::Slim,
+            appearance: Appearance::Beautiful,
+            every_morning: vec![GirlActions::SayHi, GirlActions::PrepareBreakfast],
+        },
+    }]
 }
 
 fn world() -> World {
     World {
         root: lovely_girl(),
-        ..default()
     }
 }
 

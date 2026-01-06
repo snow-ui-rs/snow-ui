@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput, Fields};
+use syn::{Data, DeriveInput, Fields, parse_macro_input};
 
 #[proc_macro_derive(IntoWidget)]
 pub fn derive_into_widget(input: TokenStream) -> TokenStream {
@@ -28,9 +28,15 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
                     }
                 }
             }
-            _ => quote! {
-                compile_error!("IntoWidget can only be derived for structs with exactly one field");
-            },
+            _ => {
+                quote! {
+                    impl ::snow_ui::IntoWidget for #name {
+                        fn into_widget(self) -> ::snow_ui::Widget {
+                            self.into()
+                        }
+                    }
+                }
+            }
         },
         _ => quote! {
             compile_error!("IntoWidget can only be derived for structs");

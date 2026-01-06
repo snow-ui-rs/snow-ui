@@ -1,16 +1,108 @@
 // Minimal mock of an `snow_ui` crate used by the example in `main.rs`.
 // Provides the types and items referenced by the example so the crate builds.
 
+/// Helper macro to construct a `Vec<Widget>` from a heterogeneous
+/// list of items by calling `.into()` on each item.
+///
+/// Example:
+/// ```rust
+/// # use snow_ui::prelude::*;
+/// let children = snow_ui::widgets![
+///     Text { text: "hi", ..default() },
+///     TextTimer { format: "%H:%M:%S", ..default() },
+/// ];
+/// ```
+#[macro_export]
+macro_rules! __widgets_item {
+    // Struct literal with explicit `.. rest` - leave it as-is
+    ($ty:ident { $($fields:tt)* .. $rest:expr }) => {
+        $ty { $($fields)* .. $rest }
+    };
+    // Struct literal without `..` - append defaults from `default()` helper
+    ($ty:ident { $($fields:tt)* }) => {
+        $ty { $($fields)* .. $crate::default() }
+    };
+    // Fallback: arbitrary expression (e.g., already a Widget or `.into()`able)
+    ($e:expr) => { $e };
+}
+
+#[macro_export]
+macro_rules! widgets {
+    ($($e:expr),* $(,)?) => {
+        vec![$($crate::__widgets_item!($e).into()),*]
+    };
+}
+
+#[macro_export]
+macro_rules! widget {
+    ($e:expr) => {
+        $crate::__widgets_item!($e).into()
+    };
+}
+
+#[macro_export]
+macro_rules! with_defaults {
+    ($ty:ident { $($fields:tt)* }) => {
+        $ty { $($fields)* .. $crate::default() }
+    };
+}
+
+#[macro_export]
+macro_rules! board {
+    ($($fields:tt)*) => {
+        $crate::with_defaults!(Board { $($fields)* })
+    };
+}
+
+#[macro_export]
+macro_rules! card {
+    ($($fields:tt)*) => {
+        $crate::with_defaults!(Card { $($fields)* })
+    };
+}
+
+#[macro_export]
+macro_rules! row {
+    ($($fields:tt)*) => {
+        $crate::with_defaults!(Row { $($fields)* })
+    };
+}
+
+#[macro_export]
+macro_rules! text {
+    ($($fields:tt)*) => {
+        $crate::with_defaults!(Text { $($fields)* })
+    };
+}
+
+#[macro_export]
+macro_rules! text_timer {
+    ($($fields:tt)*) => {
+        $crate::with_defaults!(TextTimer { $($fields)* })
+    };
+}
+
+#[macro_export]
+macro_rules! girl {
+    ($($fields:tt)*) => {
+        $crate::with_defaults!(Girl { $($fields)* })
+    };
+}
+
 pub mod prelude {
     pub use super::{
-        Board, Card, CENTER, MIDDLE, Row, Text, TextTimer, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, World,
-        Widget, IntoWidget, Girl, HairColor, SkinColor, BodyType, Appearance, GirlActions,
-        HAlign, VAlign,
+        Appearance, Board, BodyType, CENTER, Card, Girl, GirlActions, HAlign, HairColor,
+        IntoWidget, MIDDLE, Row, SkinColor, Text, TextTimer, VAlign, VIEWPORT_HEIGHT,
+        VIEWPORT_WIDTH, Widget, World,
     };
 
     // Re-export the derive macro so examples can `use snow_ui::prelude::*` and write
     // `#[derive(IntoWidget)]` without importing `snow_ui_macros` explicitly.
     pub use snow_ui_macros::IntoWidget;
+
+    // Bring convenient macros into the prelude by re-exporting the crate-level
+    // implementations so `use snow_ui::prelude::*` brings them into scope.
+    pub use crate::{board, card, girl, row, text, text_timer, widget, widgets, with_defaults};
 
     /// Helper to allow `..default()` shorthand in user code (like Bevy's prelude).
     ///
@@ -19,7 +111,7 @@ pub mod prelude {
     pub fn default<T: Default>() -> T {
         T::default()
     }
-} 
+}
 
 /// Launch the UI using a builder function that returns a `World`.
 ///
@@ -50,7 +142,7 @@ pub struct Board {
     pub height: Size,
     pub h_align: HAlign,
     pub v_align: VAlign,
-    pub children: Vec<Card>,
+    pub children: Vec<Widget>,
 }
 
 impl Default for Board {
@@ -63,12 +155,12 @@ impl Default for Board {
             children: vec![],
         }
     }
-} 
+}
 
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Card {
-    pub children: Vec<Row>,
+    pub children: Vec<Widget>,
 }
 
 impl Default for Card {
@@ -80,7 +172,7 @@ impl Default for Card {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Row {
-    pub children: Vec<Element>,
+    pub children: Vec<Widget>,
 }
 
 impl Default for Row {
@@ -120,7 +212,7 @@ impl From<Text> for Element {
     fn from(t: Text) -> Self {
         Element::Text(t)
     }
-} 
+}
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -184,6 +276,9 @@ pub const MIDDLE: VAlign = VAlign::Middle;
 pub enum Widget {
     Board(Board),
     Girl(Girl),
+    Card(Card),
+    Row(Row),
+    Element(Element),
 }
 
 impl From<Board> for Widget {
@@ -198,6 +293,38 @@ impl From<Girl> for Widget {
     }
 }
 
+impl From<Card> for Widget {
+    fn from(c: Card) -> Self {
+        Widget::Card(c)
+    }
+}
+
+impl From<Row> for Widget {
+    fn from(r: Row) -> Self {
+        Widget::Row(r)
+    }
+}
+
+impl From<Element> for Widget {
+    fn from(e: Element) -> Self {
+        Widget::Element(e)
+    }
+}
+
+impl From<Text> for Widget {
+    fn from(t: Text) -> Self {
+        // Convert Text -> Element (via `From<Text> for Element`) and wrap into Widget::Element
+        Widget::Element(t.into())
+    }
+}
+
+impl From<TextTimer> for Widget {
+    fn from(t: TextTimer) -> Self {
+        // Convert TextTimer -> Element and wrap into Widget::Element
+        Widget::Element(t.into())
+    }
+}
+
 pub trait IntoWidget {
     fn into_widget(self) -> Widget;
 }
@@ -207,7 +334,6 @@ impl<T: IntoWidget> From<T> for Widget {
         t.into_widget()
     }
 }
-
 
 // Girl component
 #[allow(dead_code)]
