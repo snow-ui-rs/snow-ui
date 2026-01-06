@@ -1,0 +1,21 @@
+[workspace]
+members = ["crates/core", "crates/macros"]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.0"
+authors = ["clia <helloclia@gmail.com>"]
+edition = "2024"
+rust-version = "1.89"
+description = """
+Snow UI is a pure rust UI framework.
+"""
+homepage = "https://snow-ui.dev"
+repository = "https://github.com/snow-ui-rs/snow-ui"
+documentation = "https://docs.rs/snow-ui/"
+readme = "./README.md"
+keywords = ["ui", "gui", "web", "framework", "wasm", "client", "app", "portable"]
+license = "Apache-2.0"
+categories = [
+    "GUI",
+]

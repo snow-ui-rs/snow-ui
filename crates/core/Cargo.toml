@@ -1,0 +1,15 @@
+[package]
+name = "snow-ui"
+version = "0.0.0"
+edition = "2024"
+
+[dependencies]
+snow-ui-macros = { path = "../../crates/macros" }
+
+[[example]]
+name = "clock"
+path = "../../examples/clock.rs"
+
+[[example]]
+name = "lovely_girl"
+path = "../../examples/lovely_girl.rs"
