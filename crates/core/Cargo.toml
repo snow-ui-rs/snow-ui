@@ -15,7 +15,7 @@ license = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
-snow-ui-macros = { path = "../../crates/macros" }
+snow-ui-macros = "0"
 
 [[example]]
 name = "clock"
