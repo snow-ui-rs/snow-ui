@@ -1,7 +1,18 @@
 [package]
 name = "snow-ui-macros"
-version = "0.0.0"
-edition = "2024"
+version = { workspace = true }
+authors = [
+    "clia <helloclia@gmail.com>",
+]
+edition = { workspace = true }
+rust-version = { workspace = true }
+description = "Snow UI proc macros"
+homepage = { workspace = true }
+repository = { workspace = true }
+readme = { workspace = true }
+keywords = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
 
 [lib]
 proc-macro = true

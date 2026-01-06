@@ -1,7 +1,18 @@
 [package]
 name = "snow-ui"
-version = "0.0.0"
-edition = "2024"
+version = { workspace = true }
+authors = [
+    "clia <helloclia@gmail.com>",
+]
+edition = { workspace = true }
+rust-version = { workspace = true }
+description = "salvo proc macros"
+homepage = { workspace = true }
+repository = { workspace = true }
+readme = { workspace = true }
+keywords = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
 
 [dependencies]
 snow-ui-macros = { path = "../../crates/macros" }
