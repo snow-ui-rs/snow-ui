@@ -14,7 +14,7 @@ homepage = "https://snow-ui.dev"
 repository = "https://github.com/snow-ui-rs/snow-ui"
 documentation = "https://docs.rs/snow-ui/"
 readme = "./README.md"
-keywords = ["ui", "gui", "web", "framework", "wasm", "client", "app", "portable"]
+keywords = ["ui", "gui", "framework", "client", "app"]
 license = "Apache-2.0"
 categories = [
     "GUI",
