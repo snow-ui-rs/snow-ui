@@ -40,59 +40,11 @@ macro_rules! widget {
     };
 }
 
-#[macro_export]
-macro_rules! with_defaults {
-    ($ty:ident { $($fields:tt)* }) => {
-        $ty { $($fields)* .. $crate::default() }
-    };
-}
-
-#[macro_export]
-macro_rules! board {
-    ($($fields:tt)*) => {
-        $crate::with_defaults!(Board { $($fields)* })
-    };
-}
-
-#[macro_export]
-macro_rules! card {
-    ($($fields:tt)*) => {
-        $crate::with_defaults!(Card { $($fields)* })
-    };
-}
-
-#[macro_export]
-macro_rules! row {
-    ($($fields:tt)*) => {
-        $crate::with_defaults!(Row { $($fields)* })
-    };
-}
-
-#[macro_export]
-macro_rules! text {
-    ($($fields:tt)*) => {
-        $crate::with_defaults!(Text { $($fields)* })
-    };
-}
-
-#[macro_export]
-macro_rules! text_timer {
-    ($($fields:tt)*) => {
-        $crate::with_defaults!(TextTimer { $($fields)* })
-    };
-}
-
-#[macro_export]
-macro_rules! girl {
-    ($($fields:tt)*) => {
-        $crate::with_defaults!(Girl { $($fields)* })
-    };
-}
 
 pub mod prelude {
     pub use super::{
-        Appearance, Board, BodyType, CENTER, Card, Girl, GirlActions, HAlign, HairColor,
-        IntoWidget, MIDDLE, Row, SkinColor, Text, TextTimer, VAlign, VIEWPORT_HEIGHT,
+        Appearance, Board, BodyType, Card, Girl, GirlActions, HAlign, HairColor,
+        IntoWidget, Row, SkinColor, Text, TextTimer, VAlign, VIEWPORT_HEIGHT,
         VIEWPORT_WIDTH, Widget, World,
     };
 
@@ -102,7 +54,7 @@ pub mod prelude {
 
     // Bring convenient macros into the prelude by re-exporting the crate-level
     // implementations so `use snow_ui::prelude::*` brings them into scope.
-    pub use crate::{board, card, girl, row, text, text_timer, widget, widgets, with_defaults};
+    pub use crate::{widget, widgets};
 
     /// Helper to allow `..default()` shorthand in user code (like Bevy's prelude).
     ///
@@ -194,14 +146,6 @@ pub struct Text {
     pub text: &'static str,
 }
 
-impl Text {
-    /// Return an `Element::Text` so the call sites using `Text::from_str` can be placed
-    /// directly inside a `Vec` of `Element`.
-    pub fn from_str(s: &'static str) -> Element {
-        Element::Text(Text { text: s })
-    }
-}
-
 impl Default for Text {
     fn default() -> Self {
         Self { text: "" }
@@ -223,15 +167,6 @@ pub struct TextTimer {
 impl From<TextTimer> for Element {
     fn from(t: TextTimer) -> Self {
         Element::TextTimer(t)
-    }
-}
-
-impl TextTimer {
-    /// Construct a `TextTimer` with the provided format and return it as an `Element`.
-    ///
-    /// Use `TextTimer::with_format("%H:%M:%S")` to create a timer element.
-    pub fn with_format(format: &'static str) -> Element {
-        Element::TextTimer(TextTimer { format })
     }
 }
 
@@ -266,9 +201,6 @@ pub enum VAlign {
     Middle,
     Bottom,
 }
-
-pub const CENTER: HAlign = HAlign::Center;
-pub const MIDDLE: VAlign = VAlign::Middle;
 
 // Widget system
 #[allow(dead_code)]
