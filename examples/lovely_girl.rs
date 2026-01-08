@@ -24,6 +24,7 @@ fn lovely_girl() -> Widget {
 fn world() -> World {
     World {
         root: lovely_girl(),
+        ..default()
     }
 }
 

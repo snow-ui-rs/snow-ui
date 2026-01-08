@@ -22,6 +22,7 @@ fn world() -> World {
                 ],
             },],
         }],
+        ..default()
     }
 }
 
