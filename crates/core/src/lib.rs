@@ -172,7 +172,7 @@ impl Default for TextClock {
     fn default() -> Self {
         Self { format: "" }
     }
-} 
+}
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
@@ -252,6 +252,15 @@ impl From<TextClock> for Widget {
     fn from(t: TextClock) -> Self {
         // Convert TextClock -> Element and wrap into Widget::Element
         Widget::Element(t.into())
+    }
+}
+
+impl From<u128> for Widget {
+    fn from(n: u128) -> Self {
+        // Convert number to a textual representation for demonstration.
+        let s = format!("{}", n);
+        let leaked: &'static str = Box::leak(s.into_boxed_str());
+        Text { text: leaked }.into()
     }
 } 
 
