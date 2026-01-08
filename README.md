@@ -42,9 +42,9 @@ fn main() {
 
 ---
 
-## Example: Clock
+## Example: Text Clock
 
-A simple board example: a `Board` containing a `Card` with two rows (`Text` and `TextTimer`).
+A simple board example: a `Board` containing a `Card` with two rows (`Text` and `TextClock`).
 
 ```rust
 use snow_ui::prelude::*;
@@ -64,7 +64,7 @@ fn world() -> World {
                         },],
                     },
                     Row {
-                        children: widgets![TextTimer { format: "%H:%M:%S" },],
+                        children: widgets![TextClock { format: "%H:%M:%S" },],
                     },
                 ],
             },],

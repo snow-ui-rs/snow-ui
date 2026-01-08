@@ -17,7 +17,7 @@ fn world() -> World {
                         },],
                     },
                     Row {
-                        children: widgets![TextTimer { format: "%H:%M:%S" },],
+                        children: widgets![TextClock { format: "%H:%M:%S" },],
                     },
                 ],
             },],

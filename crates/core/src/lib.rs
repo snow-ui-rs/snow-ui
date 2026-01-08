@@ -9,7 +9,7 @@
 /// # use snow_ui::prelude::*;
 /// let children = snow_ui::widgets![
 ///     Text { text: "hi", ..default() },
-///     TextTimer { format: "%H:%M:%S", ..default() },
+///     TextClock { format: "%H:%M:%S", ..default() },
 /// ];
 /// ```
 #[macro_export]
@@ -43,7 +43,7 @@ macro_rules! widget {
 pub mod prelude {
     pub use super::{
         Appearance, Board, BodyType, Card, Girl, GirlActions, HAlign, HairColor, IntoWidget, Row,
-        SkinColor, Text, TextTimer, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, Widget, World,
+        SkinColor, Text, TextClock, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, Widget, World,
     };
 
     // Re-export the derive macro so examples can `use snow_ui::prelude::*` and write
@@ -135,7 +135,7 @@ impl Default for Row {
 #[derive(Debug)]
 pub enum Element {
     Text(Text),
-    TextTimer(TextTimer),
+    TextClock(TextClock),
 }
 
 #[allow(dead_code)]
@@ -158,21 +158,21 @@ impl From<Text> for Element {
 
 #[allow(dead_code)]
 #[derive(Debug)]
-pub struct TextTimer {
+pub struct TextClock {
     pub format: &'static str,
 }
 
-impl From<TextTimer> for Element {
-    fn from(t: TextTimer) -> Self {
-        Element::TextTimer(t)
+impl From<TextClock> for Element {
+    fn from(t: TextClock) -> Self {
+        Element::TextClock(t)
     }
 }
 
-impl Default for TextTimer {
+impl Default for TextClock {
     fn default() -> Self {
         Self { format: "" }
     }
-}
+} 
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
@@ -248,12 +248,12 @@ impl From<Text> for Widget {
     }
 }
 
-impl From<TextTimer> for Widget {
-    fn from(t: TextTimer) -> Self {
-        // Convert TextTimer -> Element and wrap into Widget::Element
+impl From<TextClock> for Widget {
+    fn from(t: TextClock) -> Self {
+        // Convert TextClock -> Element and wrap into Widget::Element
         Widget::Element(t.into())
     }
-}
+} 
 
 pub trait IntoWidget {
     fn into_widget(self) -> Widget;
