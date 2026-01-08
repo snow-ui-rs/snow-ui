@@ -43,7 +43,7 @@ macro_rules! widget {
 pub mod prelude {
     pub use super::{
         Appearance, Board, BodyType, Card, Girl, GirlActions, HAlign, HairColor, IntoWidget, Row,
-        SkinColor, Text, TextClock, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, Widget, World,
+        SkinColor, Text, TextClock, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, Widget, World, InnerMovement, InnerTicker, UpdateContext,
     };
 
     // Re-export the derive macro so examples can `use snow_ui::prelude::*` and write
@@ -172,6 +172,27 @@ impl Default for TextClock {
     fn default() -> Self {
         Self { format: "" }
     }
+}
+
+/// Context passed into `InnerMovement::update` allowing widgets to read timing information.
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct UpdateContext {
+    pub time: std::time::Instant,
+}
+
+/// A trait for internal widgets that update over time.
+#[allow(dead_code)]
+pub trait InnerMovement {
+    fn update(&mut self, ctx: &mut UpdateContext);
+} 
+
+/// A trait for internal widgets that run an async ticker loop.
+/// Implementors should perform periodic async work (e.g., with tokio::time::interval).
+#[allow(dead_code)]
+#[async_trait::async_trait]
+pub trait InnerTicker {
+    async fn ticker(&mut self);
 }
 
 #[allow(dead_code)]
