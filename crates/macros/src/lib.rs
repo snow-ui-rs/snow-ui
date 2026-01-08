@@ -2,28 +2,189 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, parse_macro_input};
 
-#[proc_macro_derive(IntoWidget)]
+#[proc_macro_derive(IntoWidget, attributes(into_widget))]
 pub fn derive_into_widget(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
 
-    let expanded = match input.data {
-        Data::Struct(ref s) => match &s.fields {
-            Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-                quote! {
-                    impl ::snow_ui::IntoWidget for #name {
-                        fn into_widget(self) -> ::snow_ui::Widget {
-                            self.0.into()
+    // Parse optional helper attribute: `#[into_widget(expr = "...")]` or `#[into_widget(field = "field_name")]`
+    let mut attr_expr: Option<syn::LitStr> = None;
+    let mut attr_field: Option<syn::Ident> = None;
+    for attr in &input.attrs {
+        if attr.path().is_ident("into_widget") {
+            // Fallback/simple parsing: convert tokens to string and look for `expr = "..."` and `field = "..."`.
+            // This avoids depending on complicated syn::Meta APIs across versions.
+            if let syn::Meta::List(list) = &attr.meta {
+                let tokens_string = list.tokens.to_string();
+                if let Some(idx) = tokens_string.find("expr") {
+                if let Some(q1) = tokens_string[idx..].find('"') {
+                    let rest = &tokens_string[idx + q1 + 1..];
+                    if let Some(q2) = rest.find('"') {
+                        let val = &rest[..q2];
+                        attr_expr = Some(syn::LitStr::new(val, proc_macro2::Span::call_site()));
+                    }
+                }
+            }
+            if let Some(idx) = tokens_string.find("field") {
+                if let Some(q1) = tokens_string[idx..].find('"') {
+                    let rest = &tokens_string[idx + q1 + 1..];
+                    if let Some(q2) = rest.find('"') {
+                        let val = &rest[..q2];
+                        if let Ok(id) = syn::parse_str::<syn::Ident>(val) {
+                            attr_field = Some(id);
                         }
                     }
                 }
             }
-            Fields::Named(fields) if fields.named.len() == 1 => {
-                let field_name = &fields.named.iter().next().unwrap().ident;
+        }
+    }
+    }
+
+    let expanded = match input.data {
+        Data::Struct(ref s) => match &s.fields {
+            // If the user provided an `expr` override, use it directly
+            Fields::Unnamed(fields) if fields.unnamed.len() == 1 && attr_expr.is_some() => {
+                let expr = attr_expr.unwrap().value();
+                let tokens: proc_macro2::TokenStream = expr.parse().expect("failed to parse into_widget expr");
                 quote! {
                     impl ::snow_ui::IntoWidget for #name {
                         fn into_widget(self) -> ::snow_ui::Widget {
-                            self.#field_name.into()
+                            #tokens
+                        }
+                    }
+                }
+            }
+            // If user provided a named `field` override (handled in Fields::Named branch below), skip here
+            Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
+                let field_ty = &fields.unnamed.iter().next().unwrap().ty;
+                // Handle string-like fields specially to avoid requiring `IntoWidget for String`.
+                // - If it's a `&'static str`, use it directly.
+                // - If it's a `&str` with a non-static lifetime, convert to owned and leak to `'static`.
+                // - If it's a `String`, call `.into()` on the String value (let the field's conversion decide).
+                // - Otherwise, fall back to calling `.into()` on the field value.
+                if let syn::Type::Reference(r) = field_ty {
+                    if let Some(lifetime) = &r.lifetime {
+                        if lifetime.ident == "static" {
+                            quote! {
+                                impl ::snow_ui::IntoWidget for #name {
+                                    fn into_widget(self) -> ::snow_ui::Widget {
+                                        ::snow_ui::Text { text: self.0 }.into()
+                                    }
+                                }
+                            }
+                        } else {
+                            // non-'static &str -> to_owned() and leak
+                            quote! {
+                                impl ::snow_ui::IntoWidget for #name {
+                                    fn into_widget(self) -> ::snow_ui::Widget {
+                                        let s: &'static str = Box::leak(self.0.to_owned().into_boxed_str());
+                                        ::snow_ui::Text { text: s }.into()
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        // reference without explicit lifetime - treat as non-static and leak
+                        quote! {
+                            impl ::snow_ui::IntoWidget for #name {
+                                fn into_widget(self) -> ::snow_ui::Widget {
+                                    let s: &'static str = Box::leak(self.0.to_owned().into_boxed_str());
+                                    ::snow_ui::Text { text: s }.into()
+                                }
+                            }
+                        }
+                    }
+                } else if let syn::Type::Path(p) = field_ty {
+                    // Check if the type is `String`.
+                    if p.path.segments.last().unwrap().ident == "String" {
+                        quote! {
+                            impl ::snow_ui::IntoWidget for #name {
+                                fn into_widget(self) -> ::snow_ui::Widget {
+                                    self.0.into()
+                                }
+                            }
+                        }
+                    } else {
+                        // Fallback for other types: call `.into()` on the field value
+                        quote! {
+                            impl ::snow_ui::IntoWidget for #name {
+                                fn into_widget(self) -> ::snow_ui::Widget {
+                                    self.0.into()
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    quote! {
+                        impl ::snow_ui::IntoWidget for #name {
+                            fn into_widget(self) -> ::snow_ui::Widget {
+                                self.0.into()
+                            }
+                        }
+                    }
+                }
+            }
+            // If user provided a `field` override, honor it and generate conversion for that field
+            Fields::Named(fields) if attr_field.is_some() => {
+                let chosen = attr_field.as_ref().unwrap();
+                // Find the actual field by name
+                let actual_field = fields.named.iter().find(|f| f.ident.as_ref().map(|i| i == chosen).unwrap_or(false)).expect("specified field not found");
+                let field_ty = &actual_field.ty;
+
+                if let syn::Type::Reference(r) = field_ty {
+                    if let Some(lifetime) = &r.lifetime {
+                        if lifetime.ident == "static" {
+                            quote! {
+                                impl ::snow_ui::IntoWidget for #name {
+                                    fn into_widget(self) -> ::snow_ui::Widget {
+                                        ::snow_ui::Text { text: self.#chosen }.into()
+                                    }
+                                }
+                            }
+                        } else {
+                            quote! {
+                                impl ::snow_ui::IntoWidget for #name {
+                                    fn into_widget(self) -> ::snow_ui::Widget {
+                                        let s: &'static str = Box::leak(self.#chosen.to_owned().into_boxed_str());
+                                        ::snow_ui::Text { text: s }.into()
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        quote! {
+                            impl ::snow_ui::IntoWidget for #name {
+                                fn into_widget(self) -> ::snow_ui::Widget {
+                                    let s: &'static str = Box::leak(self.#chosen.to_owned().into_boxed_str());
+                                    ::snow_ui::Text { text: s }.into()
+                                }
+                            }
+                        }
+                    }
+                } else if let syn::Type::Path(p) = field_ty {
+                    if p.path.segments.last().unwrap().ident == "String" {
+                        quote! {
+                            impl ::snow_ui::IntoWidget for #name {
+                                fn into_widget(self) -> ::snow_ui::Widget {
+                                    self.#chosen.into()
+                                }
+                            }
+                        }
+                    } else {
+                        quote! {
+                            impl ::snow_ui::IntoWidget for #name {
+                                fn into_widget(self) -> ::snow_ui::Widget {
+                                    self.#chosen.into()
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    quote! {
+                        impl ::snow_ui::IntoWidget for #name {
+                            fn into_widget(self) -> ::snow_ui::Widget {
+                                self.#chosen.into()
+                            }
                         }
                     }
                 }
