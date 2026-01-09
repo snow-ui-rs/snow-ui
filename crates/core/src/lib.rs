@@ -46,9 +46,9 @@ pub mod prelude {
         SkinColor, Text, TextClock, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, Widget, World, InnerMovement, InnerTicker, UpdateContext,
     };
 
-    // Re-export the derive macro so examples can `use snow_ui::prelude::*` and write
-    // `#[derive(IntoWidget)]` without importing `snow_ui_macros` explicitly.
-    pub use snow_ui_macros::IntoWidget;
+    // Re-export the derive macros so examples can `use snow_ui::prelude::*` and write
+    // `#[derive(IntoWidget)]` and `#[derive(Message)]` without importing `snow_ui_macros` explicitly.
+    pub use snow_ui_macros::{IntoWidget, Message};
 
     // Bring convenient macros into the prelude by re-exporting the crate-level
     // implementations so `use snow_ui::prelude::*` brings them into scope.
