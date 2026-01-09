@@ -188,9 +188,8 @@ pub trait InnerMovement {
 } 
 
 /// A trait for internal widgets that run an async ticker loop.
-/// Implementors should perform periodic async work (e.g., with tokio::time::interval).
+/// Implementors should perform periodic async work (e.g., with `tokio::time::interval`).
 #[allow(dead_code)]
-#[async_trait::async_trait]
 pub trait InnerTicker {
     async fn ticker(&mut self);
 }

@@ -17,7 +17,6 @@ categories = { workspace = true }
 [dependencies]
 snow-ui-macros = { workspace = true }
 tokio = { workspace = true, features = ["time", "rt"] }
-async-trait = { workspace = true }
 
 [[example]]
 name = "clock"

@@ -8,7 +8,6 @@ struct SimpleTextTimer {
     second: u128,
 }
 
-#[async_trait::async_trait]
 impl InnerTicker for SimpleTextTimer {
     async fn ticker(&mut self) {
         let mut iv = interval(Duration::from_secs(1));
