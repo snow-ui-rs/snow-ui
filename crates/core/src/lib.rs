@@ -44,6 +44,8 @@ pub mod prelude {
     pub use super::{
         Appearance, Board, BodyType, Card, Girl, GirlActions, HAlign, HairColor, IntoWidget, Row,
         SkinColor, Text, TextClock, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, Widget, World, InnerMovement, InnerTicker, UpdateContext,
+        // Click demo types
+        Button, ClickHandler, Message, MessageReceiver, event_bus,
     };
 
     // Re-export the derive macros so examples can `use snow_ui::prelude::*` and write
@@ -136,6 +138,7 @@ impl Default for Row {
 pub enum Element {
     Text(Text),
     TextClock(TextClock),
+    Button(Button),
 }
 
 #[allow(dead_code)]
@@ -174,6 +177,14 @@ impl Default for TextClock {
     }
 }
 
+/// Marker trait for types usable as messages in the event bus.
+/// Implemented by `#[derive(Message)]`.
+///
+/// Note: this crate targets a single-threaded environment, so `Message` does not
+/// require `Send`/`Sync` — only `'static` is required for type-based storage.
+#[allow(dead_code)]
+pub trait Message: 'static {}
+
 /// Context passed into `InnerMovement::update` allowing widgets to read timing information.
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -194,6 +205,20 @@ pub trait InnerTicker {
     async fn ticker(&mut self);
 }
 
+/// A trait for widgets that handle clicks.
+#[allow(dead_code)]
+pub trait ClickHandler {
+    async fn on_click(&mut self);
+}
+
+/// A trait for widgets that subscribe to messages and register background tasks.
+/// `register` takes ownership of the widget so implementations can spawn background tasks
+/// that move the widget into async tasks safely.
+#[allow(dead_code)]
+pub trait MessageReceiver {
+    async fn register(self);
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum Size {
@@ -201,6 +226,26 @@ pub enum Size {
     ViewportHeight,
 }
 
+// A simple clickable button widget used by the `click` example.
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct Button {
+    pub text: &'static str,
+}
+
+impl Default for Button {
+    fn default() -> Self {
+        Self { text: "" }
+    }
+}
+
+impl From<Button> for Element {
+    fn from(b: Button) -> Self {
+        // Represent a button as an `Element::Button` variant so it can be wrapped
+        // by `Widget::Element` like other inline elements.
+        Element::Button(b)
+    }
+}
 pub const VIEWPORT_WIDTH: Size = Size::ViewportWidth;
 pub const VIEWPORT_HEIGHT: Size = Size::ViewportHeight;
 
@@ -259,6 +304,85 @@ impl From<Element> for Widget {
     fn from(e: Element) -> Self {
         Widget::Element(e)
     }
+}
+
+/// An async-capable event bus used by examples to send and subscribe to typed messages.
+/// This implementation is single-threaded: it uses `Rc` and `futures::channel::mpsc::unbounded` so
+/// message types do not need to be `Send`/`Sync`.
+#[allow(dead_code)]
+pub struct EventBus {
+    inner: std::cell::RefCell<std::collections::HashMap<std::any::TypeId, Vec<futures::channel::mpsc::UnboundedSender<std::rc::Rc<dyn std::any::Any>>>>>,
+}
+
+impl EventBus {
+    pub fn new() -> Self {
+        Self { inner: std::cell::RefCell::new(std::collections::HashMap::new()) }
+    }
+
+    /// Send a typed message to all subscribers (synchronous in this API).
+    pub fn send<T: Message>(&self, msg: T) {
+        let rc = std::rc::Rc::new(msg) as std::rc::Rc<dyn std::any::Any>;
+        let guard = self.inner.borrow();
+        if let Some(subs) = guard.get(&std::any::TypeId::of::<T>()) {
+            for tx in subs.iter() {
+                let _ = tx.unbounded_send(rc.clone());
+            }
+        }
+    }
+
+    /// Subscribe to messages of type `T`.
+    /// Returns a receiver which yields notifications when messages of that type arrive.
+    pub fn subscribe<T: Message>(&self) -> EventBusReceiver<T> {
+        let (tx, rx) = futures::channel::mpsc::unbounded();
+        let mut guard = self.inner.borrow_mut();
+        guard.entry(std::any::TypeId::of::<T>()).or_default().push(tx);
+        EventBusReceiver { rx, _marker: std::marker::PhantomData }
+    }
+}
+
+/// Receiver wrapper that yields a notification when a message of type `T` is received.
+#[allow(dead_code)]
+pub struct EventBusReceiver<T> {
+    rx: futures::channel::mpsc::UnboundedReceiver<std::rc::Rc<dyn std::any::Any>>,
+    _marker: std::marker::PhantomData<T>,
+}
+
+impl<T: Message> EventBusReceiver<T> {
+    /// Wait for the next message of type `T`.
+    /// Returns `Ok(())` when a message arrives, or `Err(())` if the sender side closed.
+    pub async fn recv(&mut self) -> Result<(), ()> {
+        use futures::StreamExt;
+        while let Some(rc) = self.rx.next().await {
+            // We don't attempt to extract the value (no `downcast` required for this demo).
+            // The presence of a message of the correct type is sufficient for example usage.
+            let _ = rc;
+            return Ok(());
+        }
+        Err(())
+    }
+}
+
+thread_local! {
+    static EVENT_BUS: std::cell::RefCell<EventBus> = std::cell::RefCell::new(EventBus::new());
+}
+
+/// A small `EventBus` handle that proxies into a thread-local `EventBus` instance.
+#[allow(dead_code)]
+#[derive(Clone, Copy)]
+pub struct EventBusHandle;
+
+impl EventBusHandle {
+    pub fn send<T: Message>(&self, msg: T) {
+        EVENT_BUS.with(|b| b.borrow().send(msg));
+    }
+
+    pub fn subscribe<T: Message>(&self) -> EventBusReceiver<T> {
+        EVENT_BUS.with(|b| b.borrow_mut().subscribe::<T>())
+    }
+}
+
+pub fn event_bus() -> EventBusHandle {
+    EventBusHandle {}
 }
 
 impl From<Text> for Widget {

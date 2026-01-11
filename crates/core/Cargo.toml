@@ -17,15 +17,20 @@ categories = { workspace = true }
 [dependencies]
 snow-ui-macros = { workspace = true }
 tokio = { workspace = true, features = ["time", "rt"] }
-
-[[example]]
-name = "clock"
-path = "../../examples/clock.rs"
+futures = { workspace = true }
 
 [[example]]
 name = "lovely_girl"
 path = "../../examples/lovely_girl.rs"
 
 [[example]]
+name = "clock"
+path = "../../examples/clock.rs"
+
+[[example]]
 name = "timer"
 path = "../../examples/timer.rs"
+
+[[example]]
+name = "click"
+path = "../../examples/click.rs"

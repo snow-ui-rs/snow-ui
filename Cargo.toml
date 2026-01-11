@@ -24,5 +24,6 @@ categories = [
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["full"] }
-tokio = { version = "1", features = ["time", "rt"] }
+tokio = { version = "1", features = ["time", "rt", "sync"] }
+futures = "0.3"
 snow-ui-macros = { path = "crates/macros", version = "0.0.0" }

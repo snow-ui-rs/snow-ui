@@ -29,7 +29,7 @@ fn world() -> World {
                 children: widgets![
                     Row {
                         children: widgets![Text {
-                            text: "Carpe diem 🎉",
+                            text: "Timer Example ⏱️",
                         },],
                     },
                     Row {
