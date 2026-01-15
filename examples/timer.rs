@@ -1,11 +1,12 @@
 //! A simple little clock that updates the time every few milliseconds.
 
 use snow_ui::prelude::*;
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 
-#[derive(IntoWidget)]
+widget! {
 struct SimpleTextTimer {
     second: u128,
+}
 }
 
 impl InnerTicker for SimpleTextTimer {

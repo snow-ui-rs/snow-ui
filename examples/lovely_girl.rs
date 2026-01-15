@@ -4,9 +4,10 @@
 
 use snow_ui::prelude::*;
 
-#[derive(IntoWidget)]
+widget! {
 struct LovelyGirl {
     girl: Girl,
+}
 }
 
 fn lovely_girl() -> Widget {

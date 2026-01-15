@@ -17,27 +17,27 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
             if let syn::Meta::List(list) = &attr.meta {
                 let tokens_string = list.tokens.to_string();
                 if let Some(idx) = tokens_string.find("expr") {
-                if let Some(q1) = tokens_string[idx..].find('"') {
-                    let rest = &tokens_string[idx + q1 + 1..];
-                    if let Some(q2) = rest.find('"') {
-                        let val = &rest[..q2];
-                        attr_expr = Some(syn::LitStr::new(val, proc_macro2::Span::call_site()));
+                    if let Some(q1) = tokens_string[idx..].find('"') {
+                        let rest = &tokens_string[idx + q1 + 1..];
+                        if let Some(q2) = rest.find('"') {
+                            let val = &rest[..q2];
+                            attr_expr = Some(syn::LitStr::new(val, proc_macro2::Span::call_site()));
+                        }
                     }
                 }
-            }
-            if let Some(idx) = tokens_string.find("field") {
-                if let Some(q1) = tokens_string[idx..].find('"') {
-                    let rest = &tokens_string[idx + q1 + 1..];
-                    if let Some(q2) = rest.find('"') {
-                        let val = &rest[..q2];
-                        if let Ok(id) = syn::parse_str::<syn::Ident>(val) {
-                            attr_field = Some(id);
+                if let Some(idx) = tokens_string.find("field") {
+                    if let Some(q1) = tokens_string[idx..].find('"') {
+                        let rest = &tokens_string[idx + q1 + 1..];
+                        if let Some(q2) = rest.find('"') {
+                            let val = &rest[..q2];
+                            if let Ok(id) = syn::parse_str::<syn::Ident>(val) {
+                                attr_field = Some(id);
+                            }
                         }
                     }
                 }
             }
         }
-    }
     }
 
     let expanded = match input.data {
@@ -45,7 +45,8 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
             // If the user provided an `expr` override, use it directly
             Fields::Unnamed(fields) if fields.unnamed.len() == 1 && attr_expr.is_some() => {
                 let expr = attr_expr.unwrap().value();
-                let tokens: proc_macro2::TokenStream = expr.parse().expect("failed to parse into_widget expr");
+                let tokens: proc_macro2::TokenStream =
+                    expr.parse().expect("failed to parse into_widget expr");
                 quote! {
                     impl ::snow_ui::IntoWidget for #name {
                         fn into_widget(self) -> ::snow_ui::Widget {
@@ -128,7 +129,11 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
             Fields::Named(fields) if attr_field.is_some() => {
                 let chosen = attr_field.as_ref().unwrap();
                 // Find the actual field by name
-                let actual_field = fields.named.iter().find(|f| f.ident.as_ref().map(|i| i == chosen).unwrap_or(false)).expect("specified field not found");
+                let actual_field = fields
+                    .named
+                    .iter()
+                    .find(|f| f.ident.as_ref().map(|i| i == chosen).unwrap_or(false))
+                    .expect("specified field not found");
                 let field_ty = &actual_field.ty;
 
                 if let syn::Type::Reference(r) = field_ty {
@@ -225,4 +230,44 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
     };
 
     expanded.into()
-} 
+}
+
+/// A lightweight `widget!(...)` function-like proc-macro that supports two modes:
+/// - Item mode: `widget! { struct Foo { ... } }` -> expands to the struct item unchanged
+/// - Expression mode: `widget!(EXPR)` -> expands to `::snow_ui::__widget_expr!(EXPR)` so
+///   existing macro-rules handling (defaults, .into()) still applies.
+#[proc_macro]
+pub fn widget(input: TokenStream) -> TokenStream {
+    // Try to parse as a struct item first
+    if let Ok(item) = syn::parse::<syn::ItemStruct>(input.clone()) {
+        let name = &item.ident;
+        let expanded = quote! {
+            #item
+            impl ::snow_ui::IntoWidget for #name {
+                fn into_widget(self) -> ::snow_ui::Widget {
+                    // Stubbed impl: no runtime logic yet.
+                    unimplemented!("IntoWidget not implemented for {}", stringify!(#name));
+                }
+            }
+        };
+        return expanded.into();
+    }
+
+    // Otherwise parse as an expression and forward to core's __widget_expr! macro to
+    // preserve the earlier expression handling.
+    match syn::parse::<syn::Expr>(input) {
+        Ok(expr) => {
+            let expanded = quote! {
+                ::snow_ui::__widget_expr!(#expr)
+            };
+            expanded.into()
+        }
+        Err(_) => {
+            // If we couldn't parse, emit a helpful compile error
+            let msg = "widget! must be used either with a struct definition or an expression";
+            syn::Error::new(proc_macro2::Span::call_site(), msg)
+                .to_compile_error()
+                .into()
+        }
+    }
+}

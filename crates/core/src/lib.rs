@@ -34,7 +34,7 @@ macro_rules! widgets {
 }
 
 #[macro_export]
-macro_rules! widget {
+macro_rules! __widget_expr {
     ($e:expr) => {
         $crate::__widgets_item!($e).into()
     };
@@ -42,19 +42,42 @@ macro_rules! widget {
 
 pub mod prelude {
     pub use super::{
-        Appearance, Board, BodyType, Card, Girl, GirlActions, HAlign, HairColor, IntoWidget, Row,
-        SkinColor, Text, TextClock, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, Widget, World, InnerMovement, InnerTicker, UpdateContext,
+        Appearance,
+        Board,
+        BodyType,
         // Click demo types
-        Button, ClickHandler, Message, MessageReceiver, event_bus,
+        Button,
+        Card,
+        ClickHandler,
+        Girl,
+        GirlActions,
+        HAlign,
+        HairColor,
+        InnerMovement,
+        InnerTicker,
+        IntoWidget,
+        Message,
+        MessageReceiver,
+        Row,
+        SkinColor,
+        Text,
+        TextClock,
+        UpdateContext,
+        VAlign,
+        VIEWPORT_HEIGHT,
+        VIEWPORT_WIDTH,
+        Widget,
+        World,
+        event_bus,
     };
 
-    // Re-export the derive macros so examples can `use snow_ui::prelude::*` and write
-    // `#[derive(IntoWidget)]` and `#[derive(Message)]` without importing `snow_ui_macros` explicitly.
-    pub use snow_ui_macros::{IntoWidget, Message};
+    // Re-export the derive macros and the `widget!` helper so examples can `use snow_ui::prelude::*` and write
+    // `#[derive(IntoWidget)]`, `#[derive(Message)]`, and `widget! { ... }` without importing `snow_ui_macros` explicitly.
+    pub use snow_ui_macros::{IntoWidget, Message, widget};
 
     // Bring convenient macros into the prelude by re-exporting the crate-level
     // implementations so `use snow_ui::prelude::*` brings them into scope.
-    pub use crate::{widget, widgets};
+    pub use crate::widgets;
 
     /// Helper to allow `..default()` shorthand in user code (like Bevy's prelude).
     ///
@@ -196,7 +219,7 @@ pub struct UpdateContext {
 #[allow(dead_code)]
 pub trait InnerMovement {
     fn update(&mut self, ctx: &mut UpdateContext);
-} 
+}
 
 /// A trait for internal widgets that run an async ticker loop.
 /// Implementors should perform periodic async work (e.g., with `tokio::time::interval`).
@@ -212,11 +235,10 @@ pub trait ClickHandler {
 }
 
 /// A trait for widgets that subscribe to messages and register background tasks.
-/// `register` takes ownership of the widget so implementations can spawn background tasks
-/// that move the widget into async tasks safely.
+/// `register` is called with `&mut self` and may await messages and mutate the widget's state.
 #[allow(dead_code)]
 pub trait MessageReceiver {
-    async fn register(self);
+    async fn register(&mut self);
 }
 
 #[allow(dead_code)]
@@ -311,12 +333,19 @@ impl From<Element> for Widget {
 /// message types do not need to be `Send`/`Sync`.
 #[allow(dead_code)]
 pub struct EventBus {
-    inner: std::cell::RefCell<std::collections::HashMap<std::any::TypeId, Vec<futures::channel::mpsc::UnboundedSender<std::rc::Rc<dyn std::any::Any>>>>>,
+    inner: std::cell::RefCell<
+        std::collections::HashMap<
+            std::any::TypeId,
+            Vec<futures::channel::mpsc::UnboundedSender<std::rc::Rc<dyn std::any::Any>>>,
+        >,
+    >,
 }
 
 impl EventBus {
     pub fn new() -> Self {
-        Self { inner: std::cell::RefCell::new(std::collections::HashMap::new()) }
+        Self {
+            inner: std::cell::RefCell::new(std::collections::HashMap::new()),
+        }
     }
 
     /// Send a typed message to all subscribers (synchronous in this API).
@@ -335,8 +364,14 @@ impl EventBus {
     pub fn subscribe<T: Message>(&self) -> EventBusReceiver<T> {
         let (tx, rx) = futures::channel::mpsc::unbounded();
         let mut guard = self.inner.borrow_mut();
-        guard.entry(std::any::TypeId::of::<T>()).or_default().push(tx);
-        EventBusReceiver { rx, _marker: std::marker::PhantomData }
+        guard
+            .entry(std::any::TypeId::of::<T>())
+            .or_default()
+            .push(tx);
+        EventBusReceiver {
+            rx,
+            _marker: std::marker::PhantomData,
+        }
     }
 }
 
@@ -406,7 +441,7 @@ impl From<u128> for Widget {
         let leaked: &'static str = Box::leak(s.into_boxed_str());
         Text { text: leaked }.into()
     }
-} 
+}
 
 pub trait IntoWidget {
     fn into_widget(self) -> Widget;

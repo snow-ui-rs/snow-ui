@@ -5,9 +5,10 @@ use snow_ui::prelude::*;
 #[derive(Message)]
 struct IncreaseButtonClicked {}
 
-#[derive(IntoWidget)]
+widget! {
 struct IncreaseButton {
     button: Button,
+}
 }
 
 impl ClickHandler for IncreaseButton {
@@ -24,20 +25,18 @@ fn increase_button() -> Widget {
     }]
 }
 
-#[derive(IntoWidget)]
+widget! {
 struct SimpleText {
     count: u128,
 }
+}
 
 impl MessageReceiver for SimpleText {
-    async fn register(self) {
+    async fn register(&mut self) {
         let mut rx = event_bus().subscribe::<IncreaseButtonClicked>();
-        let mut me = self;
-        tokio::task::spawn_local(async move {
-            while rx.recv().await.is_ok() {
-                me.count += 1;
-            }
-        });
+        while rx.recv().await.is_ok() {
+            self.count += 1;
+        }
     }
 }
 
