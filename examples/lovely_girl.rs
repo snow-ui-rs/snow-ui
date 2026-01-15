@@ -4,10 +4,9 @@
 
 use snow_ui::prelude::*;
 
-widget! {
+#[snow]
 struct LovelyGirl {
     girl: Girl,
-}
 }
 
 fn lovely_girl() -> Widget {
@@ -17,7 +16,7 @@ fn lovely_girl() -> Widget {
             skin_color: SkinColor::Yellow,
             body_type: BodyType::Slim,
             appearance: Appearance::Beautiful,
-            every_morning: vec![GirlActions::SayHi, GirlActions::PrepareBreakfast],
+            every_morning: vec![GirlActions::SayHi, GirlActions::PrepareBreakfast,],
         },
     }]
 }

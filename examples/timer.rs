@@ -3,10 +3,9 @@
 use snow_ui::prelude::*;
 use tokio::time::{Duration, interval};
 
-widget! {
+#[snow]
 struct SimpleTextTimer {
     second: u128,
-}
 }
 
 impl InnerTicker for SimpleTextTimer {

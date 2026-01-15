@@ -5,10 +5,9 @@ use snow_ui::prelude::*;
 #[derive(Message)]
 struct IncreaseButtonClicked {}
 
-widget! {
+#[snow]
 struct IncreaseButton {
     button: Button,
-}
 }
 
 impl ClickHandler for IncreaseButton {
@@ -25,10 +24,9 @@ fn increase_button() -> Widget {
     }]
 }
 
-widget! {
+#[snow]
 struct SimpleText {
     count: u128,
-}
 }
 
 impl MessageReceiver for SimpleText {

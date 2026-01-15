@@ -40,6 +40,16 @@ macro_rules! __widget_expr {
     };
 }
 
+// Bring back a `widget!` macro at the core crate level so it sits alongside `widgets!`.
+// This forwarding macro simply delegates to the `proc-macro` implementation in the
+// `snow_ui_macros` crate so the behavior remains unchanged.
+#[macro_export]
+macro_rules! widget {
+    ($($t:tt)*) => {
+        ::snow_ui_macros::widget!($($t)*)
+    };
+}
+
 pub mod prelude {
     pub use super::{
         Appearance,
@@ -71,13 +81,13 @@ pub mod prelude {
         event_bus,
     };
 
-    // Re-export the derive macros and the `widget!` helper so examples can `use snow_ui::prelude::*` and write
-    // `#[derive(IntoWidget)]`, `#[derive(Message)]`, and `widget! { ... }` without importing `snow_ui_macros` explicitly.
-    pub use snow_ui_macros::{IntoWidget, Message, widget};
+    // Re-export the derive macros and the `snow` attribute helper so examples can `use snow_ui::prelude::*` and write
+    // `#[derive(IntoWidget)]`, `#[derive(Message)]`, `#[snow]` and `widget! { ... }` without importing `snow_ui_macros` explicitly.
+    pub use snow_ui_macros::{IntoWidget, Message, snow};
 
     // Bring convenient macros into the prelude by re-exporting the crate-level
     // implementations so `use snow_ui::prelude::*` brings them into scope.
-    pub use crate::widgets;
+    pub use crate::{widget, widgets};
 
     /// Helper to allow `..default()` shorthand in user code (like Bevy's prelude).
     ///

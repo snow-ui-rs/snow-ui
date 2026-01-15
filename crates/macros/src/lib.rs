@@ -271,3 +271,26 @@ pub fn widget(input: TokenStream) -> TokenStream {
         }
     }
 }
+
+/// Attribute form of `widget` usable as `#[snow] struct Foo { ... }`.
+/// This allows rustfmt to format the struct body normally (since it's a real item).
+#[proc_macro_attribute]
+pub fn snow(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    // Parse the item as a struct and generate the same stubbed `IntoWidget` impl as the
+    // function-like macro does. If parsing fails, forward the syn error.
+    match syn::parse::<syn::ItemStruct>(item.clone()) {
+        Ok(s) => {
+            let name = &s.ident;
+            let expanded = quote! {
+                #s
+                impl ::snow_ui::IntoWidget for #name {
+                    fn into_widget(self) -> ::snow_ui::Widget {
+                        unimplemented!(concat!("IntoWidget not implemented for ", stringify!(#name)));
+                    }
+                }
+            };
+            expanded.into()
+        }
+        Err(e) => e.to_compile_error().into(),
+    }
+}
