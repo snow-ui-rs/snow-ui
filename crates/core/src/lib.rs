@@ -83,7 +83,7 @@ pub mod prelude {
 
     // Re-export the derive macros and the `snow` attribute helper so examples can `use snow_ui::prelude::*` and write
     // `#[derive(IntoWidget)]`, `#[derive(Message)]`, `#[snow]` and `widget! { ... }` without importing `snow_ui_macros` explicitly.
-    pub use snow_ui_macros::{IntoWidget, Message, snow};
+    pub use snow_ui_macros::{IntoWidget, Message, message, snow};
 
     // Bring convenient macros into the prelude by re-exporting the crate-level
     // implementations so `use snow_ui::prelude::*` brings them into scope.

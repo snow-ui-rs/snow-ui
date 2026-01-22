@@ -232,6 +232,23 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+/// Simple attribute macro form usable as `#[message] struct S { .. }`.
+/// Emits the struct unchanged and implements the marker `::snow_ui::Message` for it.
+#[proc_macro_attribute]
+pub fn message(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    match syn::parse::<syn::ItemStruct>(item.clone()) {
+        Ok(s) => {
+            let name = &s.ident;
+            let expanded = quote! {
+                #s
+                impl ::snow_ui::Message for #name {}
+            };
+            expanded.into()
+        }
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
 /// A lightweight `widget!(...)` function-like proc-macro that supports two modes:
 /// - Item mode: `widget! { struct Foo { ... } }` -> expands to the struct item unchanged
 /// - Expression mode: `widget!(EXPR)` -> expands to `::snow_ui::__widget_expr!(EXPR)` so
@@ -281,15 +298,89 @@ pub fn snow(_attr: TokenStream, item: TokenStream) -> TokenStream {
     match syn::parse::<syn::ItemStruct>(item.clone()) {
         Ok(s) => {
             let name = &s.ident;
-            let expanded = quote! {
-                #s
-                impl ::snow_ui::IntoWidget for #name {
-                    fn into_widget(self) -> ::snow_ui::Widget {
-                        unimplemented!(concat!("IntoWidget not implemented for ", stringify!(#name)));
+            match &s.fields {
+                syn::Fields::Unnamed(u) if u.unnamed.len() == 1 => {
+                    // Tuple struct with a single field: forward to inner `.into()`.
+                    // Special-case `Button` which converts to `Element` first.
+                    let field_ty = &u.unnamed.iter().next().unwrap().ty;
+                    let is_button = if let syn::Type::Path(p) = field_ty {
+                        p.path.segments.last().unwrap().ident == "Button"
+                    } else {
+                        false
+                    };
+
+                    if is_button {
+                        quote! {
+                            #s
+                            impl ::snow_ui::IntoWidget for #name {
+                                fn into_widget(self) -> ::snow_ui::Widget {
+                                    let e: ::snow_ui::Element = self.0.into();
+                                    e.into()
+                                }
+                            }
+                        }
+                        .into()
+                    } else {
+                        quote! {
+                            #s
+                            impl ::snow_ui::IntoWidget for #name {
+                                fn into_widget(self) -> ::snow_ui::Widget {
+                                    self.0.into()
+                                }
+                            }
+                        }
+                        .into()
                     }
                 }
-            };
-            expanded.into()
+                syn::Fields::Named(n) if n.named.len() == 1 => {
+                    // Single named field: forward to that field's `.into()` conversion.
+                    // Special-case `Button` to convert via `Element`.
+                    let field = n.named.iter().next().unwrap();
+                    let field_ident = field.ident.as_ref().unwrap();
+                    let field_ty = &field.ty;
+                    let is_button = if let syn::Type::Path(p) = field_ty {
+                        p.path.segments.last().unwrap().ident == "Button"
+                    } else {
+                        false
+                    };
+
+                    if is_button {
+                        quote! {
+                            #s
+                            impl ::snow_ui::IntoWidget for #name {
+                                fn into_widget(self) -> ::snow_ui::Widget {
+                                    let e: ::snow_ui::Element = self.#field_ident.into();
+                                    e.into()
+                                }
+                            }
+                        }
+                        .into()
+                    } else {
+                        quote! {
+                            #s
+                            impl ::snow_ui::IntoWidget for #name {
+                                fn into_widget(self) -> ::snow_ui::Widget {
+                                    self.#field_ident.into()
+                                }
+                            }
+                        }
+                        .into()
+                    }
+                }
+                _ => {
+                    // Fallback: keep struct and emit an unimplemented stub so callers get a clear
+                    // compile-time panic if they attempt to convert complex structs.
+                    quote! {
+                        #s
+                        impl ::snow_ui::IntoWidget for #name {
+                            fn into_widget(self) -> ::snow_ui::Widget {
+                                unimplemented!(concat!("IntoWidget not implemented for ", stringify!(#name)));
+                            }
+                        }
+                    }
+                    .into()
+                }
+            }
         }
         Err(e) => e.to_compile_error().into(),
     }

@@ -2,7 +2,7 @@
 
 use snow_ui::prelude::*;
 
-#[derive(Message)]
+#[message]
 struct IncreaseButtonClicked {}
 
 #[snow]
