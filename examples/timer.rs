@@ -20,24 +20,24 @@ impl InnerTicker for SimpleTextTimer {
 
 fn world() -> World {
     World {
-        root: widget![Board {
+        root: obj!(Board {
             width: VIEWPORT_WIDTH,
             height: VIEWPORT_HEIGHT,
             h_align: HAlign::Center,
             v_align: VAlign::Middle,
-            children: widgets![Card {
-                children: widgets![
+            children: list![Card {
+                children: list![
                     Row {
-                        children: widgets![Text {
+                        children: list![Text {
                             text: "Timer Example ⏱️",
                         },],
                     },
                     Row {
-                        children: widgets![SimpleTextTimer { second: 0 },],
+                        children: list![SimpleTextTimer { second: 0 },],
                     },
                 ],
             },],
-        }],
+        }),
         ..default()
     }
 }

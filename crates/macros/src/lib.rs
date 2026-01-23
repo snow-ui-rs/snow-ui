@@ -2,16 +2,16 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, parse_macro_input};
 
-#[proc_macro_derive(IntoWidget, attributes(into_widget))]
-pub fn derive_into_widget(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(IntoObject, attributes(into_object))]
+pub fn derive_into_object(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = input.ident;
 
-    // Parse optional helper attribute: `#[into_widget(expr = "...")]` or `#[into_widget(field = "field_name")]`
+    // Parse optional helper attribute: `#[into_object(expr = "...")]` or `#[into_object(field = "field_name")]`
     let mut attr_expr: Option<syn::LitStr> = None;
     let mut attr_field: Option<syn::Ident> = None;
     for attr in &input.attrs {
-        if attr.path().is_ident("into_widget") {
+        if attr.path().is_ident("into_object") {
             // Fallback/simple parsing: convert tokens to string and look for `expr = "..."` and `field = "..."`.
             // This avoids depending on complicated syn::Meta APIs across versions.
             if let syn::Meta::List(list) = &attr.meta {
@@ -46,10 +46,10 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
             Fields::Unnamed(fields) if fields.unnamed.len() == 1 && attr_expr.is_some() => {
                 let expr = attr_expr.unwrap().value();
                 let tokens: proc_macro2::TokenStream =
-                    expr.parse().expect("failed to parse into_widget expr");
+                    expr.parse().expect("failed to parse into_object expr");
                 quote! {
-                    impl ::snow_ui::IntoWidget for #name {
-                        fn into_widget(self) -> ::snow_ui::Widget {
+                    impl ::snow_ui::IntoObject for #name {
+                        fn into_object(self) -> ::snow_ui::Object {
                             #tokens
                         }
                     }
@@ -58,7 +58,7 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
             // If user provided a named `field` override (handled in Fields::Named branch below), skip here
             Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
                 let field_ty = &fields.unnamed.iter().next().unwrap().ty;
-                // Handle string-like fields specially to avoid requiring `IntoWidget for String`.
+                // Handle string-like fields specially to avoid requiring `IntoObject for String`.
                 // - If it's a `&'static str`, use it directly.
                 // - If it's a `&str` with a non-static lifetime, convert to owned and leak to `'static`.
                 // - If it's a `String`, call `.into()` on the String value (let the field's conversion decide).
@@ -67,8 +67,8 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
                     if let Some(lifetime) = &r.lifetime {
                         if lifetime.ident == "static" {
                             quote! {
-                                impl ::snow_ui::IntoWidget for #name {
-                                    fn into_widget(self) -> ::snow_ui::Widget {
+                                impl ::snow_ui::IntoObject for #name {
+                                    fn into_object(self) -> ::snow_ui::Object {
                                         ::snow_ui::Text { text: self.0 }.into()
                                     }
                                 }
@@ -76,8 +76,8 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
                         } else {
                             // non-'static &str -> to_owned() and leak
                             quote! {
-                                impl ::snow_ui::IntoWidget for #name {
-                                    fn into_widget(self) -> ::snow_ui::Widget {
+                                impl ::snow_ui::IntoObject for #name {
+                                    fn into_object(self) -> ::snow_ui::Object {
                                         let s: &'static str = Box::leak(self.0.to_owned().into_boxed_str());
                                         ::snow_ui::Text { text: s }.into()
                                     }
@@ -87,8 +87,8 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
                     } else {
                         // reference without explicit lifetime - treat as non-static and leak
                         quote! {
-                            impl ::snow_ui::IntoWidget for #name {
-                                fn into_widget(self) -> ::snow_ui::Widget {
+                            impl ::snow_ui::IntoObject for #name {
+                                fn into_object(self) -> ::snow_ui::Object {
                                     let s: &'static str = Box::leak(self.0.to_owned().into_boxed_str());
                                     ::snow_ui::Text { text: s }.into()
                                 }
@@ -99,8 +99,8 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
                     // Check if the type is `String`.
                     if p.path.segments.last().unwrap().ident == "String" {
                         quote! {
-                            impl ::snow_ui::IntoWidget for #name {
-                                fn into_widget(self) -> ::snow_ui::Widget {
+                            impl ::snow_ui::IntoObject for #name {
+                                fn into_object(self) -> ::snow_ui::Object {
                                     self.0.into()
                                 }
                             }
@@ -108,8 +108,8 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
                     } else {
                         // Fallback for other types: call `.into()` on the field value
                         quote! {
-                            impl ::snow_ui::IntoWidget for #name {
-                                fn into_widget(self) -> ::snow_ui::Widget {
+                            impl ::snow_ui::IntoObject for #name {
+                                fn into_object(self) -> ::snow_ui::Object {
                                     self.0.into()
                                 }
                             }
@@ -117,8 +117,8 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
                     }
                 } else {
                     quote! {
-                        impl ::snow_ui::IntoWidget for #name {
-                            fn into_widget(self) -> ::snow_ui::Widget {
+                        impl ::snow_ui::IntoObject for #name {
+                            fn into_object(self) -> ::snow_ui::Object {
                                 self.0.into()
                             }
                         }
@@ -140,16 +140,16 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
                     if let Some(lifetime) = &r.lifetime {
                         if lifetime.ident == "static" {
                             quote! {
-                                impl ::snow_ui::IntoWidget for #name {
-                                    fn into_widget(self) -> ::snow_ui::Widget {
+                                impl ::snow_ui::IntoObject for #name {
+                                    fn into_object(self) -> ::snow_ui::Object {
                                         ::snow_ui::Text { text: self.#chosen }.into()
                                     }
                                 }
                             }
                         } else {
                             quote! {
-                                impl ::snow_ui::IntoWidget for #name {
-                                    fn into_widget(self) -> ::snow_ui::Widget {
+                                impl ::snow_ui::IntoObject for #name {
+                                    fn into_object(self) -> ::snow_ui::Object {
                                         let s: &'static str = Box::leak(self.#chosen.to_owned().into_boxed_str());
                                         ::snow_ui::Text { text: s }.into()
                                     }
@@ -158,8 +158,8 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
                         }
                     } else {
                         quote! {
-                            impl ::snow_ui::IntoWidget for #name {
-                                fn into_widget(self) -> ::snow_ui::Widget {
+                            impl ::snow_ui::IntoObject for #name {
+                                fn into_object(self) -> ::snow_ui::Object {
                                     let s: &'static str = Box::leak(self.#chosen.to_owned().into_boxed_str());
                                     ::snow_ui::Text { text: s }.into()
                                 }
@@ -169,16 +169,16 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
                 } else if let syn::Type::Path(p) = field_ty {
                     if p.path.segments.last().unwrap().ident == "String" {
                         quote! {
-                            impl ::snow_ui::IntoWidget for #name {
-                                fn into_widget(self) -> ::snow_ui::Widget {
+                            impl ::snow_ui::IntoObject for #name {
+                                fn into_object(self) -> ::snow_ui::Object {
                                     self.#chosen.into()
                                 }
                             }
                         }
                     } else {
                         quote! {
-                            impl ::snow_ui::IntoWidget for #name {
-                                fn into_widget(self) -> ::snow_ui::Widget {
+                            impl ::snow_ui::IntoObject for #name {
+                                fn into_object(self) -> ::snow_ui::Object {
                                     self.#chosen.into()
                                 }
                             }
@@ -186,8 +186,8 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
                     }
                 } else {
                     quote! {
-                        impl ::snow_ui::IntoWidget for #name {
-                            fn into_widget(self) -> ::snow_ui::Widget {
+                        impl ::snow_ui::IntoObject for #name {
+                            fn into_object(self) -> ::snow_ui::Object {
                                 self.#chosen.into()
                             }
                         }
@@ -196,8 +196,8 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
             }
             _ => {
                 quote! {
-                    impl ::snow_ui::IntoWidget for #name {
-                        fn into_widget(self) -> ::snow_ui::Widget {
+                    impl ::snow_ui::IntoObject for #name {
+                        fn into_object(self) -> ::snow_ui::Object {
                             self.into()
                         }
                     }
@@ -205,7 +205,7 @@ pub fn derive_into_widget(input: TokenStream) -> TokenStream {
             }
         },
         _ => quote! {
-            compile_error!("IntoWidget can only be derived for structs");
+            compile_error!("IntoObject can only be derived for structs");
         },
     };
 
@@ -249,39 +249,38 @@ pub fn message(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
-/// A lightweight `widget!(...)` function-like proc-macro that supports two modes:
-/// - Item mode: `widget! { struct Foo { ... } }` -> expands to the struct item unchanged
-/// - Expression mode: `widget!(EXPR)` -> expands to `::snow_ui::__widget_expr!(EXPR)` so
-///   existing macro-rules handling (defaults, .into()) still applies.
+/// A lightweight `obj!(...)` function-like proc-macro that supports two modes:
+/// - Item mode: `obj! { struct Foo { ... } }` -> expands to the struct item and (optionally) generates an `IntoObject` impl
+/// - Expression mode: `obj!(EXPR)` -> expands to `::snow_ui::__obj_expr!(EXPR)` so existing macro-rules handling (defaults, .into()) still applies.
 #[proc_macro]
-pub fn widget(input: TokenStream) -> TokenStream {
+pub fn obj(input: TokenStream) -> TokenStream {
     // Try to parse as a struct item first
     if let Ok(item) = syn::parse::<syn::ItemStruct>(input.clone()) {
         let name = &item.ident;
         let expanded = quote! {
             #item
-            impl ::snow_ui::IntoWidget for #name {
-                fn into_widget(self) -> ::snow_ui::Widget {
+            impl ::snow_ui::IntoObject for #name {
+                fn into_object(self) -> ::snow_ui::Object {
                     // Stubbed impl: no runtime logic yet.
-                    unimplemented!("IntoWidget not implemented for {}", stringify!(#name));
+                    unimplemented!("IntoObject not implemented for {}", stringify!(#name));
                 }
             }
         };
         return expanded.into();
     }
 
-    // Otherwise parse as an expression and forward to core's __widget_expr! macro to
+    // Otherwise parse as an expression and forward to core's __obj_expr! macro to
     // preserve the earlier expression handling.
     match syn::parse::<syn::Expr>(input) {
         Ok(expr) => {
             let expanded = quote! {
-                ::snow_ui::__widget_expr!(#expr)
+                ::snow_ui::__obj_expr!(#expr)
             };
             expanded.into()
         }
         Err(_) => {
             // If we couldn't parse, emit a helpful compile error
-            let msg = "widget! must be used either with a struct definition or an expression";
+            let msg = "obj! must be used either with a struct definition or an expression";
             syn::Error::new(proc_macro2::Span::call_site(), msg)
                 .to_compile_error()
                 .into()
@@ -289,12 +288,12 @@ pub fn widget(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Attribute form of `widget` usable as `#[snow] struct Foo { ... }`.
+/// Attribute form of `obj` usable as `#[snow] struct Foo { ... }`.
 /// This allows rustfmt to format the struct body normally (since it's a real item).
 #[proc_macro_attribute]
 pub fn snow(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    // Parse the item as a struct and generate the same stubbed `IntoWidget` impl as the
-    // function-like macro does. If parsing fails, forward the syn error.
+    // Parse the item as a struct and generate a helpful `IntoObject` impl when possible.
+    // If parsing fails, forward the syn error.
     match syn::parse::<syn::ItemStruct>(item.clone()) {
         Ok(s) => {
             let name = &s.ident;
@@ -312,8 +311,8 @@ pub fn snow(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     if is_button {
                         quote! {
                             #s
-                            impl ::snow_ui::IntoWidget for #name {
-                                fn into_widget(self) -> ::snow_ui::Widget {
+                            impl ::snow_ui::IntoObject for #name {
+                                fn into_object(self) -> ::snow_ui::Object {
                                     let e: ::snow_ui::Element = self.0.into();
                                     e.into()
                                 }
@@ -323,8 +322,8 @@ pub fn snow(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     } else {
                         quote! {
                             #s
-                            impl ::snow_ui::IntoWidget for #name {
-                                fn into_widget(self) -> ::snow_ui::Widget {
+                            impl ::snow_ui::IntoObject for #name {
+                                fn into_object(self) -> ::snow_ui::Object {
                                     self.0.into()
                                 }
                             }
@@ -347,8 +346,8 @@ pub fn snow(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     if is_button {
                         quote! {
                             #s
-                            impl ::snow_ui::IntoWidget for #name {
-                                fn into_widget(self) -> ::snow_ui::Widget {
+                            impl ::snow_ui::IntoObject for #name {
+                                fn into_object(self) -> ::snow_ui::Object {
                                     let e: ::snow_ui::Element = self.#field_ident.into();
                                     e.into()
                                 }
@@ -358,8 +357,8 @@ pub fn snow(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     } else {
                         quote! {
                             #s
-                            impl ::snow_ui::IntoWidget for #name {
-                                fn into_widget(self) -> ::snow_ui::Widget {
+                            impl ::snow_ui::IntoObject for #name {
+                                fn into_object(self) -> ::snow_ui::Object {
                                     self.#field_ident.into()
                                 }
                             }
@@ -372,9 +371,9 @@ pub fn snow(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     // compile-time panic if they attempt to convert complex structs.
                     quote! {
                         #s
-                        impl ::snow_ui::IntoWidget for #name {
-                            fn into_widget(self) -> ::snow_ui::Widget {
-                                unimplemented!(concat!("IntoWidget not implemented for ", stringify!(#name)));
+                        impl ::snow_ui::IntoObject for #name {
+                            fn into_object(self) -> ::snow_ui::Object {
+                                unimplemented!(concat!("IntoObject not implemented for ", stringify!(#name)));
                             }
                         }
                     }

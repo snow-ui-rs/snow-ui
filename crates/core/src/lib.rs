@@ -1,19 +1,19 @@
 // Minimal mock of an `snow_ui` crate used by the example in `main.rs`.
 // Provides the types and items referenced by the example so the crate builds.
 
-/// Helper macro to construct a `Vec<Widget>` from a heterogeneous
+/// Helper macro to construct a `Vec<Object>` from a heterogeneous
 /// list of items by calling `.into()` on each item.
 ///
 /// Example:
 /// ```rust
 /// # use snow_ui::prelude::*;
-/// let children = snow_ui::widgets![
+/// let children = snow_ui::list![
 ///     Text { text: "hi", ..default() },
 ///     TextClock { format: "%H:%M:%S", ..default() },
 /// ];
 /// ```
 #[macro_export]
-macro_rules! __widgets_item {
+macro_rules! __list_item {
     // Struct literal with explicit `.. rest` - leave it as-is
     ($ty:ident { $($fields:tt)* .. $rest:expr }) => {
         $ty { $($fields)* .. $rest }
@@ -22,33 +22,33 @@ macro_rules! __widgets_item {
     ($ty:ident { $($fields:tt)* }) => {
         $ty { $($fields)* .. $crate::default() }
     };
-    // Fallback: arbitrary expression (e.g., already a Widget or `.into()`able)
+    // Fallback: arbitrary expression (e.g., already an Object or `.into()`able)
     ($e:expr) => { $e };
-}
+} 
 
 #[macro_export]
-macro_rules! widgets {
+macro_rules! list {
     ($($e:expr),* $(,)?) => {
-        vec![$($crate::__widgets_item!($e).into()),*]
+        vec![$($crate::__list_item!($e).into()),*]
     };
-}
+} 
 
 #[macro_export]
-macro_rules! __widget_expr {
+macro_rules! __obj_expr {
     ($e:expr) => {
-        $crate::__widgets_item!($e).into()
+        $crate::__list_item!($e).into()
     };
-}
+} 
 
-// Bring back a `widget!` macro at the core crate level so it sits alongside `widgets!`.
+// Bring back an `obj!` macro at the core crate level so it sits alongside `list!`.
 // This forwarding macro simply delegates to the `proc-macro` implementation in the
 // `snow_ui_macros` crate so the behavior remains unchanged.
 #[macro_export]
-macro_rules! widget {
+macro_rules! obj {
     ($($t:tt)*) => {
-        ::snow_ui_macros::widget!($($t)*)
+        ::snow_ui_macros::obj!($($t)*)
     };
-}
+} 
 
 pub mod prelude {
     pub use super::{
@@ -65,7 +65,7 @@ pub mod prelude {
         HairColor,
         InnerMovement,
         InnerTicker,
-        IntoWidget,
+        IntoObject,
         Message,
         MessageReceiver,
         Row,
@@ -76,18 +76,18 @@ pub mod prelude {
         VAlign,
         VIEWPORT_HEIGHT,
         VIEWPORT_WIDTH,
-        Widget,
+        Object,
         World,
         event_bus,
     };
 
     // Re-export the derive macros and the `snow` attribute helper so examples can `use snow_ui::prelude::*` and write
-    // `#[derive(IntoWidget)]`, `#[derive(Message)]`, `#[snow]` and `widget! { ... }` without importing `snow_ui_macros` explicitly.
-    pub use snow_ui_macros::{IntoWidget, Message, message, snow};
+    // `#[derive(IntoObject)]`, `#[derive(Message)]`, `#[snow]` and `obj! { ... }` without importing `snow_ui_macros` explicitly.
+    pub use snow_ui_macros::{IntoObject, Message, message, snow};
 
     // Bring convenient macros into the prelude by re-exporting the crate-level
     // implementations so `use snow_ui::prelude::*` brings them into scope.
-    pub use crate::{widget, widgets};
+    pub use crate::{obj, list};
 
     /// Helper to allow `..default()` shorthand in user code (like Bevy's prelude).
     ///
@@ -109,13 +109,13 @@ pub fn launch<F: FnOnce() -> World>(builder: F) {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct World {
-    pub root: Widget,
+    pub root: Object,
 }
 
 impl Default for World {
     fn default() -> Self {
         Self {
-            root: Widget::Board(Board::default()),
+            root: Object::Board(Board::default()),
         }
     }
 }
@@ -127,7 +127,7 @@ pub struct Board {
     pub height: Size,
     pub h_align: HAlign,
     pub v_align: VAlign,
-    pub children: Vec<Widget>,
+    pub children: Vec<Object>,
 }
 
 impl Default for Board {
@@ -145,7 +145,7 @@ impl Default for Board {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Card {
-    pub children: Vec<Widget>,
+    pub children: Vec<Object>,
 }
 
 impl Default for Card {
@@ -157,7 +157,7 @@ impl Default for Card {
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct Row {
-    pub children: Vec<Widget>,
+    pub children: Vec<Object>,
 }
 
 impl Default for Row {
@@ -297,10 +297,10 @@ pub enum VAlign {
     Bottom,
 }
 
-// Widget system
+// Object system
 #[allow(dead_code)]
 #[derive(Debug)]
-pub enum Widget {
+pub enum Object {
     Board(Board),
     Girl(Girl),
     Card(Card),
@@ -308,33 +308,33 @@ pub enum Widget {
     Element(Element),
 }
 
-impl From<Board> for Widget {
+impl From<Board> for Object {
     fn from(b: Board) -> Self {
-        Widget::Board(b)
+        Object::Board(b)
     }
 }
 
-impl From<Girl> for Widget {
+impl From<Girl> for Object {
     fn from(g: Girl) -> Self {
-        Widget::Girl(g)
+        Object::Girl(g)
     }
 }
 
-impl From<Card> for Widget {
+impl From<Card> for Object {
     fn from(c: Card) -> Self {
-        Widget::Card(c)
+        Object::Card(c)
     }
 }
 
-impl From<Row> for Widget {
+impl From<Row> for Object {
     fn from(r: Row) -> Self {
-        Widget::Row(r)
+        Object::Row(r)
     }
 }
 
-impl From<Element> for Widget {
+impl From<Element> for Object {
     fn from(e: Element) -> Self {
-        Widget::Element(e)
+        Object::Element(e)
     }
 }
 
@@ -430,21 +430,21 @@ pub fn event_bus() -> EventBusHandle {
     EventBusHandle {}
 }
 
-impl From<Text> for Widget {
+impl From<Text> for Object {
     fn from(t: Text) -> Self {
-        // Convert Text -> Element (via `From<Text> for Element`) and wrap into Widget::Element
-        Widget::Element(t.into())
+        // Convert Text -> Element (via `From<Text> for Element`) and wrap into Object::Element
+        Object::Element(t.into())
     }
 }
 
-impl From<TextClock> for Widget {
+impl From<TextClock> for Object {
     fn from(t: TextClock) -> Self {
-        // Convert TextClock -> Element and wrap into Widget::Element
-        Widget::Element(t.into())
+        // Convert TextClock -> Element and wrap into Object::Element
+        Object::Element(t.into())
     }
 }
 
-impl From<u128> for Widget {
+impl From<u128> for Object {
     fn from(n: u128) -> Self {
         // Convert number to a textual representation for demonstration.
         let s = format!("{}", n);
@@ -453,13 +453,13 @@ impl From<u128> for Widget {
     }
 }
 
-pub trait IntoWidget {
-    fn into_widget(self) -> Widget;
+pub trait IntoObject {
+    fn into_object(self) -> Object;
 }
 
-impl<T: IntoWidget> From<T> for Widget {
+impl<T: IntoObject> From<T> for Object {
     fn from(t: T) -> Self {
-        t.into_widget()
+        t.into_object()
     }
 }
 

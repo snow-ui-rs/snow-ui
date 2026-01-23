@@ -17,8 +17,8 @@ struct LovelyGirl {
     girl: Girl,
 }
 
-fn lovely_girl() -> Widget {
-    widget![LovelyGirl {
+fn lovely_girl() -> Object {
+    obj!(LovelyGirl {
         girl: Girl {
             hair_color: HairColor::Black,
             skin_color: SkinColor::Yellow,
@@ -26,7 +26,7 @@ fn lovely_girl() -> Widget {
             appearance: Appearance::Beautiful,
             every_morning: vec![GirlActions::SayHi, GirlActions::PrepareBreakfast],
         },
-    }]
+    })
 }
 
 fn world() -> World {
@@ -51,24 +51,24 @@ use snow_ui::prelude::*;
 
 fn world() -> World {
     World {
-        root: widget![Board {
+        root: obj!(Board {
             width: VIEWPORT_WIDTH,
             height: VIEWPORT_HEIGHT,
             h_align: HAlign::Center,
             v_align: VAlign::Middle,
-            children: widgets![Card {
-                children: widgets![
+            children: list![Card {
+                children: list![
                     Row {
-                        children: widgets![Text {
+                        children: list![Text {
                             text: "Carpe diem 🎉",
                         },],
                     },
                     Row {
-                        children: widgets![TextClock { format: "%H:%M:%S" },],
+                        children: list![TextClock { format: "%H:%M:%S" },],
                     },
                 ],
             },],
-        }],
+        }),
     }
 }
 

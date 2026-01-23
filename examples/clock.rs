@@ -4,24 +4,24 @@ use snow_ui::prelude::*;
 
 fn world() -> World {
     World {
-        root: widget![Board {
+        root: obj!(Board {
             width: VIEWPORT_WIDTH,
             height: VIEWPORT_HEIGHT,
             h_align: HAlign::Center,
             v_align: VAlign::Middle,
-            children: widgets![Card {
-                children: widgets![
+            children: list![Card {
+                children: list![
                     Row {
-                        children: widgets![Text {
-                            text: "Carpe diem 🎉",
+                        children: list![Text {
+                            text: "Clock Example ⏰",
                         },],
                     },
                     Row {
-                        children: widgets![TextClock { format: "%H:%M:%S" },],
+                        children: list![TextClock { format: "%H:%M:%S" },],
                     },
                 ],
             },],
-        }],
+        }),
         ..default()
     }
 }

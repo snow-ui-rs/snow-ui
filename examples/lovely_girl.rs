@@ -9,8 +9,8 @@ struct LovelyGirl {
     girl: Girl,
 }
 
-fn lovely_girl() -> Widget {
-    widget![LovelyGirl {
+fn lovely_girl() -> Object {
+    obj!(LovelyGirl {
         girl: Girl {
             hair_color: HairColor::Black,
             skin_color: SkinColor::Yellow,
@@ -18,8 +18,8 @@ fn lovely_girl() -> Widget {
             appearance: Appearance::Beautiful,
             every_morning: vec![GirlActions::SayHi, GirlActions::PrepareBreakfast,],
         },
-    }]
-}
+    })
+} 
 
 fn world() -> World {
     World {

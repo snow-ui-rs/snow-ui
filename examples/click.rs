@@ -16,13 +16,13 @@ impl ClickHandler for IncreaseButton {
     }
 }
 
-fn increase_button() -> Widget {
-    widget![IncreaseButton {
+fn increase_button() -> Object {
+    obj!(IncreaseButton {
         button: Button {
             text: "Increase Count",
         },
-    }]
-}
+    })
+} 
 
 #[snow]
 struct SimpleText {
@@ -40,22 +40,22 @@ impl MessageReceiver for SimpleText {
 
 fn world() -> World {
     World {
-        root: widget![Board {
+        root: obj!(Board {
             width: VIEWPORT_WIDTH,
             height: VIEWPORT_HEIGHT,
             h_align: HAlign::Center,
             v_align: VAlign::Middle,
-            children: widgets![Card {
-                children: widgets![
+            children: list![Card {
+                children: list![
                     Row {
-                        children: widgets![increase_button(),],
+                        children: list![increase_button(),],
                     },
                     Row {
-                        children: widgets![SimpleText { count: 0 },],
+                        children: list![SimpleText { count: 0 },],
                     },
                 ],
             },],
-        }],
+        }),
         ..default()
     }
 }
