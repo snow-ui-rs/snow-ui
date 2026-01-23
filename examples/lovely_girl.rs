@@ -4,7 +4,7 @@
 
 use snow_ui::prelude::*;
 
-#[snow]
+#[element]
 struct LovelyGirl {
     girl: Girl,
 }
@@ -19,7 +19,7 @@ fn lovely_girl() -> Object {
             every_morning: vec![GirlActions::SayHi, GirlActions::PrepareBreakfast,],
         },
     })
-} 
+}
 
 fn world() -> World {
     World {

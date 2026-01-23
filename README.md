@@ -7,12 +7,12 @@ The UI is a projection of a virtual world onto the screen.
 
 ## Example: A lovely girl
 
-A minimal component example demonstrating the `#[snow]` attribute  and constructing a component with several fields.
+A minimal component example demonstrating the `#[element]` attribute  and constructing a component with several fields.
 
 ```rust
 use snow_ui::prelude::*;
 
-#[snow]
+#[element]
 struct LovelyGirl {
     girl: Girl,
 }

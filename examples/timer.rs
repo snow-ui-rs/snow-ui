@@ -3,7 +3,7 @@
 use snow_ui::prelude::*;
 use tokio::time::{Duration, interval};
 
-#[snow]
+#[element]
 struct SimpleTextTimer {
     second: u128,
 }

@@ -288,10 +288,10 @@ pub fn obj(input: TokenStream) -> TokenStream {
     }
 }
 
-/// Attribute form of `obj` usable as `#[snow] struct Foo { ... }`.
+/// Attribute form of `obj` usable as `#[element] struct Foo { ... }`.
 /// This allows rustfmt to format the struct body normally (since it's a real item).
 #[proc_macro_attribute]
-pub fn snow(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn element(_attr: TokenStream, item: TokenStream) -> TokenStream {
     // Parse the item as a struct and generate a helpful `IntoObject` impl when possible.
     // If parsing fails, forward the syn error.
     match syn::parse::<syn::ItemStruct>(item.clone()) {

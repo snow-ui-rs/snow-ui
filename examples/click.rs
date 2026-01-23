@@ -5,7 +5,7 @@ use snow_ui::prelude::*;
 #[message]
 struct IncreaseButtonClicked {}
 
-#[snow]
+#[element]
 struct IncreaseButton {
     button: Button,
 }
@@ -22,9 +22,9 @@ fn increase_button() -> Object {
             text: "Increase Count",
         },
     })
-} 
+}
 
-#[snow]
+#[element]
 struct SimpleText {
     count: u128,
 }

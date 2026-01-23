@@ -24,21 +24,21 @@ macro_rules! __list_item {
     };
     // Fallback: arbitrary expression (e.g., already an Object or `.into()`able)
     ($e:expr) => { $e };
-} 
+}
 
 #[macro_export]
 macro_rules! list {
     ($($e:expr),* $(,)?) => {
         vec![$($crate::__list_item!($e).into()),*]
     };
-} 
+}
 
 #[macro_export]
 macro_rules! __obj_expr {
     ($e:expr) => {
         $crate::__list_item!($e).into()
     };
-} 
+}
 
 // Bring back an `obj!` macro at the core crate level so it sits alongside `list!`.
 // This forwarding macro simply delegates to the `proc-macro` implementation in the
@@ -48,7 +48,7 @@ macro_rules! obj {
     ($($t:tt)*) => {
         ::snow_ui_macros::obj!($($t)*)
     };
-} 
+}
 
 pub mod prelude {
     pub use super::{
@@ -68,6 +68,7 @@ pub mod prelude {
         IntoObject,
         Message,
         MessageReceiver,
+        Object,
         Row,
         SkinColor,
         Text,
@@ -76,18 +77,17 @@ pub mod prelude {
         VAlign,
         VIEWPORT_HEIGHT,
         VIEWPORT_WIDTH,
-        Object,
         World,
         event_bus,
     };
 
-    // Re-export the derive macros and the `snow` attribute helper so examples can `use snow_ui::prelude::*` and write
-    // `#[derive(IntoObject)]`, `#[derive(Message)]`, `#[snow]` and `obj! { ... }` without importing `snow_ui_macros` explicitly.
-    pub use snow_ui_macros::{IntoObject, Message, message, snow};
+    // Re-export the derive macros and the `element` attribute helper so examples can `use snow_ui::prelude::*` and write
+    // `#[derive(IntoObject)]`, `#[derive(Message)]`, `#[element]` and `obj! { ... }` without importing `snow_ui_macros` explicitly.
+    pub use snow_ui_macros::{IntoObject, Message, element, message};
 
     // Bring convenient macros into the prelude by re-exporting the crate-level
     // implementations so `use snow_ui::prelude::*` brings them into scope.
-    pub use crate::{obj, list};
+    pub use crate::{list, obj};
 
     /// Helper to allow `..default()` shorthand in user code (like Bevy's prelude).
     ///
