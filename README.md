@@ -24,7 +24,7 @@ fn lovely_girl() -> Object {
             skin_color: SkinColor::Yellow,
             body_type: BodyType::Slim,
             appearance: Appearance::Beautiful,
-            every_morning: vec![GirlActions::SayHi, GirlActions::PrepareBreakfast],
+            every_morning: vec![GirlActions::SayHi, GirlActions::PrepareBreakfast,],
         },
     })
 }
@@ -32,6 +32,7 @@ fn lovely_girl() -> Object {
 fn world() -> World {
     World {
         root: lovely_girl(),
+        ..default()
     }
 }
 
@@ -60,7 +61,7 @@ fn world() -> World {
                 children: list![
                     Row {
                         children: list![Text {
-                            text: "Carpe diem 🎉",
+                            text: "Clock Example ⏰",
                         },],
                     },
                     Row {
@@ -69,6 +70,7 @@ fn world() -> World {
                 ],
             },],
         }),
+        ..default()
     }
 }
 
