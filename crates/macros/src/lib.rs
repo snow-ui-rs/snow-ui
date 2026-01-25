@@ -358,9 +358,9 @@ pub fn element(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    // Parse the item as a struct and generate the same helpful `IntoObject` impl as before,
-    // but if `message_paths` is non-empty generate registration code which wraps the
-    // component instance in `Rc<RefCell<_>>` and registers it for the given message types.
+    // Parse the item as a struct and generate the same helpful `IntoObject` impl as before.
+    // If `message_paths` is non-empty, use explicit registration for those message types.
+    // If `message_paths` is empty, use inventory-based auto-registration via `register_handlers_for_instance`.
     match syn::parse::<syn::ItemStruct>(item.clone()) {
         Ok(s) => {
             let name = &s.ident;
@@ -375,12 +375,20 @@ pub fn element(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                     if is_button {
                         if message_paths.is_empty() {
+                            // Use inventory-based auto-registration
                             quote! {
                                 #s
                                 impl ::snow_ui::IntoObject for #name {
                                     fn into_object(self) -> ::snow_ui::Object {
-                                        let e: ::snow_ui::Element = self.0.into();
-                                        e.into()
+                                        if ::snow_ui::has_registered_handlers::<#name>() {
+                                            let rc = ::std::rc::Rc::new(::std::cell::RefCell::new(self));
+                                            ::snow_ui::register_handlers_for_instance(&rc);
+                                            let e: ::snow_ui::Element = rc.borrow().0.clone().into();
+                                            e.into()
+                                        } else {
+                                            let e: ::snow_ui::Element = self.0.into();
+                                            e.into()
+                                        }
                                     }
                                 }
                             }
@@ -404,11 +412,18 @@ pub fn element(attr: TokenStream, item: TokenStream) -> TokenStream {
                         }
                     } else {
                         if message_paths.is_empty() {
+                            // Use inventory-based auto-registration
                             quote! {
                                 #s
                                 impl ::snow_ui::IntoObject for #name {
                                     fn into_object(self) -> ::snow_ui::Object {
-                                        self.0.into()
+                                        if ::snow_ui::has_registered_handlers::<#name>() {
+                                            let rc = ::std::rc::Rc::new(::std::cell::RefCell::new(self));
+                                            ::snow_ui::register_handlers_for_instance(&rc);
+                                            rc.borrow().0.clone().into()
+                                        } else {
+                                            self.0.into()
+                                        }
                                     }
                                 }
                             }
@@ -443,12 +458,20 @@ pub fn element(attr: TokenStream, item: TokenStream) -> TokenStream {
 
                     if is_button {
                         if message_paths.is_empty() {
+                            // Use inventory-based auto-registration
                             quote! {
                                 #s
                                 impl ::snow_ui::IntoObject for #name {
                                     fn into_object(self) -> ::snow_ui::Object {
-                                        let e: ::snow_ui::Element = self.#field_ident.into();
-                                        e.into()
+                                        if ::snow_ui::has_registered_handlers::<#name>() {
+                                            let rc = ::std::rc::Rc::new(::std::cell::RefCell::new(self));
+                                            ::snow_ui::register_handlers_for_instance(&rc);
+                                            let e: ::snow_ui::Element = rc.borrow().#field_ident.clone().into();
+                                            e.into()
+                                        } else {
+                                            let e: ::snow_ui::Element = self.#field_ident.into();
+                                            e.into()
+                                        }
                                     }
                                 }
                             }
@@ -472,11 +495,18 @@ pub fn element(attr: TokenStream, item: TokenStream) -> TokenStream {
                         }
                     } else {
                         if message_paths.is_empty() {
+                            // Use inventory-based auto-registration
                             quote! {
                                 #s
                                 impl ::snow_ui::IntoObject for #name {
                                     fn into_object(self) -> ::snow_ui::Object {
-                                        self.#field_ident.into()
+                                        if ::snow_ui::has_registered_handlers::<#name>() {
+                                            let rc = ::std::rc::Rc::new(::std::cell::RefCell::new(self));
+                                            ::snow_ui::register_handlers_for_instance(&rc);
+                                            rc.borrow().#field_ident.clone().into()
+                                        } else {
+                                            self.#field_ident.into()
+                                        }
                                     }
                                 }
                             }
@@ -499,12 +529,21 @@ pub fn element(attr: TokenStream, item: TokenStream) -> TokenStream {
                         }
                     }
                 }
+                // Handle structs with multiple named fields or no fields - use inventory auto-registration
                 _ => {
                     quote! {
                         #s
                         impl ::snow_ui::IntoObject for #name {
                             fn into_object(self) -> ::snow_ui::Object {
-                                unimplemented!(concat!("IntoObject not implemented for ", stringify!(#name)));
+                                if ::snow_ui::has_registered_handlers::<#name>() {
+                                    let rc = ::std::rc::Rc::new(::std::cell::RefCell::new(self));
+                                    ::snow_ui::register_handlers_for_instance(&rc);
+                                    // For complex structs, we just return a placeholder
+                                    // The actual conversion should be customized
+                                    unimplemented!(concat!("IntoObject not fully implemented for ", stringify!(#name), " - consider adding a custom From impl"));
+                                } else {
+                                    unimplemented!(concat!("IntoObject not implemented for ", stringify!(#name)));
+                                }
                             }
                         }
                     }

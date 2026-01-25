@@ -24,16 +24,19 @@ fn increase_button() -> Object {
     })
 }
 
-#[element(message = [IncreaseButtonClicked])]
+#[element]
 struct SimpleText {
     count: u128,
 }
 
-impl MessageHandler<IncreaseButtonClicked> for SimpleText {
-    async fn handle(&mut self, _: &IncreaseButtonClicked, _: &mut MessageContext) {
-        self.count += 1;
+// Use register_handler! to automatically register the handler via inventory
+register_handler!(
+    impl MessageHandler<IncreaseButtonClicked> for SimpleText {
+        async fn handle(&mut self, _: &IncreaseButtonClicked, _: &mut MessageContext) {
+            self.count += 1;
+        }
     }
-}
+);
 
 fn world() -> World {
     World {

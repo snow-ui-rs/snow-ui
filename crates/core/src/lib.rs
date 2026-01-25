@@ -1,6 +1,102 @@
 // Minimal mock of an `snow_ui` crate used by the example in `main.rs`.
 // Provides the types and items referenced by the example so the crate builds.
 
+// ============================================================================
+// Inventory-based handler registration system
+// ============================================================================
+
+/// A handler registry entry collected at compile time via `inventory`.
+/// Each entry knows how to register its handler for a specific (Element, Message) pair.
+pub struct HandlerRegistryEntry {
+    /// TypeId of the element type this handler is for
+    pub element_type_id: fn() -> std::any::TypeId,
+    /// Registers the handler onto the given `Rc<RefCell<dyn Any>>` element instance.
+    /// Returns `true` if the element was the expected type and registration succeeded.
+    pub register_fn: fn(&std::rc::Rc<std::cell::RefCell<dyn std::any::Any>>),
+}
+
+inventory::collect!(HandlerRegistryEntry);
+
+/// Register all handlers for a given element instance using the inventory.
+/// This is called from the generated `into_object()` method.
+pub fn register_handlers_for_instance<T: 'static>(instance: &std::rc::Rc<std::cell::RefCell<T>>) {
+    let target_type_id = std::any::TypeId::of::<T>();
+    // Create an Rc<RefCell<dyn Any>> from the instance for type-erased registration
+    let any_rc: std::rc::Rc<std::cell::RefCell<dyn std::any::Any>> = instance.clone();
+    
+    for entry in inventory::iter::<HandlerRegistryEntry> {
+        if (entry.element_type_id)() == target_type_id {
+            (entry.register_fn)(&any_rc);
+        }
+    }
+}
+
+/// Check if there are any registered handlers for a given element type.
+pub fn has_registered_handlers<T: 'static>() -> bool {
+    let target_type_id = std::any::TypeId::of::<T>();
+    for entry in inventory::iter::<HandlerRegistryEntry> {
+        if (entry.element_type_id)() == target_type_id {
+            return true;
+        }
+    }
+    false
+}
+
+/// Macro to register a `MessageHandler` implementation and automatically submit it to inventory.
+/// 
+/// Usage:
+/// ```rust
+/// register_handler!(
+///     impl MessageHandler<MyMessage> for MyElement {
+///         async fn handle(&mut self, msg: &MyMessage, ctx: &mut MessageContext) {
+///             // handle the message
+///         }
+///     }
+/// );
+/// ```
+/// 
+/// This is equivalent to writing the impl block directly, plus it registers the handler
+/// so that when `MyElement::into_object()` is called, the handler is automatically
+/// registered with the event bus.
+#[macro_export]
+macro_rules! register_handler {
+    (
+        impl MessageHandler<$msg_ty:ty> for $elem_ty:ty {
+            $($impl_body:tt)*
+        }
+    ) => {
+        // Generate the actual trait implementation
+        impl $crate::MessageHandler<$msg_ty> for $elem_ty {
+            $($impl_body)*
+        }
+        
+        // Submit a registry entry to inventory
+        $crate::inventory::submit! {
+            $crate::HandlerRegistryEntry {
+                element_type_id: || ::std::any::TypeId::of::<$elem_ty>(),
+                register_fn: |any_rc: &::std::rc::Rc<::std::cell::RefCell<dyn ::std::any::Any>>| {
+                    // Clone the Rc and try to create a concrete typed Rc
+                    // We need to use unsafe to reinterpret the Rc since RefCell<dyn Any> can't be directly downcast
+                    // Instead, we'll borrow and check the type, then register if it matches
+                    let borrowed = any_rc.borrow();
+                    if borrowed.is::<$elem_ty>() {
+                        drop(borrowed);
+                        // Safety: We've verified the type matches, and we're in a single-threaded context
+                        // We create a new Rc pointing to the same allocation but with concrete type
+                        let ptr = ::std::rc::Rc::as_ptr(any_rc) as *const ::std::cell::RefCell<$elem_ty>;
+                        ::std::mem::forget(any_rc.clone()); // Increment refcount
+                        let concrete_rc = unsafe { ::std::rc::Rc::from_raw(ptr) };
+                        $crate::event_bus().register_handler::<$elem_ty, $msg_ty>(concrete_rc);
+                    }
+                },
+            }
+        }
+    };
+}
+
+// Re-export inventory for use in the macro
+pub use inventory;
+
 /// Helper macro to construct a `Vec<Object>` from a heterogeneous
 /// list of items by calling `.into()` on each item.
 ///
@@ -63,6 +159,7 @@ pub mod prelude {
         GirlActions,
         HAlign,
         HairColor,
+        HandlerRegistryEntry,
         InnerMovement,
         InnerTicker,
         IntoObject,
@@ -81,7 +178,12 @@ pub mod prelude {
         VIEWPORT_WIDTH,
         World,
         event_bus,
+        has_registered_handlers,
+        register_handlers_for_instance,
     };
+
+    // Re-export inventory so user code can use the register_handler! macro
+    pub use super::inventory;
 
     // Re-export the derive macros and the `element` attribute helper so examples can `use snow_ui::prelude::*` and write
     // `#[derive(IntoObject)]`, `#[derive(Message)]`, `#[element]` and `obj! { ... }` without importing `snow_ui_macros` explicitly.
@@ -89,7 +191,7 @@ pub mod prelude {
 
     // Bring convenient macros into the prelude by re-exporting the crate-level
     // implementations so `use snow_ui::prelude::*` brings them into scope.
-    pub use crate::{list, obj};
+    pub use crate::{list, obj, register_handler};
 
     /// Helper to allow `..default()` shorthand in user code (like Bevy's prelude).
     ///
@@ -555,7 +657,7 @@ impl<T: IntoObject> From<T> for Object {
 
 // Girl component
 #[allow(dead_code)]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Girl {
     pub hair_color: HairColor,
     pub skin_color: SkinColor,
