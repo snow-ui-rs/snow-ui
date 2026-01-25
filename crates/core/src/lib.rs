@@ -67,12 +67,14 @@ pub mod prelude {
         InnerTicker,
         IntoObject,
         Message,
+        MessageHandler,
         MessageReceiver,
         Object,
         Row,
         SkinColor,
         Text,
         TextClock,
+        MessageContext,
         UpdateContext,
         VAlign,
         VIEWPORT_HEIGHT,
@@ -251,6 +253,19 @@ pub trait MessageReceiver {
     async fn register(&mut self);
 }
 
+/// A context passed to message handlers. Extend as needed.
+#[allow(dead_code)]
+#[derive(Debug, Default)]
+pub struct MessageContext {
+    // placeholder for future fields (e.g., access to widget tree, event loop handle, etc.)
+}
+
+/// A trait for asynchronous handlers which react to messages of type `T`.
+#[allow(dead_code)]
+pub trait MessageHandler<T: Message> {
+    async fn handle(&mut self, msg: &T, ctx: &mut MessageContext);
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum Size {
@@ -349,22 +364,39 @@ pub struct EventBus {
             Vec<futures::channel::mpsc::UnboundedSender<std::rc::Rc<dyn std::any::Any>>>,
         >,
     >,
+    // Registered handlers keyed by message TypeId
+    handlers: std::cell::RefCell<
+        std::collections::HashMap<std::any::TypeId, Vec<Box<dyn ErasedHandler>>>,
+    >,
 }
 
 impl EventBus {
     pub fn new() -> Self {
         Self {
             inner: std::cell::RefCell::new(std::collections::HashMap::new()),
+            handlers: std::cell::RefCell::new(std::collections::HashMap::new()),
         }
     }
 
-    /// Send a typed message to all subscribers (synchronous in this API).
+    /// Send a typed message to all subscribers (synchronous in this API) and invoke any
+    /// registered `MessageHandler<T>` implementations immediately (runs their `async`
+    /// handlers to completion synchronously on the current thread).
     pub fn send<T: Message>(&self, msg: T) {
         let rc = std::rc::Rc::new(msg) as std::rc::Rc<dyn std::any::Any>;
+        // first deliver to classic subscribers
         let guard = self.inner.borrow();
         if let Some(subs) = guard.get(&std::any::TypeId::of::<T>()) {
             for tx in subs.iter() {
                 let _ = tx.unbounded_send(rc.clone());
+            }
+        }
+
+        // then dispatch to registered handlers
+        let mut ctx = MessageContext::default();
+        let handlers_guard = self.handlers.borrow();
+        if let Some(handlers) = handlers_guard.get(&std::any::TypeId::of::<T>()) {
+            for h in handlers.iter() {
+                h.handle_any(rc.clone(), &mut ctx);
             }
         }
     }
@@ -382,6 +414,23 @@ impl EventBus {
             rx,
             _marker: std::marker::PhantomData,
         }
+    }
+
+    /// Register a handler instance (wrapped in `Rc<RefCell<_>>`) that implements
+    /// `MessageHandler<T>` so it will be invoked when messages of type `T` are sent.
+    pub fn register_handler<H, T>(&self, handler: std::rc::Rc<std::cell::RefCell<H>>)
+    where
+        H: MessageHandler<T> + 'static,
+        T: Message + 'static,
+    {
+        let mut guard = self.handlers.borrow_mut();
+        guard
+            .entry(std::any::TypeId::of::<T>())
+            .or_default()
+            .push(Box::new(HandlerBox::<H, T> {
+                h: handler,
+                _marker: std::marker::PhantomData,
+            }));
     }
 }
 
@@ -407,6 +456,36 @@ impl<T: Message> EventBusReceiver<T> {
     }
 }
 
+/// Trait used to type-erase message handlers so we can store them in a single map.
+trait ErasedHandler {
+    fn handle_any(&self, msg: std::rc::Rc<dyn std::any::Any>, ctx: &mut MessageContext);
+}
+
+/// A concrete wrapper that holds an `Rc<RefCell<H>>` where `H: MessageHandler<T>`.
+struct HandlerBox<H, T>
+where
+    H: MessageHandler<T> + 'static,
+    T: Message + 'static,
+{
+    h: std::rc::Rc<std::cell::RefCell<H>>,
+    _marker: std::marker::PhantomData<T>,
+}
+
+impl<H, T> ErasedHandler for HandlerBox<H, T>
+where
+    H: MessageHandler<T> + 'static,
+    T: Message + 'static,
+{
+    fn handle_any(&self, msg: std::rc::Rc<dyn std::any::Any>, ctx: &mut MessageContext) {
+        // Try to downcast to the concrete message type and call the async handler.
+        if let Some(m) = (&*msg).downcast_ref::<T>() {
+            let mut h = self.h.borrow_mut();
+            // Run the async handler to completion on the current thread for now.
+            futures::executor::block_on(h.handle(m, ctx));
+        }
+    }
+}
+
 thread_local! {
     static EVENT_BUS: std::cell::RefCell<EventBus> = std::cell::RefCell::new(EventBus::new());
 }
@@ -423,6 +502,17 @@ impl EventBusHandle {
 
     pub fn subscribe<T: Message>(&self) -> EventBusReceiver<T> {
         EVENT_BUS.with(|b| b.borrow_mut().subscribe::<T>())
+    }
+
+
+    /// Register a handler instance for messages of type `T` with the global event bus.
+    /// The handler should be wrapped in `Rc<RefCell<_>>` since the bus stores an `Rc`.
+    pub fn register_handler<H, T>(&self, h: std::rc::Rc<std::cell::RefCell<H>>)
+    where
+        H: MessageHandler<T> + 'static,
+        T: Message + 'static,
+    {
+        EVENT_BUS.with(|b| b.borrow_mut().register_handler::<H, T>(h))
     }
 }
 

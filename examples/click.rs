@@ -24,17 +24,14 @@ fn increase_button() -> Object {
     })
 }
 
-#[element]
+#[element(message = [IncreaseButtonClicked])]
 struct SimpleText {
     count: u128,
 }
 
-impl MessageReceiver for SimpleText {
-    async fn register(&mut self) {
-        let mut rx = event_bus().subscribe::<IncreaseButtonClicked>();
-        while rx.recv().await.is_ok() {
-            self.count += 1;
-        }
+impl MessageHandler<IncreaseButtonClicked> for SimpleText {
+    async fn handle(&mut self, _: &IncreaseButtonClicked, _: &mut MessageContext) {
+        self.count += 1;
     }
 }
 
