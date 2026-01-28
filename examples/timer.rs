@@ -5,7 +5,7 @@ use tokio::time::{Duration, interval};
 
 #[element]
 struct SimpleTextTimer {
-    second: u128,
+    second: State<u128>,
 }
 
 impl InnerTicker for SimpleTextTimer {
@@ -13,10 +13,10 @@ impl InnerTicker for SimpleTextTimer {
         let mut iv = interval(Duration::from_secs(1));
         loop {
             iv.tick().await;
-            self.second += 1;
+            self.second.update(|s| *s += 1);
         }
     }
-}
+} 
 
 fn world() -> World {
     World {
@@ -33,7 +33,7 @@ fn world() -> World {
                         },],
                     },
                     Row {
-                        children: list![SimpleTextTimer { second: 0 },],
+                        children: list![SimpleTextTimer { second: State::new(0) },],
                     },
                 ],
             },],
