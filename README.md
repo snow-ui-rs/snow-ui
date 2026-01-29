@@ -102,7 +102,7 @@ impl InnerTicker for SimpleTextTimer {
             self.second.update(|s| *s += 1);
         }
     }
-} 
+}
 
 fn world() -> World {
     World {
@@ -119,7 +119,9 @@ fn world() -> World {
                         },],
                     },
                     Row {
-                        children: list![SimpleTextTimer { second: State::new(0) },],
+                        children: list![SimpleTextTimer {
+                            second: State::new(0)
+                        },],
                     },
                 ],
             },],
@@ -177,6 +179,12 @@ register_handler!(
     }
 );
 
+fn simple_text() -> Object {
+    obj!(SimpleText {
+        count: State::new(0)
+    })
+}
+
 fn world() -> World {
     World {
         root: obj!(Board {
@@ -190,7 +198,7 @@ fn world() -> World {
                         children: list![increase_button(),],
                     },
                     Row {
-                        children: list![SimpleText { count: State::new(0) },],
+                        children: list![simple_text(),],
                     },
                 ],
             },],

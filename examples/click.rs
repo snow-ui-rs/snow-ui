@@ -37,6 +37,12 @@ register_handler!(
     }
 );
 
+fn simple_text() -> Object {
+    obj!(SimpleText {
+        count: State::new(0)
+    })
+}
+
 fn world() -> World {
     World {
         root: obj!(Board {
@@ -50,9 +56,7 @@ fn world() -> World {
                         children: list![increase_button(),],
                     },
                     Row {
-                        children: list![SimpleText {
-                            count: State::new(0)
-                        },],
+                        children: list![simple_text(),],
                     },
                 ],
             },],
