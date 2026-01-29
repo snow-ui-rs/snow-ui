@@ -1,4 +1,4 @@
-//! A simple timer example that implements its own ticker using `tokio::time::interval` (user-implemented timer).
+//! A simple timer example that implements its own ticker.
 
 use snow_ui::prelude::*;
 use tokio::time::{Duration, interval};

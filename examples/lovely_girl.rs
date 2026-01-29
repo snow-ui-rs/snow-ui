@@ -1,4 +1,4 @@
-//! A minimal example demonstrating the virtual world.
+//! A minimal example demonstrating a virtual world and a typical element with properties and actions.
 
 use snow_ui::prelude::*;
 

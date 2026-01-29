@@ -7,7 +7,7 @@ The UI is a projection of a virtual world onto the screen.
 
 ## Example: A lovely girl
 
-A minimal component example demonstrating the `#[element]` attribute  and constructing a component with several fields.
+A minimal example demonstrating a virtual world and a typical element with properties and actions.
 
 ```rust
 use snow_ui::prelude::*;
@@ -45,7 +45,7 @@ fn main() {
 
 ## Example: Text Clock
 
-A simple board example: a `Board` containing a `Card` with two rows (`Text` and `TextClock`).
+A simple example showing object tree and built-in `TextClock` element.
 
 ```rust
 use snow_ui::prelude::*;
@@ -81,9 +81,9 @@ fn main() {
 
 ---
 
-## Example: Timer (user ticker)
+## Example: Timer (custom implementation)
 
-Implements its own ticker via `tokio::time::interval`; seconds are stored in `State<u128>`.
+A simple timer example that implements its own ticker.
 
 ```rust
 use snow_ui::prelude::*;
@@ -137,7 +137,7 @@ fn main() {
 
 ## Example: Button Click (event)
 
-Button sends an event to the global event bus; handler registered with `register_handler!`.
+A minimal example demonstrating message transfer between components.
 
 ```rust
 use snow_ui::prelude::*;
