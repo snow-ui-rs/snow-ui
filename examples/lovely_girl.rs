@@ -1,6 +1,4 @@
-//! A minimal example for `snow-ui` demonstrating basic usage.
-//!
-//! Build and run with: `cargo run --example lovely_girl`
+//! A minimal example demonstrating basic usage of framework-provided components (uses the built-in `Girl` component).
 
 use snow_ui::prelude::*;
 

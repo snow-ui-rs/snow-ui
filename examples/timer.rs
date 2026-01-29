@@ -1,4 +1,4 @@
-//! A simple little clock that updates the time every few milliseconds.
+//! A simple timer example that implements its own ticker using `tokio::time::interval` (user-implemented timer).
 
 use snow_ui::prelude::*;
 use tokio::time::{Duration, interval};

@@ -1,4 +1,4 @@
-//! A simple little clock that updates the time every few milliseconds.
+//! A simple clock example that uses the framework's built-in `TextClock` (framework-provided clock implementation).
 
 use snow_ui::prelude::*;
 
