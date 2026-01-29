@@ -16,7 +16,7 @@ impl InnerTicker for SimpleTextTimer {
             self.second.update(|s| *s += 1);
         }
     }
-} 
+}
 
 fn world() -> World {
     World {
@@ -33,7 +33,9 @@ fn world() -> World {
                         },],
                     },
                     Row {
-                        children: list![SimpleTextTimer { second: State::new(0) },],
+                        children: list![SimpleTextTimer {
+                            second: State::new(0)
+                        },],
                     },
                 ],
             },],

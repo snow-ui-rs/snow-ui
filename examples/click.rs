@@ -29,11 +29,9 @@ struct SimpleText {
     count: State<u128>,
 }
 
-// Use register_handler! to automatically register the handler via inventory
 register_handler!(
     impl MessageHandler<IncreaseButtonClicked> for SimpleText {
         async fn handle(&mut self, _: &IncreaseButtonClicked, _: &mut MessageContext) {
-            // Update the state via `update` helper
             self.count.update(|c| *c += 1);
         }
     }
@@ -52,7 +50,9 @@ fn world() -> World {
                         children: list![increase_button(),],
                     },
                     Row {
-                        children: list![SimpleText { count: State::new(0) },],
+                        children: list![SimpleText {
+                            count: State::new(0)
+                        },],
                     },
                 ],
             },],

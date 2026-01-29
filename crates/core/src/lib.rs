@@ -23,7 +23,7 @@ pub fn register_handlers_for_instance<T: 'static>(instance: &std::rc::Rc<std::ce
     let target_type_id = std::any::TypeId::of::<T>();
     // Create an Rc<RefCell<dyn Any>> from the instance for type-erased registration
     let any_rc: std::rc::Rc<std::cell::RefCell<dyn std::any::Any>> = instance.clone();
-    
+
     for entry in inventory::iter::<HandlerRegistryEntry> {
         if (entry.element_type_id)() == target_type_id {
             (entry.register_fn)(&any_rc);
@@ -43,7 +43,7 @@ pub fn has_registered_handlers<T: 'static>() -> bool {
 }
 
 /// Macro to register a `MessageHandler` implementation and automatically submit it to inventory.
-/// 
+///
 /// Usage:
 /// ```rust
 /// register_handler!(
@@ -54,7 +54,7 @@ pub fn has_registered_handlers<T: 'static>() -> bool {
 ///     }
 /// );
 /// ```
-/// 
+///
 /// This is equivalent to writing the impl block directly, plus it registers the handler
 /// so that when `MyElement::into_object()` is called, the handler is automatically
 /// registered with the event bus.
@@ -69,7 +69,7 @@ macro_rules! register_handler {
         impl $crate::MessageHandler<$msg_ty> for $elem_ty {
             $($impl_body)*
         }
-        
+
         // Submit a registry entry to inventory
         $crate::inventory::submit! {
             $crate::HandlerRegistryEntry {
@@ -164,6 +164,7 @@ pub mod prelude {
         InnerTicker,
         IntoObject,
         Message,
+        MessageContext,
         MessageHandler,
         MessageReceiver,
         Object,
@@ -172,7 +173,6 @@ pub mod prelude {
         State,
         Text,
         TextClock,
-        MessageContext,
         UpdateContext,
         VAlign,
         VIEWPORT_HEIGHT,
@@ -607,7 +607,6 @@ impl EventBusHandle {
         EVENT_BUS.with(|b| b.borrow_mut().subscribe::<T>())
     }
 
-
     /// Register a handler instance for messages of type `T` with the global event bus.
     /// The handler should be wrapped in `Rc<RefCell<_>>` since the bus stores an `Rc`.
     pub fn register_handler<H, T>(&self, h: std::rc::Rc<std::cell::RefCell<H>>)
@@ -729,7 +728,6 @@ where
         s.get().into()
     }
 }
-
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
