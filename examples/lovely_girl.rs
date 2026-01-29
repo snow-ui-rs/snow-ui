@@ -1,4 +1,4 @@
-//! A minimal example demonstrating basic usage of framework-provided components (uses the built-in `Girl` component).
+//! A minimal example demonstrating the virtual world.
 
 use snow_ui::prelude::*;
 

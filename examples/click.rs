@@ -1,4 +1,4 @@
-//! A simple button that updates the count by click.
+//! A minimal example demonstrating message transfer between components.
 
 use snow_ui::prelude::*;
 

@@ -1,4 +1,4 @@
-//! A simple clock example that uses the framework's built-in `TextClock` (framework-provided clock implementation).
+//! A simple clock example that uses the framework's built-in `TextClock`.
 
 use snow_ui::prelude::*;
 
