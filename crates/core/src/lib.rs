@@ -46,10 +46,17 @@ pub fn has_registered_handlers<T: 'static>() -> bool {
 ///
 /// Usage:
 /// ```rust
+/// use snow_ui::prelude::*;
+/// use snow_ui::register_handler;
+///
+/// #[derive(Message)]
+/// struct MyMessage;
+/// struct MyElement;
+///
 /// register_handler!(
 ///     impl MessageHandler<MyMessage> for MyElement {
 ///         async fn handle(&mut self, msg: &MyMessage, ctx: &mut MessageContext) {
-///             // handle the message
+///             let _ = (msg, ctx);
 ///         }
 ///     }
 /// );
@@ -97,45 +104,6 @@ macro_rules! register_handler {
 // Re-export inventory for use in the macro
 pub use inventory;
 
-/// Helper macro to construct a `Vec<Object>` from a heterogeneous
-/// list of items by calling `.into()` on each item.
-///
-/// Example:
-/// ```rust
-/// # use snow_ui::prelude::*;
-/// let children = snow_ui::list![
-///     Text { text: "hi", ..default() },
-///     TextClock { format: "%H:%M:%S", ..default() },
-/// ];
-/// ```
-#[macro_export]
-macro_rules! __list_item {
-    // Struct literal with explicit `.. rest` - leave it as-is
-    ($ty:ident { $($fields:tt)* .. $rest:expr }) => {
-        $ty { $($fields)* .. $rest }
-    };
-    // Struct literal without `..` - append defaults from `default()` helper
-    ($ty:ident { $($fields:tt)* }) => {
-        $ty { $($fields)* .. $crate::default() }
-    };
-    // Fallback: arbitrary expression (e.g., already an Object or `.into()`able)
-    ($e:expr) => { $e };
-}
-
-#[macro_export]
-macro_rules! list {
-    ($($e:expr),* $(,)?) => {
-        vec![$($crate::__list_item!($e).into()),*]
-    };
-}
-
-#[macro_export]
-macro_rules! __obj_expr {
-    ($e:expr) => {
-        $crate::__list_item!($e).into()
-    };
-}
-
 // Bring back an `obj!` macro at the core crate level so it sits alongside `list!`.
 // This forwarding macro simply delegates to the `proc-macro` implementation in the
 // `snow_ui_macros` crate so the behavior remains unchanged.
@@ -171,8 +139,10 @@ pub mod prelude {
         Row,
         SkinColor,
         State,
+        Switch,
         Text,
         TextClock,
+        TextInput,
         UpdateContext,
         VAlign,
         VIEWPORT_HEIGHT,
@@ -190,9 +160,11 @@ pub mod prelude {
     // `#[derive(IntoObject)]`, `#[derive(Message)]`, `#[element]` and `obj! { ... }` without importing `snow_ui_macros` explicitly.
     pub use snow_ui_macros::{IntoObject, Message, element, message};
 
-    // Bring convenient macros into the prelude by re-exporting the crate-level
-    // implementations so `use snow_ui::prelude::*` brings them into scope.
-    pub use crate::{list, obj, register_handler};
+    // Bring convenient macros into the prelude by re-exporting the proc-macro
+    // implementations from the `snow_ui_macros` crate so `use snow_ui::prelude::*` brings
+    // them into scope without needing to depend on `snow_ui_macros` directly.
+    pub use crate::register_handler;
+    pub use snow_ui_macros::{list, obj};
 
     /// Helper to allow `..default()` shorthand in user code (like Bevy's prelude).
     ///
@@ -226,7 +198,7 @@ impl Default for World {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Board {
     pub width: Size,
     pub height: Size,
@@ -248,7 +220,7 @@ impl Default for Board {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Card {
     pub children: Vec<Object>,
 }
@@ -260,7 +232,7 @@ impl Default for Card {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Row {
     pub children: Vec<Object>,
 }
@@ -272,15 +244,17 @@ impl Default for Row {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Element {
     Text(Text),
     TextClock(TextClock),
     Button(Button),
+    TextInput(TextInput),
+    Switch(Switch),
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Text {
     pub text: &'static str,
 }
@@ -298,7 +272,7 @@ impl From<Text> for Element {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TextClock {
     pub format: &'static str,
 }
@@ -396,6 +370,69 @@ impl From<Button> for Element {
         Element::Button(b)
     }
 }
+
+impl IntoObject for Button {
+    fn into_object(self) -> Object {
+        Element::from(self).into()
+    }
+}
+
+// Text input field (very small demo stub)
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct TextInput {
+    pub name: &'static str,
+    pub r#type: &'static str,
+    /// Optional maximum length for input. If `0` then no limit is applied.
+    pub max_len: u32,
+}
+
+impl Default for TextInput {
+    fn default() -> Self {
+        Self {
+            name: "",
+            r#type: "text",
+            max_len: 0,
+        }
+    }
+}
+
+impl From<TextInput> for Element {
+    fn from(t: TextInput) -> Self {
+        Element::TextInput(t)
+    }
+}
+
+impl IntoObject for TextInput {
+    fn into_object(self) -> Object {
+        Element::from(self).into()
+    }
+}
+
+// A simple switch container that chooses one of several children to show.
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct Switch {
+    pub children: Vec<Object>,
+}
+
+impl Default for Switch {
+    fn default() -> Self {
+        Self { children: vec![] }
+    }
+}
+
+impl From<Switch> for Element {
+    fn from(s: Switch) -> Self {
+        Element::Switch(s)
+    }
+}
+
+impl IntoObject for Switch {
+    fn into_object(self) -> Object {
+        Element::from(self).into()
+    }
+}
 pub const VIEWPORT_WIDTH: Size = Size::ViewportWidth;
 pub const VIEWPORT_HEIGHT: Size = Size::ViewportHeight;
 
@@ -417,7 +454,7 @@ pub enum VAlign {
 
 // Object system
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Object {
     Board(Board),
     Girl(Girl),
@@ -716,6 +753,12 @@ impl<T> State<T> {
     /// Borrow the inner value mutably (returns a `RefMut<T>`).
     pub fn borrow_mut(&self) -> std::cell::RefMut<'_, T> {
         self.inner.borrow_mut()
+    }
+}
+
+impl<T: Default> Default for State<T> {
+    fn default() -> Self {
+        State::new(T::default())
     }
 }
 

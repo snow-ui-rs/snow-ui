@@ -35,3 +35,7 @@ path = "../../examples/timer.rs"
 [[example]]
 name = "click"
 path = "../../examples/click.rs"
+
+[[example]]
+name = "login"
+path = "../../examples/login.rs"
