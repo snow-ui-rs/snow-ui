@@ -7,17 +7,26 @@ struct LoginBoard {
     board: Board,
 }
 
+fn login(form: &Form) {
+    //
+}
+
 fn login_board() -> Object {
     obj!(LoginBoard {
         board: Board {
-            children: list![Card {
+            children: list![Form {
+                submit_handler: login,
+                submit_button: Button {
+                    text: "Login",
+                },
+                reset_button: Button {
+                    text: "Reset",
+                },
                 children: list![
                     Row {
                         children: list![
-                            Text {
-                                text: "User name: ",
-                            },
                             TextInput {
+                                label: "User name: ",
                                 name: "username",
                                 max_len: 20,
                             },
@@ -25,16 +34,13 @@ fn login_board() -> Object {
                     },
                     Row {
                         children: list![
-                            Text { text: "Password: " },
                             TextInput {
+                                label: "Password: ",
                                 name: "password",
                                 r#type: "password",
                                 max_len: 20,
                             },
                         ],
-                    },
-                    Row {
-                        children: list![Button { text: "Login" },],
                     },
                 ],
             },],

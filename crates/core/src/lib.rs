@@ -122,6 +122,7 @@ pub mod prelude {
         // Click demo types
         Button,
         Card,
+        Form,
         ClickHandler,
         Girl,
         GirlActions,
@@ -249,6 +250,7 @@ pub enum Element {
     Text(Text),
     TextClock(TextClock),
     Button(Button),
+    Form(Form),
     TextInput(TextInput),
     Switch(Switch),
 }
@@ -381,6 +383,8 @@ impl IntoObject for Button {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct TextInput {
+    /// Optional label text shown next to the input field.
+    pub label: &'static str,
     pub name: &'static str,
     pub r#type: &'static str,
     /// Optional maximum length for input. If `0` then no limit is applied.
@@ -390,6 +394,7 @@ pub struct TextInput {
 impl Default for TextInput {
     fn default() -> Self {
         Self {
+            label: "",
             name: "",
             r#type: "text",
             max_len: 0,
@@ -433,6 +438,42 @@ impl IntoObject for Switch {
         Element::from(self).into()
     }
 }
+
+// Form element: groups input fields and exposes simple submit/reset controls.
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct Form {
+    /// Handler invoked on submit. Default is a no-op.
+    pub submit_handler: fn(&Form),
+    pub submit_button: Button,
+    pub reset_button: Button,
+    pub children: Vec<Object>,
+}
+
+impl Default for Form {
+    fn default() -> Self {
+        fn _noop(_: &Form) {}
+        Self {
+            submit_handler: _noop,
+            submit_button: Button::default(),
+            reset_button: Button::default(),
+            children: vec![],
+        }
+    }
+}
+
+impl From<Form> for Element {
+    fn from(f: Form) -> Self {
+        Element::Form(f)
+    }
+}
+
+impl IntoObject for Form {
+    fn into_object(self) -> Object {
+        Element::from(self).into()
+    }
+}
+
 pub const VIEWPORT_WIDTH: Size = Size::ViewportWidth;
 pub const VIEWPORT_HEIGHT: Size = Size::ViewportHeight;
 
