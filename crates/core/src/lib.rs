@@ -339,6 +339,28 @@ pub struct MessageContext {
     // placeholder for future fields (e.g., access to widget tree, event loop handle, etc.)
 }
 
+/// Object-safe submit-handler wrapper so `Form` can accept both `fn(&Form)` **and**
+/// `async fn(&Form)` (and closures) without requiring callers to box/wrap them.
+///
+/// The trait returns a boxed future so implementations for async functions can
+/// simply forward their returned future; synchronous functions are wrapped with
+/// a ready future.
+#[allow(dead_code)]
+pub trait SubmitHandler {
+    fn call_box(&self, form: &Form) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'static>>;
+}
+
+// Blanket impl for async functions / closures that return a `Future`.
+impl<F, Fut> SubmitHandler for F
+where
+    F: Fn(&Form) -> Fut + 'static,
+    Fut: std::future::Future<Output = ()> + 'static,
+{
+    fn call_box(&self, form: &Form) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'static>> {
+        Box::pin((self)(form))
+    }
+}
+
 /// A trait for asynchronous handlers which react to messages of type `T`.
 #[allow(dead_code)]
 pub trait MessageHandler<T: Message> {
@@ -441,10 +463,11 @@ impl IntoObject for Switch {
 
 // Form element: groups input fields and exposes simple submit/reset controls.
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Form {
-    /// Handler invoked on submit. Default is a no-op.
-    pub submit_handler: fn(&Form),
+    /// Handler invoked on submit. Accepts async functions/closures; the macro
+    /// will box function items automatically so user code stays ergonomic.
+    pub submit_handler: std::sync::Arc<dyn SubmitHandler>,
     pub submit_button: Button,
     pub reset_button: Button,
     pub children: Vec<Object>,
@@ -452,13 +475,23 @@ pub struct Form {
 
 impl Default for Form {
     fn default() -> Self {
-        fn _noop(_: &Form) {}
         Self {
-            submit_handler: _noop,
+            submit_handler: std::sync::Arc::new(|_form: &Form| Box::pin(async move { })),
             submit_button: Button::default(),
             reset_button: Button::default(),
             children: vec![],
         }
+    }
+}
+
+impl std::fmt::Debug for Form {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Form")
+            .field("submit_handler", &"<handler>")
+            .field("submit_button", &self.submit_button)
+            .field("reset_button", &self.reset_button)
+            .field("children", &self.children)
+            .finish()
     }
 }
 

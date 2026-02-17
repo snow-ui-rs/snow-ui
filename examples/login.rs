@@ -7,8 +7,9 @@ struct LoginBoard {
     board: Board,
 }
 
-fn login(form: &Form) {
-    //
+async fn login(form: &Form) {
+    // async handler (no-op for the example)
+    let _ = form;
 }
 
 fn login_board() -> Object {

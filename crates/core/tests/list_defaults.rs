@@ -8,7 +8,7 @@ fn list_item_appends_default() {
 #[test]
 fn textinput_has_label_and_form_is_available() {
     // verify `label` field on TextInput and the new Form element are usable in literals
-    fn handler(_: &Form) {}
+    async fn handler(_: &Form) {}
 
     let _ : Vec<Object> = list![Form {
         submit_handler: handler,
@@ -17,5 +17,18 @@ fn textinput_has_label_and_form_is_available() {
         children: list![
             TextInput { label: "User:", name: "u", r#type: "text", max_len: 10 },
         ],
+    }];
+}
+
+#[test]
+fn form_accepts_async_submit_handler() {
+    // an async fn used directly as the submit handler should compile and be boxed by the macro
+    async fn ahandler(_: &Form) {}
+
+    let _ : Vec<Object> = list![Form {
+        submit_handler: ahandler,
+        submit_button: Button { text: "OK" },
+        reset_button: Button { text: "Reset" },
+        children: vec![],
     }];
 }
