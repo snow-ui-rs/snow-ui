@@ -339,25 +339,49 @@ pub struct MessageContext {
     // placeholder for future fields (e.g., access to widget tree, event loop handle, etc.)
 }
 
-/// Object-safe submit-handler wrapper so `Form` can accept both `fn(&Form)` **and**
-/// `async fn(&Form)` (and closures) without requiring callers to box/wrap them.
+/// Trait used to convert various handler return types into `anyhow::Result<()>`.
 ///
-/// The trait returns a boxed future so implementations for async functions can
-/// simply forward their returned future; synchronous functions are wrapped with
-/// a ready future.
-#[allow(dead_code)]
-pub trait SubmitHandler {
-    fn call_box(&self, form: &Form) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'static>>;
+/// We implement this for `()`, `Result<(), E>` and `anyhow::Result<()>` so handlers
+/// can be `async fn(&Form)`, `async fn(&Form) -> Result<(), E>` or synchronous `fn(&Form)`.
+trait SubmitReturn {
+    fn into_anyhow(self) -> anyhow::Result<()>;
 }
 
-// Blanket impl for async functions / closures that return a `Future`.
+impl SubmitReturn for () {
+    fn into_anyhow(self) -> anyhow::Result<()> {
+        Ok(())
+    }
+}
+
+impl<E> SubmitReturn for Result<(), E>
+where
+    E: std::fmt::Debug + Send + Sync + 'static,
+{
+    fn into_anyhow(self) -> anyhow::Result<()> {
+        self.map_err(|e| anyhow::anyhow!("{:?}", e))
+    }
+}
+
+/// Object-safe submit-handler wrapper so `Form` can accept async handlers that
+/// return `()` or `Result<(), E>` (including `anyhow::Result<()>`). The handler
+/// returns a boxed future that resolves to `anyhow::Result<()>` so example code
+/// can use `?` freely.
+#[allow(dead_code)]
+pub trait SubmitHandler {
+    fn call_box(&self, form: &Form) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + 'static>>;
+}
+
+// Blanket impl for any function/closure that returns a Future whose `Output`
+// implements `SubmitReturn`.
 impl<F, Fut> SubmitHandler for F
 where
     F: Fn(&Form) -> Fut + 'static,
-    Fut: std::future::Future<Output = ()> + 'static,
+    Fut: std::future::Future + 'static,
+    Fut::Output: SubmitReturn + 'static,
 {
-    fn call_box(&self, form: &Form) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'static>> {
-        Box::pin((self)(form))
+    fn call_box(&self, form: &Form) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + 'static>> {
+        let fut = (self)(form);
+        Box::pin(async move { fut.await.into_anyhow() })
     }
 }
 
@@ -504,6 +528,60 @@ impl From<Form> for Element {
 impl IntoObject for Form {
     fn into_object(self) -> Object {
         Element::from(self).into()
+    }
+}
+
+impl Form {
+    /// Produce a lightweight JSON representation of the form's input fields.
+    ///
+    /// This is intentionally small and only used by examples; it returns an
+    /// `anyhow::Result<String>` so callers can use the `?` operator in examples.
+    pub fn to_json(&self) -> anyhow::Result<String> {
+        // Simple escaping for JSON string values used in examples.
+        let escape = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
+
+        fn walk(obj: &Object, out: &mut Vec<String>, escape: &dyn Fn(&str) -> String) {
+            match obj {
+                Object::Element(Element::TextInput(ti)) => {
+                    out.push(format!(
+                        r#"{{"name":"{}","label":"{}","type":"{}","max_len":{}}}"#,
+                        escape(ti.name),
+                        escape(ti.label),
+                        escape(ti.r#type),
+                        ti.max_len
+                    ));
+                }
+                Object::Board(b) => {
+                    for c in &b.children {
+                        walk(c, out, escape);
+                    }
+                }
+                Object::Row(r) => {
+                    for c in &r.children {
+                        walk(c, out, escape);
+                    }
+                }
+                Object::Card(c) => {
+                    for c2 in &c.children {
+                        walk(c2, out, escape);
+                    }
+                }
+                Object::Element(Element::Switch(s)) => {
+                    for c in &s.children {
+                        walk(c, out, escape);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        let mut fields = Vec::new();
+        for child in &self.children {
+            walk(child, &mut fields, &escape);
+        }
+
+        let json = format!("{{\"fields\":[{}]}}", fields.join(","));
+        Ok(json)
     }
 }
 

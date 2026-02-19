@@ -7,9 +7,10 @@ struct LoginBoard {
     board: Board,
 }
 
-async fn login(form: &Form) {
+async fn login(form: &Form) -> anyhow::Result<()> {
     // async handler (no-op for the example)
-    let _ = form;
+    let _json = form.to_json()?;
+    Ok(())
 }
 
 fn login_board() -> Object {
