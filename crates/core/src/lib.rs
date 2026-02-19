@@ -465,12 +465,34 @@ impl IntoObject for TextInput {
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Switch {
+    /// Child objects held by the switch.
     pub children: Vec<Object>,
+    /// Currently selected child index (defaults to 0).
+    pub active: usize,
+}
+
+impl Switch {
+    /// Change which child is active. This is a minimal implementation used by
+    /// examples; out-of-range indices are clamped to `children.len().saturating_sub(1)`.
+    pub fn switch_to(&mut self, idx: usize) {
+        if self.children.is_empty() {
+            self.active = 0;
+        } else if idx >= self.children.len() {
+            self.active = self.children.len().saturating_sub(1);
+        } else {
+            self.active = idx;
+        }
+    }
+
+    /// Return the currently active index.
+    pub fn active_index(&self) -> usize {
+        self.active
+    }
 }
 
 impl Default for Switch {
     fn default() -> Self {
-        Self { children: vec![] }
+        Self { children: vec![], active: 0 }
     }
 }
 

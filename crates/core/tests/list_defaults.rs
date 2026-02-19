@@ -21,6 +21,16 @@ fn textinput_has_label_and_form_is_available() {
 }
 
 #[test]
+fn switch_switch_to_changes_active_index() {
+    let mut s = Switch { children: list![Text { text: "a" }, Text { text: "b" }], active: 0 };
+    assert_eq!(s.active_index(), 0);
+    s.switch_to(1);
+    assert_eq!(s.active_index(), 1);
+    s.switch_to(999); // out-of-range -> clamp
+    assert_eq!(s.active_index(), 1);
+}
+
+#[test]
 fn form_accepts_async_submit_handler() {
     // an async fn used directly as the submit handler should compile and be boxed by the macro
     async fn ahandler(_: &Form) {}

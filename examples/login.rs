@@ -2,6 +2,9 @@
 
 use snow_ui::prelude::*;
 
+#[message]
+struct LoginSuccess {}
+
 #[element]
 struct LoginBoard {
     board: Board,
@@ -12,6 +15,7 @@ async fn login(form: &Form) -> anyhow::Result<()> {
     let server_api = ServerApi::new("https://httpbin.org/post");
     let resp = server_api.post_json(json).await?;
     println!("Server response: {}", resp);
+    event_bus().send(LoginSuccess {});
     Ok(())
 }
 
@@ -69,11 +73,30 @@ fn main_board() -> Object {
     })
 }
 
+#[element]
+struct MySwitch {
+    switch: Switch,
+}
+
+register_handler!(
+    impl MessageHandler<LoginSuccess> for MySwitch {
+        async fn handle(&mut self, _: &LoginSuccess, _: &mut MessageContext) {
+            self.switch.switch_to(1);
+        }
+    }
+);
+
+fn my_switch() -> Object {
+    obj!(MySwitch {
+        switch: Switch {
+            children: list![login_board(), main_board(),],
+        }
+    })
+}
+
 fn world() -> World {
     World {
-        root: obj!(Switch {
-            children: list![login_board(), main_board(),],
-        }),
+        root: my_switch(),
         ..default()
     }
 }
