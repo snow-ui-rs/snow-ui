@@ -1,4 +1,4 @@
-//! A simple example showing object tree and built-in `TextClock` element.
+//! A comprehensive example demonstrating login functionality.
 
 use snow_ui::prelude::*;
 
@@ -24,31 +24,23 @@ fn login_board() -> Object {
         board: Board {
             children: list![Form {
                 submit_handler: login,
-                submit_button: Button {
-                    text: "Login",
-                },
-                reset_button: Button {
-                    text: "Reset",
-                },
+                submit_button: Button { text: "Login" },
+                reset_button: Button { text: "Reset" },
                 children: list![
                     Row {
-                        children: list![
-                            TextInput {
-                                label: "User name: ",
-                                name: "username",
-                                max_len: 20,
-                            },
-                        ],
+                        children: list![TextInput {
+                            label: "User name: ",
+                            name: "username",
+                            max_len: 20,
+                        },],
                     },
                     Row {
-                        children: list![
-                            TextInput {
-                                label: "Password: ",
-                                name: "password",
-                                r#type: "password",
-                                max_len: 20,
-                            },
-                        ],
+                        children: list![TextInput {
+                            label: "Password: ",
+                            name: "password",
+                            r#type: "password",
+                            max_len: 20,
+                        },],
                     },
                 ],
             },],

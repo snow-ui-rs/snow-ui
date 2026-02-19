@@ -265,7 +265,11 @@ pub fn __list_item(input: TokenStream) -> TokenStream {
                     // Special-case `Form { submit_handler: foo, ... }` so bare function
                     // paths (e.g. `login`) are wrapped into `Box::new(...)` to coerce
                     // into the object-safe handler type in core.
-                    let is_form = path.segments.last().map(|s| s.ident == "Form").unwrap_or(false);
+                    let is_form = path
+                        .segments
+                        .last()
+                        .map(|s| s.ident == "Form")
+                        .unwrap_or(false);
                     let mut fields_tokens: Vec<proc_macro2::TokenStream> = Vec::new();
                     for f in es.fields.iter() {
                         if is_form {
@@ -285,7 +289,8 @@ pub fn __list_item(input: TokenStream) -> TokenStream {
                         fields_tokens.push(quote! { #f });
                     }
 
-                    let rebuilt = quote! { #path { #(#fields_tokens),* , .. ::snow_ui::prelude::default() } };
+                    let rebuilt =
+                        quote! { #path { #(#fields_tokens),* , .. ::snow_ui::prelude::default() } };
                     return syn::parse2(rebuilt)
                         .unwrap_or_else(|e| e.to_compile_error())
                         .into();
@@ -313,7 +318,11 @@ pub fn list(input: TokenStream) -> TokenStream {
                 // Build a struct literal token stream that appends `.. ::snow_ui::prelude::default()`
                 // and ensures there's a comma before the `..` so it doesn't parse as a range.
                 let path = &es.path;
-                let is_form = path.segments.last().map(|s| s.ident == "Form").unwrap_or(false);
+                let is_form = path
+                    .segments
+                    .last()
+                    .map(|s| s.ident == "Form")
+                    .unwrap_or(false);
                 let mut fields_tokens: Vec<proc_macro2::TokenStream> = Vec::new();
                 for f in es.fields.iter() {
                     if is_form {
@@ -332,7 +341,9 @@ pub fn list(input: TokenStream) -> TokenStream {
                     }
                     fields_tokens.push(quote! { #f });
                 }
-                out_exprs.push(quote! { #path { #(#fields_tokens),* , .. ::snow_ui::prelude::default() } });
+                out_exprs.push(
+                    quote! { #path { #(#fields_tokens),* , .. ::snow_ui::prelude::default() } },
+                );
             } else {
                 out_exprs.push(quote! { #es });
             }
@@ -396,7 +407,13 @@ pub fn obj(input: TokenStream) -> TokenStream {
                             // If this is a `Form { submit_handler: ... }` literal and the
                             // assigned expression is a bare path (function name), wrap it
                             // as `Box::new(...)` so the handler can be stored as a trait object.
-                            if es.path.segments.last().map(|s| s.ident == "Form").unwrap_or(false) {
+                            if es
+                                .path
+                                .segments
+                                .last()
+                                .map(|s| s.ident == "Form")
+                                .unwrap_or(false)
+                            {
                                 for field in es.fields.iter_mut() {
                                     if let syn::Member::Named(ident) = &field.member {
                                         if ident == "submit_handler" {

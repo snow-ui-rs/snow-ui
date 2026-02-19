@@ -122,8 +122,8 @@ pub mod prelude {
         // Click demo types
         Button,
         Card,
-        Form,
         ClickHandler,
+        Form,
         Girl,
         GirlActions,
         HAlign,
@@ -138,10 +138,10 @@ pub mod prelude {
         MessageReceiver,
         Object,
         Row,
+        ServerApi,
         SkinColor,
         State,
         Switch,
-        ServerApi,
         Text,
         TextClock,
         TextInput,
@@ -369,7 +369,10 @@ where
 /// can use `?` freely.
 #[allow(dead_code)]
 pub trait SubmitHandler {
-    fn call_box(&self, form: &Form) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + 'static>>;
+    fn call_box(
+        &self,
+        form: &Form,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + 'static>>;
 }
 
 // Blanket impl for any function/closure that returns a Future whose `Output`
@@ -380,7 +383,10 @@ where
     Fut: std::future::Future + 'static,
     Fut::Output: SubmitReturn + 'static,
 {
-    fn call_box(&self, form: &Form) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + 'static>> {
+    fn call_box(
+        &self,
+        form: &Form,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + 'static>> {
         let fut = (self)(form);
         Box::pin(async move { fut.await.into_anyhow() })
     }
@@ -492,7 +498,10 @@ impl Switch {
 
 impl Default for Switch {
     fn default() -> Self {
-        Self { children: vec![], active: 0 }
+        Self {
+            children: vec![],
+            active: 0,
+        }
     }
 }
 
@@ -523,7 +532,7 @@ pub struct Form {
 impl Default for Form {
     fn default() -> Self {
         Self {
-            submit_handler: std::sync::Arc::new(|_form: &Form| Box::pin(async move { })),
+            submit_handler: std::sync::Arc::new(|_form: &Form| Box::pin(async move {})),
             submit_button: Button::default(),
             reset_button: Button::default(),
             children: vec![],
@@ -639,7 +648,10 @@ impl ServerApi {
     pub async fn post_json(&self, json: String) -> anyhow::Result<String> {
         // Minimal stub: echo the endpoint and payload. Replace with real HTTP
         // client if/when network behavior is required.
-        Ok(format!("{{\"endpoint\":\"{}\",\"echo\":{}}}", self.endpoint, json))
+        Ok(format!(
+            "{{\"endpoint\":\"{}\",\"echo\":{}}}",
+            self.endpoint, json
+        ))
     }
 }
 
