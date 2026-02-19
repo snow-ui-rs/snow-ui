@@ -8,8 +8,10 @@ struct LoginBoard {
 }
 
 async fn login(form: &Form) -> anyhow::Result<()> {
-    // async handler (no-op for the example)
-    let _json = form.to_json()?;
+    let json = form.to_json()?;
+    let server_api = ServerApi::new("https://httpbin.org/post");
+    let resp = server_api.post_json(json).await?;
+    println!("Server response: {}", resp);
     Ok(())
 }
 
