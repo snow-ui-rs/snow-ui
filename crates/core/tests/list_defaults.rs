@@ -48,3 +48,9 @@ fn form_accepts_async_submit_handler() {
         children: vec![],
     }];
 }
+
+#[test]
+fn interval_timer_constructible() {
+    let t: IntervalTimer<()> = IntervalTimer::from_interval(std::time::Duration::from_secs(5));
+    assert_eq!(t.interval.as_secs(), 5);
+}

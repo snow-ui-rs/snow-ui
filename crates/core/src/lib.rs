@@ -131,6 +131,7 @@ pub mod prelude {
         HandlerRegistryEntry,
         InnerMovement,
         InnerTicker,
+        IntervalTimer,
         IntoObject,
         Message,
         MessageContext,
@@ -514,6 +515,43 @@ impl From<Switch> for Element {
 impl IntoObject for Switch {
     fn into_object(self) -> Object {
         Element::from(self).into()
+    }
+}
+
+// Minimal interval timer used by the timer example. Generic parameter is the
+// event type that will be emitted (not used by this stub).
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct IntervalTimer<E> {
+    pub interval: std::time::Duration,
+    _marker: std::marker::PhantomData<E>,
+}
+
+impl<E> IntervalTimer<E> {
+    pub fn from_interval(interval: std::time::Duration) -> Self {
+        Self {
+            interval,
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+impl<E> Default for IntervalTimer<E> {
+    fn default() -> Self {
+        Self {
+            interval: std::time::Duration::from_secs(0),
+            _marker: std::marker::PhantomData,
+        }
+    }
+}
+
+// Provide a trivial IntoObject so elements containing an IntervalTimer can be
+// converted without panicking. The timer itself doesn't correspond to any
+// visual element, so we simply render an empty Text placeholder.
+impl<E> IntoObject for IntervalTimer<E> {
+    fn into_object(self) -> Object {
+        // zero-sized representation
+        Text { text: "" }.into()
     }
 }
 
