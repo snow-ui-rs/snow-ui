@@ -87,22 +87,24 @@ A simple timer example that implements its own ticker.
 
 ```rust
 use snow_ui::prelude::*;
-use tokio::time::{Duration, interval};
+use tokio::time::Duration;
+
+#[message]
+struct SimpleTextTimerTickEvent {}
 
 #[element]
 struct SimpleTextTimer {
     second: State<u128>,
+    timer: IntervalTimer<SimpleTextTimerTickEvent>,
 }
 
-impl InnerTicker for SimpleTextTimer {
-    async fn ticker(&mut self) {
-        let mut iv = interval(Duration::from_secs(1));
-        loop {
-            iv.tick().await;
+register_handler!(
+    impl MessageHandler<SimpleTextTimerTickEvent> for SimpleTextTimer {
+        async fn handle(&mut self, _: &SimpleTextTimerTickEvent, _: &mut MessageContext) {
             self.second.update(|s| *s += 1);
         }
     }
-}
+);
 
 fn world() -> World {
     World {
@@ -120,7 +122,8 @@ fn world() -> World {
                     },
                     Row {
                         children: list![SimpleTextTimer {
-                            second: State::new(0)
+                            second: State::new(0),
+                            timer: IntervalTimer::from_interval(Duration::from_secs(1)),
                         },],
                     },
                 ],
