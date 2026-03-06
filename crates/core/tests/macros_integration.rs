@@ -24,3 +24,10 @@ fn list_macro_appends_defaults_and_mixes() {
     // Basic sanity: got two elements
     assert_eq!(v.len(), 2);
 }
+
+// Ensure our new `actions!` helper expands correctly and infers types.
+#[test]
+fn actions_macro_works() {
+    let v: Vec<u8> = actions![1u8, 2u8,];
+    assert_eq!(v, vec![1u8, 2u8]);
+}

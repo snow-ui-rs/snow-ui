@@ -14,7 +14,7 @@ fn lovely_girl() -> Object {
             skin_color: SkinColor::Yellow,
             body_type: BodyType::Slim,
             appearance: Appearance::Beautiful,
-            every_morning: vec![GirlActions::SayHi, GirlActions::PrepareBreakfast,],
+            every_morning: actions![GirlActions::SayHi, GirlActions::PrepareBreakfast,],
         },
     })
 }

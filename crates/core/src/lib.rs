@@ -114,6 +114,16 @@ macro_rules! obj {
     };
 }
 
+// A tiny helper macro used by the `lovely_girl` example.
+// It simply expands to a `Vec` containing the provided expressions. The name
+// makes intent a bit clearer than `vec!` when dealing with action lists.
+#[macro_export]
+macro_rules! actions {
+    ($($action:expr),* $(,)?) => {
+        vec![$($action),*]
+    };
+}
+
 pub mod prelude {
     pub use super::{
         Appearance,
@@ -168,6 +178,10 @@ pub mod prelude {
     // them into scope without needing to depend on `snow_ui_macros` directly.
     pub use crate::register_handler;
     pub use snow_ui_macros::{list, obj};
+    // Bring the `actions!` helper into the prelude as well.  Since it is a
+    // `macro_rules!` macro we export it from this crate and re-export here so
+    // `use snow_ui::prelude::*` brings it into scope.
+    pub use crate::actions;
 
     /// Helper to allow `..default()` shorthand in user code (like Bevy's prelude).
     ///
