@@ -20,6 +20,13 @@ register_handler!(
     }
 );
 
+fn simple_text_timer() -> Object {
+    obj!(SimpleTextTimer {
+        second: State::new(0),
+        timer: IntervalTimer::from_interval(Duration::from_secs(1)),
+    })
+}
+
 fn world() -> World {
     World {
         root: obj!(Board {
@@ -35,10 +42,7 @@ fn world() -> World {
                         },],
                     },
                     Row {
-                        children: list![SimpleTextTimer {
-                            second: State::new(0),
-                            timer: IntervalTimer::from_interval(Duration::from_secs(1)),
-                        },],
+                        children: list![simple_text_timer()],
                     },
                 ],
             },],
