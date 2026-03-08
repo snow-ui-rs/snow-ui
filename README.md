@@ -4,6 +4,9 @@
 
 The UI is a projection of a virtual world onto the screen.
 
+## Target platforms
+
+Windows, macOS, Linux, Android, iOS, Web
 
 ## Example: A lovely girl
 
