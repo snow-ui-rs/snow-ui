@@ -94,21 +94,21 @@ struct SimpleTextTimerTickEvent {}
 
 #[element]
 struct SimpleTextTimer {
-    second: State<u128>,
+    seconds: State<u128>,
     timer: IntervalTimer<SimpleTextTimerTickEvent>,
 }
 
 register_handler!(
     impl MessageHandler<SimpleTextTimerTickEvent> for SimpleTextTimer {
         async fn handle(&mut self, _: &SimpleTextTimerTickEvent, _: &mut MessageContext) {
-            self.second.update(|s| *s += 1);
+            self.seconds.update(|s| *s += 1);
         }
     }
 );
 
 fn simple_text_timer() -> Object {
     obj!(SimpleTextTimer {
-        second: State::new(0),
+        seconds: State::new(0),
         timer: IntervalTimer::from_interval(Duration::from_secs(1)),
     })
 }
