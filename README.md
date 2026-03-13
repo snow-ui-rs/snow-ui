@@ -1,5 +1,7 @@
 # Snow UI: Pure Rust UI Framework
 
+**Current status:** examples only.
+
 ## Philosophy
 
 The UI is a projection of a virtual world onto the screen.
