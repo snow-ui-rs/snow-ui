@@ -1,5 +1,4 @@
-use crate::elements::{Button, Element, Switch, Text, TextInput};
-use crate::layout::{Board, Card, Row};
+use crate::elements::{Button, Element};
 use crate::object::Object;
 use crate::traits::IntoObject;
 
@@ -154,13 +153,5 @@ impl Form {
 
         let json = format!("{{\"fields\":[{}]}}", fields.join(","));
         Ok(json)
-    }
-
-    /// Minimal HTTP client for examples — supports a POST-JSON operation and
-    /// returns the server response body as a `String`.
-    #[allow(dead_code)]
-    pub fn to_json_and_post(&self, _url: &str) -> anyhow::Result<String> {
-        // kept for backward-compatibility; not used by the example directly.
-        Ok(self.to_json()?)
     }
 }
