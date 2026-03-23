@@ -16,9 +16,7 @@ documentation = "https://docs.rs/snow-ui/"
 readme = "./README.md"
 keywords = ["ui", "gui", "framework", "client", "app"]
 license = "Apache-2.0"
-categories = [
-    "gui",
-]
+categories = ["gui"]
 
 [workspace.dependencies]
 proc-macro2 = "1"

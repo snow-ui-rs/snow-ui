@@ -1,9 +1,7 @@
 [package]
 name = "snow-ui-macros"
 version = { workspace = true }
-authors = [
-    "clia <helloclia@gmail.com>",
-]
+authors = ["clia <helloclia@gmail.com>"]
 edition = { workspace = true }
 rust-version = { workspace = true }
 description = "Snow UI proc macros"

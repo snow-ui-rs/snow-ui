@@ -1,12 +1,10 @@
 [package]
 name = "snow-ui"
 version = { workspace = true }
-authors = [
-    "clia <helloclia@gmail.com>",
-]
+authors = ["clia <helloclia@gmail.com>"]
 edition = { workspace = true }
 rust-version = { workspace = true }
-description = "salvo proc macros"
+description = "Snow UI core library"
 homepage = { workspace = true }
 repository = { workspace = true }
 readme = { workspace = true }
