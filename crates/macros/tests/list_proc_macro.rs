@@ -4,5 +4,6 @@
 
 #[test]
 fn smoke() {
-    assert!(true);
+    // smoke test ensures the test module compiles and runs.
+    let _ = ();
 }

@@ -12,23 +12,21 @@ pub(crate) fn process_struct_fields(
 ) -> Vec<proc_macro2::TokenStream> {
     let mut tokens = Vec::new();
     for f in fields.iter() {
-        if is_form {
-            if let syn::Member::Named(ident) = &f.member {
-                if ident == "submit_handler" {
-                    if let syn::Expr::Path(_) = &f.expr {
-                        let expr = &f.expr;
-                        tokens.push(quote! {
-                            submit_handler: std::sync::Arc::new(
-                                |form: &::snow_ui::Form| Box::pin({
-                                    let __owned = form.clone();
-                                    async move { (#expr)(&__owned).await }
-                                })
-                            )
-                        });
-                        continue;
-                    }
-                }
-            }
+        if is_form
+            && let syn::Member::Named(ident) = &f.member
+            && ident == "submit_handler"
+            && let syn::Expr::Path(_) = &f.expr
+        {
+            let expr = &f.expr;
+            tokens.push(quote! {
+                submit_handler: std::sync::Arc::new(
+                    |form: &::snow_ui::Form| Box::pin({
+                        let __owned = form.clone();
+                        async move { (#expr)(&__owned).await }
+                    })
+                )
+            });
+            continue;
         }
         tokens.push(quote! { #f });
     }
@@ -45,9 +43,7 @@ pub(crate) fn is_form_path(path: &syn::Path) -> bool {
 
 /// Rebuild a struct-expression with `.. ::snow_ui::prelude::default()` appended,
 /// processing Form submit_handler fields along the way.
-pub(crate) fn rebuild_struct_with_defaults(
-    es: &syn::ExprStruct,
-) -> proc_macro2::TokenStream {
+pub(crate) fn rebuild_struct_with_defaults(es: &syn::ExprStruct) -> proc_macro2::TokenStream {
     let path = &es.path;
     let is_form = is_form_path(path);
     let fields_tokens = process_struct_fields(&es.fields, is_form);
@@ -68,21 +64,20 @@ pub(crate) fn add_defaults_to_expr(e: &mut syn::Expr) {
             // Wrap Form submit_handler bare paths.
             if is_form_path(&es.path) {
                 for field in es.fields.iter_mut() {
-                    if let syn::Member::Named(ident) = &field.member {
-                        if ident == "submit_handler" {
-                            if let syn::Expr::Path(_) = &field.expr {
-                                let orig = &field.expr;
-                                field.expr = syn::parse2(quote! {
-                                    std::sync::Arc::new(
-                                        |form: &::snow_ui::Form| Box::pin({
-                                            let __owned = form.clone();
-                                            async move { (#orig)(&__owned).await }
-                                        })
-                                    )
+                    if let syn::Member::Named(ident) = &field.member
+                        && ident == "submit_handler"
+                        && let syn::Expr::Path(_) = &field.expr
+                    {
+                        let orig = &field.expr;
+                        field.expr = syn::parse2(quote! {
+                            std::sync::Arc::new(
+                                |form: &::snow_ui::Form| Box::pin({
+                                    let __owned = form.clone();
+                                    async move { (#orig)(&__owned).await }
                                 })
-                                .expect("failed to wrap submit_handler");
-                            }
-                        }
+                            )
+                        })
+                        .expect("failed to wrap submit_handler");
                     }
                 }
             }

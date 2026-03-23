@@ -5,5 +5,5 @@
 #[test]
 fn smoke() {
     // simple sanity check so this test file compiles as part of macros crate tests
-    assert!(true);
+    let _ = ();
 }

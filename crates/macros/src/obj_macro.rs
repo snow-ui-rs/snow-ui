@@ -40,8 +40,7 @@ pub(crate) fn expand(input: proc_macro2::TokenStream) -> proc_macro2::TokenStrea
                         es.fields.iter().map(|f| quote! { #f }).collect();
                     let rebuilt =
                         quote! { #path { #(#fields),* , .. ::snow_ui::prelude::default() } };
-                    expr =
-                        syn::parse2(rebuilt).expect("failed to build nested defaulting struct");
+                    expr = syn::parse2(rebuilt).expect("failed to build nested defaulting struct");
                 }
             }
 

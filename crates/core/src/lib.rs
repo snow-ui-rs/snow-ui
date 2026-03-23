@@ -2,40 +2,35 @@
 //
 // All implementation details are now split into separate modules for maintainability.
 
-pub mod types;
-pub mod traits;
-pub mod handler;
-pub mod event_bus;
-pub mod layout;
 pub mod elements;
-pub mod object;
+pub mod event_bus;
 pub mod form;
 pub mod girl;
-pub mod state;
+pub mod handler;
+pub mod layout;
+pub mod object;
 pub mod server_api;
+pub mod state;
+pub mod traits;
+pub mod types;
 
 // Re-export the public API for ergonomic `snow_ui::...` usage.
-pub use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
-pub use crate::traits::{
-    ClickHandler,
-    InnerMovement,
-    InnerTicker,
-    IntoObject,
-    Message,
-    MessageContext,
-    MessageHandler,
-    MessageReceiver,
-    UpdateContext,
-};
-pub use crate::handler::{has_registered_handlers, register_handlers_for_instance, HandlerRegistryEntry};
-pub use crate::event_bus::{event_bus, EventBus, EventBusHandle, EventBusReceiver};
-pub use crate::layout::{Board, Card, Row};
 pub use crate::elements::{Button, Element, IntervalTimer, Switch, Text, TextClock, TextInput};
-pub use crate::object::{Object, World};
+pub use crate::event_bus::{EventBus, EventBusHandle, EventBusReceiver, event_bus};
 pub use crate::form::Form;
 pub use crate::girl::{Appearance, BodyType, Girl, GirlActions, HairColor, SkinColor};
-pub use crate::state::State;
+pub use crate::handler::{
+    HandlerRegistryEntry, has_registered_handlers, register_handlers_for_instance,
+};
+pub use crate::layout::{Board, Card, Row};
+pub use crate::object::{Object, World};
 pub use crate::server_api::ServerApi;
+pub use crate::state::State;
+pub use crate::traits::{
+    ClickHandler, InnerMovement, InnerTicker, IntoObject, Message, MessageContext, MessageHandler,
+    MessageReceiver, UpdateContext,
+};
+pub use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
 
 // Pulled in by the old-day convenient prelude and `register_handler!` macro flow.
 pub use inventory;
@@ -90,50 +85,19 @@ macro_rules! actions {
 
 pub mod prelude {
     pub use super::{
-        Appearance,
-        Board,
-        BodyType,
-        Button,
-        Card,
-        ClickHandler,
-        Form,
-        Girl,
-        GirlActions,
-        HAlign,
-        HairColor,
-        HandlerRegistryEntry,
-        InnerMovement,
-        InnerTicker,
-        IntervalTimer,
-        IntoObject,
-        Message,
-        MessageContext,
-        MessageHandler,
-        MessageReceiver,
-        Object,
-        Row,
-        ServerApi,
-        SkinColor,
-        State,
-        Switch,
-        Text,
-        TextClock,
-        TextInput,
-        UpdateContext,
-        VAlign,
-        VIEWPORT_HEIGHT,
-        VIEWPORT_WIDTH,
-        World,
-        event_bus,
-        has_registered_handlers,
+        Appearance, Board, BodyType, Button, Card, ClickHandler, Form, Girl, GirlActions, HAlign,
+        HairColor, HandlerRegistryEntry, InnerMovement, InnerTicker, IntervalTimer, IntoObject,
+        Message, MessageContext, MessageHandler, MessageReceiver, Object, Row, ServerApi,
+        SkinColor, State, Switch, Text, TextClock, TextInput, UpdateContext, VAlign,
+        VIEWPORT_HEIGHT, VIEWPORT_WIDTH, World, event_bus, has_registered_handlers,
         register_handlers_for_instance,
     };
 
     pub use super::inventory;
-    pub use snow_ui_macros::{IntoObject, Message, element, message};
-    pub use crate::register_handler;
-    pub use snow_ui_macros::{list, obj};
     pub use crate::actions;
+    pub use crate::register_handler;
+    pub use snow_ui_macros::{IntoObject, Message, element, message};
+    pub use snow_ui_macros::{list, obj};
 
     #[allow(dead_code)]
     pub fn default<T: Default>() -> T {

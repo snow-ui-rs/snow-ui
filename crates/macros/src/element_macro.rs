@@ -53,12 +53,15 @@ fn parse_message_paths(attr: proc_macro2::TokenStream) -> Vec<syn::Path> {
                     if let Some(end) = rest.find(']') {
                         collect_paths(&rest[1..end], &mut paths);
                     }
-                } else if rest.starts_with('"') {
-                    if let Some(end) = rest[1..].find('"') {
-                        collect_paths(&rest[1..1 + end], &mut paths);
+                } else if let Some(stripped) = rest.strip_prefix('"') {
+                    if let Some(end) = stripped.find('"') {
+                        collect_paths(&stripped[..end], &mut paths);
                     }
                 } else {
-                    let token: String = rest.chars().take_while(|&c| c != ',' && c != ')' && c != ']').collect();
+                    let token: String = rest
+                        .chars()
+                        .take_while(|&c| c != ',' && c != ')' && c != ']')
+                        .collect();
                     collect_paths(token.trim(), &mut paths);
                 }
             }
@@ -71,22 +74,21 @@ fn parse_message_paths(attr: proc_macro2::TokenStream) -> Vec<syn::Path> {
 fn collect_paths(input: &str, out: &mut Vec<syn::Path>) {
     for part in input.split(',') {
         let p = part.trim();
-        if !p.is_empty() {
-            if let Ok(path) = syn::parse_str::<syn::Path>(p) {
-                out.push(path);
-            }
+        if !p.is_empty()
+            && let Ok(path) = syn::parse_str::<syn::Path>(p)
+        {
+            out.push(path);
         }
     }
 }
 
 fn has_derive_default(s: &syn::ItemStruct) -> bool {
     for attr in &s.attrs {
-        if attr.path().is_ident("derive") {
-            if let syn::Meta::List(list) = &attr.meta {
-                if list.tokens.to_string().contains("Default") {
-                    return true;
-                }
-            }
+        if attr.path().is_ident("derive")
+            && let syn::Meta::List(list) = &attr.meta
+            && list.tokens.to_string().contains("Default")
+        {
+            return true;
         }
     }
     false
