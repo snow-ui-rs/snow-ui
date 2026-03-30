@@ -7,23 +7,27 @@
 pub struct HandlerRegistryEntry {
     /// TypeId of the element type this handler is for
     pub element_type_id: fn() -> std::any::TypeId,
-    /// Registers the handler onto the given `Rc<RefCell<dyn Any>>` element instance.
+    /// Registers the handler onto the given `Arc<Mutex<dyn Any + Send + Sync>>` element instance.
     /// Returns `true` if the element was the expected type and registration succeeded.
-    pub register_fn: fn(&std::rc::Rc<std::cell::RefCell<dyn std::any::Any>>),
+    pub register_fn: fn(&std::sync::Arc<std::sync::Mutex<dyn std::any::Any + Send + Sync>>),
 }
 
 inventory::collect!(HandlerRegistryEntry);
 
 /// Register all handlers for a given element instance using the inventory.
 /// This is called from the generated `into_object()` method.
-pub fn register_handlers_for_instance<T: 'static>(instance: &std::rc::Rc<std::cell::RefCell<T>>) {
+pub fn register_handlers_for_instance<T: 'static + Send + Sync>(
+    instance: &std::sync::Arc<std::sync::Mutex<T>>,
+) {
     let target_type_id = std::any::TypeId::of::<T>();
-    // Create an Rc<RefCell<dyn Any>> from the instance for type-erased registration
-    let any_rc: std::rc::Rc<std::cell::RefCell<dyn std::any::Any>> = instance.clone();
+    // Create an Arc<Mutex<dyn Any + Send + Sync>> from the instance for type-erased registration
+    let any_arc: std::sync::Arc<std::sync::Mutex<dyn std::any::Any + Send + Sync>> =
+        std::sync::Arc::clone(instance)
+            as std::sync::Arc<std::sync::Mutex<dyn std::any::Any + Send + Sync>>;
 
     for entry in inventory::iter::<HandlerRegistryEntry> {
         if (entry.element_type_id)() == target_type_id {
-            (entry.register_fn)(&any_rc);
+            (entry.register_fn)(&any_arc);
         }
     }
 }

@@ -3,7 +3,6 @@ use crate::girl::Girl;
 use crate::layout::{Board, Card, Row};
 use crate::traits::IntoObject;
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct World {
     pub root: Object,
@@ -19,7 +18,6 @@ impl Default for World {
 
 // ── Object enum ──────────────────────────────────────────────────────────────
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Object {
     Board(Board),

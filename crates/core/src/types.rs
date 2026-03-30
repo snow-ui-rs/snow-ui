@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum Size {
     ViewportWidth,
@@ -8,7 +7,6 @@ pub enum Size {
 pub const VIEWPORT_WIDTH: Size = Size::ViewportWidth;
 pub const VIEWPORT_HEIGHT: Size = Size::ViewportHeight;
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum HAlign {
     Left,
@@ -16,7 +14,6 @@ pub enum HAlign {
     Right,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum VAlign {
     Top,

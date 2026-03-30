@@ -6,17 +6,16 @@ use crate::object::Object;
 // component instances and background tasks/handlers.
 // ============================================================================
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct State<T> {
-    inner: std::rc::Rc<std::cell::RefCell<T>>,
+    inner: std::sync::Arc<std::sync::Mutex<T>>,
 }
 
 impl<T> State<T> {
     /// Create a new state wrapping the given value.
     pub fn new(value: T) -> Self {
         Self {
-            inner: std::rc::Rc::new(std::cell::RefCell::new(value)),
+            inner: std::sync::Arc::new(std::sync::Mutex::new(value)),
         }
     }
 
@@ -25,12 +24,12 @@ impl<T> State<T> {
     where
         T: Clone,
     {
-        self.inner.borrow().clone()
+        self.inner.lock().unwrap().clone()
     }
 
     /// Set the inner value.
     pub fn set(&self, value: T) {
-        *self.inner.borrow_mut() = value;
+        *self.inner.lock().unwrap() = value;
     }
 
     /// Mutate the inner value via a closure.
@@ -38,18 +37,18 @@ impl<T> State<T> {
     where
         F: FnOnce(&mut T),
     {
-        let mut b = self.inner.borrow_mut();
+        let mut b = self.inner.lock().unwrap();
         f(&mut *b);
     }
 
-    /// Borrow the inner value immutably (returns a `Ref<T>`).
-    pub fn borrow(&self) -> std::cell::Ref<'_, T> {
-        self.inner.borrow()
+    /// Borrow the inner value immutably (returns a guard).
+    pub fn borrow(&self) -> std::sync::MutexGuard<'_, T> {
+        self.inner.lock().unwrap()
     }
 
-    /// Borrow the inner value mutably (returns a `RefMut<T>`).
-    pub fn borrow_mut(&self) -> std::cell::RefMut<'_, T> {
-        self.inner.borrow_mut()
+    /// Borrow the inner value mutably (returns a guard).
+    pub fn borrow_mut(&self) -> std::sync::MutexGuard<'_, T> {
+        self.inner.lock().unwrap()
     }
 }
 

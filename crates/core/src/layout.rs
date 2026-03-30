@@ -1,7 +1,6 @@
 use crate::object::Object;
 use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Board {
     pub width: Size,
@@ -23,7 +22,6 @@ impl Default for Board {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Card {
     pub children: Vec<Object>,
@@ -35,7 +33,6 @@ impl Default for Card {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Row {
     pub children: Vec<Object>,

@@ -198,7 +198,7 @@ fn gen_into_object(
                 impl ::snow_ui::IntoObject for #name {
                     fn into_object(self) -> ::snow_ui::Object {
                         if ::snow_ui::has_registered_handlers::<#name>() {
-                            let rc = ::std::rc::Rc::new(::std::cell::RefCell::new(self));
+                            let rc = ::std::sync::Arc::new(::std::sync::Mutex::new(self));
                             ::snow_ui::register_handlers_for_instance(&rc);
                         }
                         ::snow_ui::Text { text: "" }.into()
@@ -237,12 +237,12 @@ fn gen_single_field_into_object(
     // everything else `.into()` suffices.
     let (value_from_ref, value_from_self) = if is_button {
         (
-            quote! { let e: ::snow_ui::Element = rc.borrow().#accessor.clone().into(); e.into() },
+            quote! { let e: ::snow_ui::Element = rc.lock().unwrap().#accessor.clone().into(); e.into() },
             quote! { let e: ::snow_ui::Element = self.#accessor.into(); e.into() },
         )
     } else {
         (
-            quote! { rc.borrow().#accessor.clone().into() },
+            quote! { rc.lock().unwrap().#accessor.clone().into() },
             quote! { self.#accessor.into() },
         )
     };
@@ -255,7 +255,7 @@ fn gen_single_field_into_object(
             impl ::snow_ui::IntoObject for #name {
                 fn into_object(self) -> ::snow_ui::Object {
                     if ::snow_ui::has_registered_handlers::<#name>() {
-                        let rc = ::std::rc::Rc::new(::std::cell::RefCell::new(self));
+                        let rc = ::std::sync::Arc::new(::std::sync::Mutex::new(self));
                         ::snow_ui::register_handlers_for_instance(&rc);
                         #value_from_ref
                     } else {
@@ -271,7 +271,7 @@ fn gen_single_field_into_object(
             #default_impl
             impl ::snow_ui::IntoObject for #name {
                 fn into_object(self) -> ::snow_ui::Object {
-                    let rc = ::std::rc::Rc::new(::std::cell::RefCell::new(self));
+                    let rc = ::std::sync::Arc::new(::std::sync::Mutex::new(self));
                     #(
                         ::snow_ui::event_bus().register_handler::<#name, #regs>(rc.clone());
                     )*

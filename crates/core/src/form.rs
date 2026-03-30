@@ -29,26 +29,26 @@ where
 /// return `()` or `Result<(), E>` (including `anyhow::Result<()>`). The handler
 /// returns a boxed future that resolves to `anyhow::Result<()>` so example code
 /// can use `?` freely.
-#[allow(dead_code)]
-pub trait SubmitHandler {
+pub trait SubmitHandler: Send + Sync {
     fn call_box(
         &self,
         form: &Form,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + 'static>>;
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + Send + 'static>>;
 }
 
 // Blanket impl for any function/closure that returns a Future whose `Output`
 // implements `SubmitReturn`.
 impl<F, Fut> SubmitHandler for F
 where
-    F: Fn(&Form) -> Fut + 'static,
-    Fut: std::future::Future + 'static,
+    F: Fn(&Form) -> Fut + Send + Sync + 'static,
+    Fut: std::future::Future + Send + 'static,
     Fut::Output: SubmitReturn + 'static,
 {
     fn call_box(
         &self,
         form: &Form,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + 'static>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<()>> + Send + 'static>>
+    {
         let fut = (self)(form);
         Box::pin(async move { fut.await.into_anyhow() })
     }
@@ -57,12 +57,11 @@ where
 // ── Form ─────────────────────────────────────────────────────────────────────
 
 // Form element: groups input fields and exposes simple submit/reset controls.
-#[allow(dead_code)]
 #[derive(Clone)]
 pub struct Form {
     /// Handler invoked on submit. Accepts async functions/closures; the macro
     /// will box function items automatically so user code stays ergonomic.
-    pub submit_handler: std::sync::Arc<dyn SubmitHandler>,
+    pub submit_handler: std::sync::Arc<dyn SubmitHandler + Send + Sync>,
     pub submit_button: Button,
     pub reset_button: Button,
     pub children: Vec<Object>,

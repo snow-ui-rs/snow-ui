@@ -52,14 +52,14 @@ macro_rules! register_handler {
         $crate::inventory::submit! {
             $crate::HandlerRegistryEntry {
                 element_type_id: || ::std::any::TypeId::of::<$elem_ty>(),
-                register_fn: |any_rc: &::std::rc::Rc<::std::cell::RefCell<dyn ::std::any::Any>>| {
-                    let borrowed = any_rc.borrow();
+                register_fn: |any_arc: &::std::sync::Arc<::std::sync::Mutex<dyn ::std::any::Any + Send + Sync>>| {
+                    let borrowed = any_arc.lock().unwrap();
                     if borrowed.is::<$elem_ty>() {
                         drop(borrowed);
-                        let ptr = ::std::rc::Rc::as_ptr(any_rc) as *const ::std::cell::RefCell<$elem_ty>;
-                        ::std::mem::forget(any_rc.clone());
-                        let concrete_rc = unsafe { ::std::rc::Rc::from_raw(ptr) };
-                        $crate::event_bus().register_handler::<$elem_ty, $msg_ty>(concrete_rc);
+                        let ptr = ::std::sync::Arc::as_ptr(any_arc) as *const ::std::sync::Mutex<$elem_ty>;
+                        ::std::mem::forget(any_arc.clone());
+                        let concrete_arc = unsafe { ::std::sync::Arc::from_raw(ptr) };
+                        $crate::event_bus().register_handler::<$elem_ty, $msg_ty>(concrete_arc);
                     }
                 },
             }
@@ -99,7 +99,6 @@ pub mod prelude {
     pub use snow_ui_macros::{IntoObject, Message, element, message};
     pub use snow_ui_macros::{list, obj};
 
-    #[allow(dead_code)]
     pub fn default<T: Default>() -> T {
         T::default()
     }

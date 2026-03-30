@@ -1,58 +1,59 @@
 use crate::traits::{Message, MessageContext, MessageHandler};
 
 /// An async-capable event bus used by examples to send and subscribe to typed messages.
-/// This implementation is single-threaded: it uses `Rc` and `futures::channel::mpsc::unbounded` so
-/// message types do not need to be `Send`/`Sync`.
-#[allow(dead_code)]
+/// This implementation is thread-safe using `Arc<Mutex>`.
 pub struct EventBus {
-    inner: std::cell::RefCell<
+    inner: std::sync::Mutex<
         std::collections::HashMap<
             std::any::TypeId,
-            Vec<futures::channel::mpsc::UnboundedSender<std::rc::Rc<dyn std::any::Any>>>,
+            Vec<
+                futures::channel::mpsc::UnboundedSender<
+                    std::sync::Arc<dyn std::any::Any + Send + Sync>,
+                >,
+            >,
         >,
     >,
     // Registered handlers keyed by message TypeId
-    handlers: std::cell::RefCell<
-        std::collections::HashMap<std::any::TypeId, Vec<Box<dyn ErasedHandler>>>,
-    >,
+    handlers:
+        std::sync::Mutex<std::collections::HashMap<std::any::TypeId, Vec<Box<dyn ErasedHandler>>>>,
 }
 
 impl EventBus {
     pub fn new() -> Self {
         Self {
-            inner: std::cell::RefCell::new(std::collections::HashMap::new()),
-            handlers: std::cell::RefCell::new(std::collections::HashMap::new()),
+            inner: std::sync::Mutex::new(std::collections::HashMap::new()),
+            handlers: std::sync::Mutex::new(std::collections::HashMap::new()),
         }
     }
 
     /// Send a typed message to all subscribers (synchronous in this API) and invoke any
     /// registered `MessageHandler<T>` implementations immediately (runs their `async`
     /// handlers to completion synchronously on the current thread).
-    pub fn send<T: Message>(&self, msg: T) {
-        let rc = std::rc::Rc::new(msg) as std::rc::Rc<dyn std::any::Any>;
+    pub fn send<T: Message + Send + Sync>(&self, msg: T) {
+        let arc = std::sync::Arc::new(msg) as std::sync::Arc<dyn std::any::Any + Send + Sync>;
         // first deliver to classic subscribers
-        let guard = self.inner.borrow();
+        let guard = self.inner.lock().unwrap();
         if let Some(subs) = guard.get(&std::any::TypeId::of::<T>()) {
             for tx in subs.iter() {
-                let _ = tx.unbounded_send(rc.clone());
+                let _ = tx.unbounded_send(arc.clone());
             }
         }
 
         // then dispatch to registered handlers
         let mut ctx = MessageContext::default();
-        let handlers_guard = self.handlers.borrow();
+        let handlers_guard = self.handlers.lock().unwrap();
         if let Some(handlers) = handlers_guard.get(&std::any::TypeId::of::<T>()) {
             for h in handlers.iter() {
-                h.handle_any(rc.clone(), &mut ctx);
+                h.handle_any(arc.clone(), &mut ctx);
             }
         }
     }
 
     /// Subscribe to messages of type `T`.
     /// Returns a receiver which yields notifications when messages of that type arrive.
-    pub fn subscribe<T: Message>(&self) -> EventBusReceiver<T> {
+    pub fn subscribe<T: Message + Send + Sync>(&self) -> EventBusReceiver<T> {
         let (tx, rx) = futures::channel::mpsc::unbounded();
-        let mut guard = self.inner.borrow_mut();
+        let mut guard = self.inner.lock().unwrap();
         guard
             .entry(std::any::TypeId::of::<T>())
             .or_default()
@@ -63,14 +64,14 @@ impl EventBus {
         }
     }
 
-    /// Register a handler instance (wrapped in `Rc<RefCell<_>>`) that implements
+    /// Register a handler instance (wrapped in `Arc<Mutex<_>>`) that implements
     /// `MessageHandler<T>` so it will be invoked when messages of type `T` are sent.
-    pub fn register_handler<H, T>(&self, handler: std::rc::Rc<std::cell::RefCell<H>>)
+    pub fn register_handler<H, T>(&self, handler: std::sync::Arc<std::sync::Mutex<H>>)
     where
-        H: MessageHandler<T> + 'static,
-        T: Message + 'static,
+        H: MessageHandler<T> + 'static + Send + Sync,
+        T: Message + 'static + Send + Sync,
     {
-        let mut guard = self.handlers.borrow_mut();
+        let mut guard = self.handlers.lock().unwrap();
         guard
             .entry(std::any::TypeId::of::<T>())
             .or_default()
@@ -82,21 +83,18 @@ impl EventBus {
 }
 
 /// Receiver wrapper that yields a notification when a message of type `T` is received.
-#[allow(dead_code)]
 pub struct EventBusReceiver<T> {
-    rx: futures::channel::mpsc::UnboundedReceiver<std::rc::Rc<dyn std::any::Any>>,
+    rx: futures::channel::mpsc::UnboundedReceiver<std::sync::Arc<dyn std::any::Any + Send + Sync>>,
     _marker: std::marker::PhantomData<T>,
 }
 
-impl<T: Message> EventBusReceiver<T> {
+impl<T: Message + Send + Sync> EventBusReceiver<T> {
     /// Wait for the next message of type `T`.
     /// Returns `Ok(())` when a message arrives, or `Err(())` if the sender side closed.
     pub async fn recv(&mut self) -> Result<(), ()> {
         use futures::StreamExt;
-        while let Some(rc) = self.rx.next().await {
-            // We don't attempt to extract the value (no `downcast` required for this demo).
-            // The presence of a message of the correct type is sufficient for example usage.
-            let _ = rc;
+        while let Some(arc) = self.rx.next().await {
+            let _ = arc;
             return Ok(());
         }
         Err(())
@@ -104,61 +102,71 @@ impl<T: Message> EventBusReceiver<T> {
 }
 
 /// Trait used to type-erase message handlers so we can store them in a single map.
-trait ErasedHandler {
-    fn handle_any(&self, msg: std::rc::Rc<dyn std::any::Any>, ctx: &mut MessageContext);
+trait ErasedHandler: Send + Sync {
+    fn handle_any(
+        &self,
+        msg: std::sync::Arc<dyn std::any::Any + Send + Sync>,
+        ctx: &mut MessageContext,
+    );
 }
 
-/// A concrete wrapper that holds an `Rc<RefCell<H>>` where `H: MessageHandler<T>`.
+/// A concrete wrapper that holds an `Arc<Mutex<H>>` where `H: MessageHandler<T>`.
 struct HandlerBox<H, T>
 where
-    H: MessageHandler<T> + 'static,
-    T: Message + 'static,
+    H: MessageHandler<T> + 'static + Send + Sync,
+    T: Message + 'static + Send + Sync,
 {
-    h: std::rc::Rc<std::cell::RefCell<H>>,
+    h: std::sync::Arc<std::sync::Mutex<H>>,
     _marker: std::marker::PhantomData<T>,
 }
 
 impl<H, T> ErasedHandler for HandlerBox<H, T>
 where
-    H: MessageHandler<T> + 'static,
-    T: Message + 'static,
+    H: MessageHandler<T> + 'static + Send + Sync,
+    T: Message + 'static + Send + Sync,
 {
-    fn handle_any(&self, msg: std::rc::Rc<dyn std::any::Any>, ctx: &mut MessageContext) {
-        // Try to downcast to the concrete message type and call the async handler.
+    fn handle_any(
+        &self,
+        msg: std::sync::Arc<dyn std::any::Any + Send + Sync>,
+        ctx: &mut MessageContext,
+    ) {
         if let Some(m) = (&*msg).downcast_ref::<T>() {
-            let mut h = self.h.borrow_mut();
-            // Run the async handler to completion on the current thread for now.
+            let mut h = self.h.lock().unwrap();
             futures::executor::block_on(h.handle(m, ctx));
         }
     }
 }
 
-thread_local! {
-    static EVENT_BUS: std::cell::RefCell<EventBus> = std::cell::RefCell::new(EventBus::new());
+static EVENT_BUS: std::sync::OnceLock<std::sync::Mutex<EventBus>> = std::sync::OnceLock::new();
+
+fn get_event_bus() -> &'static std::sync::Mutex<EventBus> {
+    EVENT_BUS.get_or_init(|| std::sync::Mutex::new(EventBus::new()))
 }
 
-/// A small `EventBus` handle that proxies into a thread-local `EventBus` instance.
-#[allow(dead_code)]
+/// A small `EventBus` handle that proxies into a global `EventBus` instance.
 #[derive(Clone, Copy)]
 pub struct EventBusHandle;
 
 impl EventBusHandle {
-    pub fn send<T: Message>(&self, msg: T) {
-        EVENT_BUS.with(|b| b.borrow().send(msg));
+    pub fn send<T: Message + Send + Sync>(&self, msg: T) {
+        let guard = get_event_bus().lock().unwrap();
+        guard.send(msg);
     }
 
-    pub fn subscribe<T: Message>(&self) -> EventBusReceiver<T> {
-        EVENT_BUS.with(|b| b.borrow_mut().subscribe::<T>())
+    pub fn subscribe<T: Message + Send + Sync>(&self) -> EventBusReceiver<T> {
+        let guard = get_event_bus().lock().unwrap();
+        guard.subscribe::<T>()
     }
 
     /// Register a handler instance for messages of type `T` with the global event bus.
-    /// The handler should be wrapped in `Rc<RefCell<_>>` since the bus stores an `Rc`.
-    pub fn register_handler<H, T>(&self, h: std::rc::Rc<std::cell::RefCell<H>>)
+    /// The handler should be wrapped in `Arc<Mutex<_>>` since the bus stores an `Arc`.
+    pub fn register_handler<H, T>(&self, h: std::sync::Arc<std::sync::Mutex<H>>)
     where
-        H: MessageHandler<T> + 'static,
-        T: Message + 'static,
+        H: MessageHandler<T> + 'static + Send + Sync,
+        T: Message + 'static + Send + Sync,
     {
-        EVENT_BUS.with(|b| b.borrow_mut().register_handler::<H, T>(h))
+        let guard = get_event_bus().lock().unwrap();
+        guard.register_handler::<H, T>(h)
     }
 }
 

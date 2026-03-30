@@ -1,5 +1,4 @@
 /// Minimal Server API helper used by `examples/login.rs`.
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ServerApi {
     endpoint: String,

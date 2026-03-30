@@ -1,4 +1,3 @@
-#[allow(dead_code)]
 #[derive(Debug, Default, Clone)]
 pub struct Girl {
     pub hair_color: HairColor,
@@ -8,7 +7,6 @@ pub struct Girl {
     pub every_morning: Vec<GirlActions>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum HairColor {
     Black,
@@ -23,7 +21,6 @@ impl Default for HairColor {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum SkinColor {
     Yellow,
@@ -37,7 +34,6 @@ impl Default for SkinColor {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum BodyType {
     Slim,
@@ -51,7 +47,6 @@ impl Default for BodyType {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum Appearance {
     Beautiful,
@@ -65,7 +60,6 @@ impl Default for Appearance {
     }
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum GirlActions {
     SayHi,

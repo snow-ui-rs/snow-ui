@@ -2,7 +2,6 @@ use crate::form::Form;
 use crate::object::Object;
 use crate::traits::IntoObject;
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Element {
     Text(Text),
@@ -15,7 +14,6 @@ pub enum Element {
 
 // ── Text ─────────────────────────────────────────────────────────────────────
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Text {
     pub text: &'static str,
@@ -35,7 +33,6 @@ impl From<Text> for Element {
 
 // ── TextClock ────────────────────────────────────────────────────────────────
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct TextClock {
     pub format: &'static str,
@@ -55,7 +52,6 @@ impl From<TextClock> for Element {
 
 // ── Button ───────────────────────────────────────────────────────────────────
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Button {
     pub text: &'static str,
@@ -81,7 +77,6 @@ impl IntoObject for Button {
 
 // ── TextInput ────────────────────────────────────────────────────────────────
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct TextInput {
     /// Optional label text shown next to the input field.
@@ -117,7 +112,6 @@ impl IntoObject for TextInput {
 
 // ── Switch ───────────────────────────────────────────────────────────────────
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Switch {
     /// Child objects held by the switch.
@@ -170,7 +164,6 @@ impl IntoObject for Switch {
 
 // Minimal interval timer used by the timer example. Generic parameter is the
 // event type that will be emitted (not used by this stub).
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct IntervalTimer<E> {
     pub interval: std::time::Duration,
