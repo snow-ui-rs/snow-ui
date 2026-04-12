@@ -1,0 +1,10 @@
+[package]
+name = "research-wgpu"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+pollster = "0.3"
+wgpu = "0.16"
