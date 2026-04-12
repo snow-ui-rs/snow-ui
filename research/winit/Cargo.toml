@@ -1,0 +1,9 @@
+[package]
+name = "research-winit"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+winit = "0.29"
