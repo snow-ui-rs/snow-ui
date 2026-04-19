@@ -1,0 +1,11 @@
+[package]
+name = "research-vello"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+vello = "0.8.0"
+winit = "0.29"
+pollster = "0.3"
