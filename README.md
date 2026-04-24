@@ -12,7 +12,7 @@ Windows, macOS, Linux, Android, iOS, Web
 
 ## Example: A lovely girl
 
-A minimal example demonstrating a virtual world and a typical element with properties and actions.
+A minimal example demonstrating a virtual world and a typical element with attributes and actions.
 
 ```rust
 use snow_ui::prelude::*;
