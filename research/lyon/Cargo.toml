@@ -1,0 +1,9 @@
+[package]
+name = "research-lyon"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+lyon = "1.0"
