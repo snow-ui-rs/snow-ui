@@ -1,0 +1,9 @@
+[package]
+name = "research-taffy"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+taffy = "0.11.0-experimental-cache-fix.3"
