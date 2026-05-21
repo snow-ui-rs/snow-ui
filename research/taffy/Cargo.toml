@@ -6,4 +6,4 @@ edition = "2024"
 [workspace]
 
 [dependencies]
-taffy = "0.11.0-experimental-cache-fix.3"
+taffy = "0.10.1"
