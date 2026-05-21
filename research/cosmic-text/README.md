@@ -1,11 +1,16 @@
-# research-cosmic-text
+# Cosmic Text Research Examples
 
-A minimal `cosmic-text` research example for the Snow UI workspace.
+This directory contains research examples for `cosmic-text` and is organized for minimal text shaping and layout experiments.
 
-This research package demonstrates basic text shaping and layout with `cosmic-text`.
+Structure:
+- `examples/`: example binaries for cosmic-text experiments
+- `src/`: shared code and helper utilities used by examples
 
-## Run example
+Run the minimal example:
 
 ```bash
-cargo run --manifest-path research/cosmic-text/Cargo.toml --example minimal
+cd research/cosmic-text
+cargo run --example minimal
 ```
+
+The minimal example demonstrates basic text shaping, layout, and rendering support using `cosmic-text`.
