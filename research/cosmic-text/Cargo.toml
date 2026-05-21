@@ -1,0 +1,9 @@
+[package]
+name = "research-cosmic-text"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+cosmic-text = "0.19"
