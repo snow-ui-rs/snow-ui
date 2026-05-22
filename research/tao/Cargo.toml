@@ -1,0 +1,9 @@
+[package]
+name = "research-tao"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+tao = "0.7"
