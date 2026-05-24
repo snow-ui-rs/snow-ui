@@ -1,0 +1,12 @@
+[package]
+name = "research-glyphon"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+glyphon = "0.11.0"
+wgpu = "29.0.3"
+winit = "0.30"
+pollster = "0.4"
