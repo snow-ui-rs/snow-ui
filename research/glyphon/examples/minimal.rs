@@ -5,12 +5,15 @@ use wgpu::{Backends, Color as WgpuColor, CompositeAlphaMode, CommandEncoderDescr
 use winit::{dpi::PhysicalSize, event::{Event, WindowEvent}, event_loop::{ControlFlow, EventLoop}, window::WindowAttributes};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    if std::env::var_os("DISPLAY").is_none()
-        && std::env::var_os("WAYLAND_DISPLAY").is_none()
-        && std::env::var_os("WAYLAND_SOCKET").is_none()
+    #[cfg(target_os = "linux")]
     {
-        eprintln!("No graphical display detected. Please run this example in an X11 or Wayland session, or use a virtual framebuffer like xvfb-run.");
-        std::process::exit(1);
+        if std::env::var_os("DISPLAY").is_none()
+            && std::env::var_os("WAYLAND_DISPLAY").is_none()
+            && std::env::var_os("WAYLAND_SOCKET").is_none()
+        {
+            eprintln!("No graphical display detected. Please run this example in an X11 or Wayland session, or use a virtual framebuffer like xvfb-run.");
+            std::process::exit(1);
+        }
     }
 
     let event_loop = EventLoop::new()?;
