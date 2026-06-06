@@ -56,14 +56,29 @@ fn make_button_label_image(
     buffer.shape_until_scroll(font_system, false);
 
     let runs: Vec<_> = buffer.layout_runs().collect();
-    let text_width = runs.iter().map(|run| run.line_w).fold(0.0, f32::max).ceil() as u32;
-    let text_height = runs
+    let min_line_top = runs.iter().map(|run| run.line_top).fold(0.0, f32::min);
+    let max_line_bottom = runs
         .iter()
         .map(|run| run.line_top + run.line_height)
-        .fold(0.0, f32::max)
-        .ceil() as u32;
+        .fold(0.0, f32::max);
+    let text_height = (max_line_bottom - min_line_top).ceil() as u32;
 
-    let padding = 10;
+    let mut min_x = f32::INFINITY;
+    let mut max_x = f32::NEG_INFINITY;
+    for run in &runs {
+        for glyph in run.glyphs {
+            let x_offset = glyph.font_size * glyph.x_offset;
+            min_x = min_x.min(glyph.x + x_offset);
+            max_x = max_x.max(glyph.x + x_offset + glyph.w);
+        }
+    }
+    let text_width = if min_x.is_finite() && max_x.is_finite() {
+        (max_x - min_x).ceil() as u32
+    } else {
+        0
+    };
+
+    let padding = 20;
     let width = text_width + padding * 2;
     let height = text_height + padding * 2;
     let mut pixel_buffer = PixelBuffer::new(width, height);
@@ -78,9 +93,11 @@ fn make_button_label_image(
         callback: &mut callback,
     };
 
+    let y_offset = padding as f32 - min_line_top;
+    let x_offset = padding as f32 - min_x;
     for run in &runs {
         for glyph in run.glyphs {
-            let physical = glyph.physical((padding as f32, padding as f32), 1.0);
+            let physical = glyph.physical((x_offset, y_offset), 1.0);
             TextRenderer::glyph(&mut renderer, physical, CosmicColor::rgb(255, 255, 255));
         }
         render_decoration(&mut renderer, run, CosmicColor::rgb(255, 255, 255));
