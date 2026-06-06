@@ -1,4 +1,7 @@
-use cosmic_text::{Attrs, Buffer, Color as CosmicColor, Family, FontSystem, Metrics, Shaping, SwashCache, LegacyRenderer, Renderer as TextRenderer, render_decoration};
+use cosmic_text::{
+    render_decoration, Attrs, Buffer, Color as CosmicColor, Family, FontSystem, LegacyRenderer,
+    Metrics, Renderer as TextRenderer, Shaping, SwashCache,
+};
 use linebender_resource_handle::Blob;
 use vello::kurbo::{Affine, Rect, RoundedRect, Stroke};
 use vello::peniko::{Color as VelloColor, Fill, ImageAlphaType, ImageData, ImageFormat};
@@ -53,11 +56,7 @@ fn make_button_label_image(
     buffer.shape_until_scroll(font_system, false);
 
     let runs: Vec<_> = buffer.layout_runs().collect();
-    let text_width = runs
-        .iter()
-        .map(|run| run.line_w)
-        .fold(0.0, f32::max)
-        .ceil() as u32;
+    let text_width = runs.iter().map(|run| run.line_w).fold(0.0, f32::max).ceil() as u32;
     let text_height = runs
         .iter()
         .map(|run| run.line_top + run.line_height)
@@ -133,7 +132,7 @@ fn build_scene(width: u32, height: u32, label: &ImageData) -> Scene {
 fn main() {
     let event_loop = EventLoop::new().expect("Failed to create event loop");
     let window = WindowBuilder::new()
-        .with_title("Vello Button Example")
+        .with_title("button")
         .with_inner_size(PhysicalSize::new(800, 600))
         .build(&event_loop)
         .expect("Failed to create window");
@@ -211,9 +210,10 @@ fn main() {
                             .render_to_texture(device, queue, &scene, &surface.target_view, &params)
                             .expect("Failed to render scene");
 
-                        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                            label: Some("Vello Button Encoder"),
-                        });
+                        let mut encoder =
+                            device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                                label: Some("Vello Button Encoder"),
+                            });
 
                         surface.blitter.copy(
                             device,
