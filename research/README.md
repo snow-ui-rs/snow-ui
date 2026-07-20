@@ -11,6 +11,7 @@ Target underlying frameworks include:
 - `taffy`
 - `tao`
 - `glyphon`
+- `masonry`
 
 Suggested structure:
 - `notes/`: research notes and conclusions
