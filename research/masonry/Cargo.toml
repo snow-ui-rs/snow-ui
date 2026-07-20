@@ -1,0 +1,10 @@
+[package]
+name = "research-masonry"
+version = "0.1.0"
+edition = "2024"
+
+[workspace]
+
+[dependencies]
+masonry = "0.4.0"
+masonry_winit = "0.4.0"
