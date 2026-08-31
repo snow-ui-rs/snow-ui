@@ -16,7 +16,10 @@ pub mod traits;
 pub mod types;
 
 // Re-export the public API for ergonomic `snow_ui::...` usage.
-pub use crate::backend::{SnowNode, SnowWorld};
+pub use crate::backend::{
+    SnowAction, SnowApp, SnowComponent, SnowComponentInstance, SnowMessage, SnowNode, SnowRuntime,
+    SnowState, SnowUpdate, SnowView, SnowWorld,
+};
 pub use crate::backend::masonry_backend;
 pub use crate::elements::{Button, Element, IntervalTimer, Switch, Text, TextClock, TextInput};
 pub use crate::event_bus::{EventBus, EventBusHandle, EventBusReceiver, event_bus};
@@ -107,10 +110,88 @@ pub mod prelude {
     }
 }
 
+fn run_masonry_window(world: World) {
+    use masonry::core::{ErasedAction, WidgetId};
+    use masonry::dpi::LogicalSize;
+    use masonry::widgets::ButtonPress;
+    use masonry_winit::app::{AppDriver, DriverCtx, EventLoop, NewWindow, WindowId};
+    use masonry_winit::winit::window::Window;
+
+    struct LaunchDriver {
+        window_id: WindowId,
+        adapter: crate::backend::masonry_backend::MasonryAdapter,
+    }
+
+    impl AppDriver for LaunchDriver {
+        fn on_action(
+            &mut self,
+            window_id: WindowId,
+            _ctx: &mut DriverCtx<'_, '_>,
+            _widget_id: WidgetId,
+            action: ErasedAction,
+        ) {
+            debug_assert_eq!(window_id, self.window_id, "unknown window");
+
+            if action.is::<ButtonPress>() {
+                if let Some(message) = self.adapter.dispatch_action(&action) {
+                    self.adapter.handle_message(&message);
+                    let _ = self.adapter.render();
+                }
+            }
+        }
+    }
+
+    let mut adapter = crate::backend::masonry_backend::MasonryAdapter::new();
+    adapter.set_world(world.clone().into());
+    let main_widget = adapter.render_library_world(&world).erased();
+
+    let window_size = LogicalSize::new(500.0, 300.0);
+    let window_attributes = Window::default_attributes()
+        .with_title("Snow UI")
+        .with_resizable(true)
+        .with_min_inner_size(window_size);
+
+    let driver = LaunchDriver {
+        window_id: WindowId::next(),
+        adapter,
+    };
+
+    masonry_winit::app::run(
+        EventLoop::with_user_event(),
+        vec![NewWindow::new_with_id(
+            driver.window_id,
+            window_attributes,
+            main_widget,
+        )],
+        driver,
+        masonry::theme::default_property_set(),
+    )
+    .unwrap();
+}
+
 /// Launch the UI using a builder function that returns a `World`.
 ///
 /// Example: `snow_ui::launch(world);` where `fn world() -> World { ... }`.
 pub fn launch<F: FnOnce() -> World>(builder: F) {
-    let world = builder();
-    println!("Launching snow_ui with world:\n{:#?}", world);
+    run_masonry_window(builder());
+}
+
+/// Launch a concrete library `World` immediately.
+pub fn launch_world(world: World) {
+    run_masonry_window(world);
+}
+
+/// Launch a concrete `Object` as the app root.
+pub fn launch_object(object: Object) {
+    launch_world(World { root: object });
+}
+
+/// Launch a Snow component tree as the app root.
+pub fn launch_component(component: SnowComponent) {
+    launch_world(component.into_world());
+}
+
+/// Launch a Snow node tree as the app root.
+pub fn launch_root(root: SnowNode) {
+    launch_world(World { root: root.into() });
 }

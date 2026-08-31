@@ -1,3 +1,6 @@
+use masonry::core::NewWidget;
+use masonry::widgets::Flex;
+
 use crate::object::Object;
 use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
 
@@ -8,6 +11,16 @@ pub struct Board {
     pub h_align: HAlign,
     pub v_align: VAlign,
     pub children: Vec<Object>,
+}
+
+impl Board {
+    pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
+        let mut column = Flex::column();
+        for child in &self.children {
+            column = column.with_child(child.into_masonry_widget());
+        }
+        NewWidget::new(column)
+    }
 }
 
 impl Default for Board {
@@ -27,6 +40,16 @@ pub struct Card {
     pub children: Vec<Object>,
 }
 
+impl Card {
+    pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
+        let mut column = Flex::column();
+        for child in &self.children {
+            column = column.with_child(child.into_masonry_widget());
+        }
+        NewWidget::new(column)
+    }
+}
+
 impl Default for Card {
     fn default() -> Self {
         Self { children: vec![] }
@@ -36,6 +59,16 @@ impl Default for Card {
 #[derive(Debug, Clone)]
 pub struct Row {
     pub children: Vec<Object>,
+}
+
+impl Row {
+    pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
+        let mut row = Flex::row();
+        for child in &self.children {
+            row = row.with_child(child.into_masonry_widget());
+        }
+        NewWidget::new(row)
+    }
 }
 
 impl Default for Row {

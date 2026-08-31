@@ -1,3 +1,6 @@
+use masonry::core::NewWidget;
+use masonry::widgets::Flex;
+
 use crate::elements::{Button, Element};
 use crate::object::Object;
 use crate::traits::IntoObject;
@@ -86,6 +89,16 @@ impl std::fmt::Debug for Form {
             .field("reset_button", &self.reset_button)
             .field("children", &self.children)
             .finish()
+    }
+}
+
+impl Form {
+    pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
+        let mut column = Flex::column();
+        for child in &self.children {
+            column = column.with_child(child.into_masonry_widget());
+        }
+        NewWidget::new(column)
     }
 }
 

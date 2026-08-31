@@ -1,3 +1,6 @@
+use masonry::core::NewWidget;
+use masonry::widgets::{Button as MasonryButton, Flex, Label};
+
 use crate::form::Form;
 use crate::object::Object;
 use crate::traits::IntoObject;
@@ -22,6 +25,20 @@ pub struct Text {
 impl Default for Text {
     fn default() -> Self {
         Self { text: "" }
+    }
+}
+
+impl Text {
+    pub fn set_text(&mut self, text: impl Into<String>) {
+        let s = text.into();
+        let leaked: &'static str = Box::leak(s.into_boxed_str());
+        self.text = leaked;
+    }
+
+    pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
+        let mut column = Flex::column();
+        column = column.with_child(NewWidget::new(Label::new(self.text)));
+        NewWidget::new(column)
     }
 }
 
@@ -63,6 +80,20 @@ impl Default for Button {
     }
 }
 
+impl Button {
+    pub fn set_text(&mut self, text: impl Into<String>) {
+        let s = text.into();
+        let leaked: &'static str = Box::leak(s.into_boxed_str());
+        self.text = leaked;
+    }
+
+    pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
+        let mut column = Flex::column();
+        column = column.with_child(NewWidget::new(MasonryButton::with_text(self.text)));
+        NewWidget::new(column)
+    }
+}
+
 impl From<Button> for Element {
     fn from(b: Button) -> Self {
         Element::Button(b)
@@ -95,6 +126,17 @@ impl Default for TextInput {
             r#type: "text",
             max_len: 0,
         }
+    }
+}
+
+impl TextInput {
+    pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
+        let mut column = Flex::column();
+        if !self.label.is_empty() {
+            column = column.with_child(NewWidget::new(Label::new(self.label)));
+        }
+        column = column.with_child(NewWidget::new(Label::new(self.name)));
+        NewWidget::new(column)
     }
 }
 
@@ -145,6 +187,16 @@ impl Default for Switch {
             children: vec![],
             active: 0,
         }
+    }
+}
+
+impl Switch {
+    pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
+        let mut column = Flex::column();
+        if let Some(child) = self.children.get(self.active.min(self.children.len().saturating_sub(1))) {
+            column = column.with_child(child.into_masonry_widget());
+        }
+        NewWidget::new(column)
     }
 }
 
