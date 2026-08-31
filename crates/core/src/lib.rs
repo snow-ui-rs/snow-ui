@@ -2,6 +2,7 @@
 //
 // All implementation details are now split into separate modules for maintainability.
 
+pub mod backend;
 pub mod elements;
 pub mod event_bus;
 pub mod form;
@@ -15,6 +16,8 @@ pub mod traits;
 pub mod types;
 
 // Re-export the public API for ergonomic `snow_ui::...` usage.
+pub use crate::backend::{SnowNode, SnowWorld};
+pub use crate::backend::masonry_backend;
 pub use crate::elements::{Button, Element, IntervalTimer, Switch, Text, TextClock, TextInput};
 pub use crate::event_bus::{EventBus, EventBusHandle, EventBusReceiver, event_bus};
 pub use crate::form::Form;

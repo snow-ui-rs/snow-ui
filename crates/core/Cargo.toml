@@ -18,6 +18,8 @@ snow-ui-macros = { workspace = true }
 tokio = { workspace = true, features = ["time", "rt"] }
 futures = { workspace = true }
 inventory = { workspace = true }
+masonry = "0.4.0"
+masonry_winit = "0.4.0"
 
 [[example]]
 name = "lovely_girl"
@@ -34,6 +36,10 @@ path = "../../examples/timer.rs"
 [[example]]
 name = "click"
 path = "../../examples/click.rs"
+
+[[example]]
+name = "masonry_button"
+path = "../../examples/masonry_button.rs"
 
 [[example]]
 name = "login"
