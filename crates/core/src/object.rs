@@ -1,5 +1,5 @@
 use masonry::core::NewWidget;
-use masonry::widgets::Flex;
+use masonry::widgets::{Flex, Label};
 
 use crate::elements::{Element, Text, TextClock};
 use crate::girl::Girl;
@@ -8,13 +8,29 @@ use crate::traits::IntoObject;
 
 // ── Object enum ──────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Object {
     Board(Board),
     Girl(Girl),
     Card(Card),
     Row(Row),
     Element(Element),
+    DynamicText {
+        value: std::sync::Arc<dyn Fn() -> String + Send + Sync + 'static>,
+    },
+}
+
+impl std::fmt::Debug for Object {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Board(v) => f.debug_tuple("Board").field(v).finish(),
+            Self::Girl(v) => f.debug_tuple("Girl").field(v).finish(),
+            Self::Card(v) => f.debug_tuple("Card").field(v).finish(),
+            Self::Row(v) => f.debug_tuple("Row").field(v).finish(),
+            Self::Element(v) => f.debug_tuple("Element").field(v).finish(),
+            Self::DynamicText { .. } => f.write_str("DynamicText { .. }"),
+        }
+    }
 }
 
 impl Object {
@@ -30,6 +46,12 @@ impl Object {
             Object::Element(Element::Form(form)) => form.clone().into_masonry_widget(),
             Object::Element(Element::TextInput(text_input)) => text_input.into_masonry_widget(),
             Object::Element(Element::Switch(switch_)) => switch_.into_masonry_widget(),
+            Object::DynamicText { value } => {
+                let inner = value();
+                let mut column = Flex::column();
+                column = column.with_child(NewWidget::new(Label::new(inner.as_str())));
+                NewWidget::new(column)
+            }
         }
     }
 
@@ -66,6 +88,7 @@ impl Object {
             }
             Object::Element(Element::TextClock(_)) => {}
             Object::Girl(_) => {}
+            Object::DynamicText { .. } => {}
         }
     }
 
@@ -102,6 +125,7 @@ impl Object {
             }
             Object::Element(Element::Text(_) | Element::TextInput(_) | Element::TextClock(_)) => {}
             Object::Girl(_) => {}
+            Object::DynamicText { .. } => {}
         }
     }
 
@@ -166,6 +190,7 @@ impl Object {
             | Object::Element(Element::TextClock(_))
             | Object::Element(Element::TextInput(_))
             | Object::Girl(_) => {}
+            Object::DynamicText { .. } => {}
         }
     }
 }

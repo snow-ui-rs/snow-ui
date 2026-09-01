@@ -14,6 +14,7 @@ pub struct State<T> {
 impl<T> State<T> {
     /// Create a new state wrapping the given value.
     pub fn new(value: T) -> Self {
+        eprintln!("[snow-ui::state] State::<{}>::new()", std::any::type_name::<T>());
         Self {
             inner: std::sync::Arc::new(std::sync::Mutex::new(value)),
         }
@@ -24,11 +25,14 @@ impl<T> State<T> {
     where
         T: Clone,
     {
-        self.inner.lock().unwrap().clone()
+        let value = self.inner.lock().unwrap().clone();
+        eprintln!("[snow-ui::state] State::<{}>::get() -> value read", std::any::type_name::<T>());
+        value
     }
 
     /// Set the inner value.
     pub fn set(&self, value: T) {
+        eprintln!("[snow-ui::state] State::<{}>::set()", std::any::type_name::<T>());
         *self.inner.lock().unwrap() = value;
     }
 
@@ -37,8 +41,10 @@ impl<T> State<T> {
     where
         F: FnOnce(&mut T),
     {
+        eprintln!("[snow-ui::state] State::<{}>::update() begin", std::any::type_name::<T>());
         let mut b = self.inner.lock().unwrap();
         f(&mut *b);
+        eprintln!("[snow-ui::state] State::<{}>::update() end", std::any::type_name::<T>());
     }
 
     /// Borrow the inner value immutably (returns a guard).
@@ -58,12 +64,16 @@ impl<T: Default> Default for State<T> {
     }
 }
 
-// Allow converting `State<T>` into an `Object` when the inner `T` can be converted.
+// Keep a live state handle in the object tree instead of converting to a one-time snapshot.
 impl<T> From<State<T>> for Object
 where
-    T: Clone + Into<Object>,
+    T: Clone + std::fmt::Display + Send + Sync + 'static,
 {
     fn from(s: State<T>) -> Self {
-        s.get().into()
+        let live = s.clone();
+        Object::DynamicText {
+            value: std::sync::Arc::new(move || live.get().to_string())
+                as std::sync::Arc<dyn Fn() -> String + Send + Sync + 'static>,
+        }
     }
 }

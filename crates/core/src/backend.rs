@@ -298,6 +298,10 @@ impl From<Object> for SnowNode {
                 text: String::new(),
                 id: 0,
             },
+            Object::DynamicText { value } => SnowNode::Text {
+                text: value(),
+                id: 0,
+            },
         }
     }
 }

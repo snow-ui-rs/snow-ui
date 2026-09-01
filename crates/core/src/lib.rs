@@ -16,11 +16,11 @@ pub mod traits;
 pub mod types;
 
 // Re-export the public API for ergonomic `snow_ui::...` usage.
+pub use crate::backend::masonry_backend;
 pub use crate::backend::{
     SnowAction, SnowApp, SnowComponent, SnowComponentInstance, SnowMessage, SnowNode, SnowRuntime,
     SnowState, SnowUpdate, SnowView, SnowWorld,
 };
-pub use crate::backend::masonry_backend;
 pub use crate::elements::{Button, Element, IntervalTimer, Switch, Text, TextClock, TextInput};
 pub use crate::event_bus::{EventBus, EventBusHandle, EventBusReceiver, event_bus};
 pub use crate::form::Form;
@@ -40,6 +40,34 @@ pub use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
 
 // Pulled in by the old-day convenient prelude and `register_handler!` macro flow.
 pub use inventory;
+
+static CLICK_HANDLERS: std::sync::OnceLock<
+    std::sync::Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>,
+> = std::sync::OnceLock::new();
+
+fn get_click_handlers() -> &'static std::sync::Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>> {
+    CLICK_HANDLERS.get_or_init(|| std::sync::Mutex::new(Vec::new()))
+}
+
+pub fn register_click_handler<F>(handler: F)
+where
+    F: Fn() + Send + Sync + 'static,
+{
+    eprintln!("[snow-ui] register_click_handler: registered one click callback");
+    get_click_handlers().lock().unwrap().push(Box::new(handler));
+}
+
+pub fn trigger_clicks() {
+    let handlers = get_click_handlers().lock().unwrap();
+    eprintln!(
+        "[snow-ui] trigger_clicks: {} handler(s) to run",
+        handlers.len()
+    );
+    for handler in handlers.iter() {
+        eprintln!("[snow-ui] trigger_clicks: invoking a click handler");
+        handler();
+    }
+}
 
 /// Macro to register a `MessageHandler` implementation and automatically submit it to inventory.
 ///
@@ -96,7 +124,7 @@ pub mod prelude {
         Message, MessageContext, MessageHandler, MessageReceiver, Object, Row, ServerApi,
         SkinColor, State, Switch, Text, TextClock, TextInput, UpdateContext, VAlign,
         VIEWPORT_HEIGHT, VIEWPORT_WIDTH, World, event_bus, has_registered_handlers,
-        register_handlers_for_instance,
+        register_click_handler, register_handlers_for_instance, trigger_clicks,
     };
 
     pub use super::inventory;
@@ -119,6 +147,7 @@ fn run_masonry_window(world: World) {
 
     struct LaunchDriver {
         window_id: WindowId,
+        world: World,
         adapter: crate::backend::masonry_backend::MasonryAdapter,
     }
 
@@ -126,17 +155,37 @@ fn run_masonry_window(world: World) {
         fn on_action(
             &mut self,
             window_id: WindowId,
-            _ctx: &mut DriverCtx<'_, '_>,
+            ctx: &mut DriverCtx<'_, '_>,
             _widget_id: WidgetId,
             action: ErasedAction,
         ) {
             debug_assert_eq!(window_id, self.window_id, "unknown window");
 
             if action.is::<ButtonPress>() {
+                eprintln!("[snow-ui] AppDriver::on_action: ButtonPress received");
+                crate::trigger_clicks();
+
                 if let Some(message) = self.adapter.dispatch_action(&action) {
+                    eprintln!(
+                        "[snow-ui] AppDriver::on_action: dispatch_action produced message: {:?}",
+                        message
+                    );
                     self.adapter.handle_message(&message);
-                    let _ = self.adapter.render();
+                    eprintln!("[snow-ui] AppDriver::on_action: handle_message completed");
+                } else {
+                    eprintln!("[snow-ui] AppDriver::on_action: dispatch_action returned None");
                 }
+
+                let rebuilt_root = self.world.clone().into_masonry_widget();
+                eprintln!("[snow-ui] AppDriver::on_action: rebuilding render root from live world");
+                ctx.render_root(window_id).edit_layer(0, |mut root| {
+                    let mut flex = root.downcast::<masonry::widgets::Flex>();
+                    while flex.widget.len() > 0 {
+                        masonry::widgets::Flex::remove_child(&mut flex, 0);
+                    }
+                    masonry::widgets::Flex::add_child(&mut flex, rebuilt_root);
+                });
+                eprintln!("[snow-ui] AppDriver::on_action: render root rebuild complete");
             }
         }
     }
@@ -153,6 +202,7 @@ fn run_masonry_window(world: World) {
 
     let driver = LaunchDriver {
         window_id: WindowId::next(),
+        world: world.clone(),
         adapter,
     };
 

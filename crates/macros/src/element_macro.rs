@@ -247,6 +247,31 @@ fn gen_single_field_into_object(
         )
     };
 
+    let button_click_registration = if is_button {
+        quote! {
+            let rc = ::std::sync::Arc::new(::std::sync::Mutex::new(self));
+            let click_rc = rc.clone();
+            ::snow_ui::register_click_handler(move || {
+                let handler = click_rc.clone();
+                let join_handle = std::thread::spawn(move || {
+                    let runtime = tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                        .expect("failed to build isolated Tokio runtime");
+                    runtime.block_on(async move {
+                        let mut target = handler.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                        <#name as ::snow_ui::ClickHandler>::on_click(&mut *target).await;
+                    });
+                });
+                let _ = join_handle.join();
+            });
+            let button = rc.lock().unwrap().#accessor.clone();
+            button.into()
+        }
+    } else {
+        quote! { #value_from_self }
+    };
+
     if message_paths.is_empty() {
         // Inventory-based auto-registration.
         quote! {
@@ -259,7 +284,7 @@ fn gen_single_field_into_object(
                         ::snow_ui::register_handlers_for_instance(&rc);
                         #value_from_ref
                     } else {
-                        #value_from_self
+                        #button_click_registration
                     }
                 }
             }
@@ -275,7 +300,7 @@ fn gen_single_field_into_object(
                     #(
                         ::snow_ui::event_bus().register_handler::<#name, #regs>(rc.clone());
                     )*
-                    #value_from_ref
+                    #button_click_registration
                 }
             }
         }
