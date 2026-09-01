@@ -52,10 +52,8 @@ impl Object {
                 }
             }
             Object::Element(Element::Text(node)) => node.set_text(next.clone()),
-            Object::Element(Element::Button(node)) => node.set_text(next.clone()),
+            Object::Element(Element::Button(_)) => {}
             Object::Element(Element::Form(form)) => {
-                form.submit_button.set_text(next.clone());
-                form.reset_button.set_text(next.clone());
                 for child in &mut form.children {
                     child.update_text_recursive(next.clone());
                 }
@@ -109,7 +107,9 @@ impl Object {
 
     pub fn apply_update(&mut self, update: &crate::backend::SnowUpdate) {
         match update {
-            crate::backend::SnowUpdate::SetText { text, .. } => self.update_text_recursive(text.clone()),
+            crate::backend::SnowUpdate::SetText { text, .. } => {
+                self.update_text_recursive(text.clone())
+            }
             crate::backend::SnowUpdate::SetButtonText { text, .. } => {
                 self.update_button_text_recursive(text.clone())
             }

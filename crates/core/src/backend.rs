@@ -6,11 +6,25 @@ use crate::object::{Object, World};
 
 #[derive(Clone, Debug)]
 pub enum SnowComponent {
-    Text { text: String, id: u64 },
-    Button { text: String, id: u64 },
-    Row { children: Vec<SnowComponent> },
-    Column { children: Vec<SnowComponent> },
-    Box { width: f64, height: f64, children: Vec<SnowComponent> },
+    Text {
+        text: String,
+        id: u64,
+    },
+    Button {
+        text: String,
+        id: u64,
+    },
+    Row {
+        children: Vec<SnowComponent>,
+    },
+    Column {
+        children: Vec<SnowComponent>,
+    },
+    Box {
+        width: f64,
+        height: f64,
+        children: Vec<SnowComponent>,
+    },
 }
 
 #[derive(Clone, Debug)]
@@ -72,7 +86,9 @@ impl SnowComponentInstance {
     }
 
     pub fn into_world(self) -> World {
-        World { root: self.into_object() }
+        World {
+            root: self.into_object(),
+        }
     }
 }
 
@@ -88,17 +104,30 @@ impl SnowComponent {
                 Object::from(Button { text: leaked })
             }
             SnowComponent::Row { children } => Object::from(Row {
-                children: children.into_iter().map(SnowComponent::into_object).collect(),
+                children: children
+                    .into_iter()
+                    .map(SnowComponent::into_object)
+                    .collect(),
             }),
             SnowComponent::Column { children } => Object::from(Row {
-                children: children.into_iter().map(SnowComponent::into_object).collect(),
+                children: children
+                    .into_iter()
+                    .map(SnowComponent::into_object)
+                    .collect(),
             }),
-            SnowComponent::Box { width: _, height: _, children } => Object::from(Board {
+            SnowComponent::Box {
+                width: _,
+                height: _,
+                children,
+            } => Object::from(Board {
                 width: crate::types::Size::ViewportWidth,
                 height: crate::types::Size::ViewportHeight,
                 h_align: crate::types::HAlign::Center,
                 v_align: crate::types::VAlign::Middle,
-                children: children.into_iter().map(SnowComponent::into_object).collect(),
+                children: children
+                    .into_iter()
+                    .map(SnowComponent::into_object)
+                    .collect(),
             }),
         }
     }
@@ -156,17 +185,33 @@ impl SnowComponent {
     }
 
     pub fn into_world(self) -> World {
-        World { root: self.into_object() }
+        World {
+            root: self.into_object(),
+        }
     }
 }
 
 #[derive(Clone, Debug)]
 pub enum SnowNode {
-    Text { text: String, id: u64 },
-    Button { text: String, id: u64 },
-    Row { children: Vec<SnowNode> },
-    Column { children: Vec<SnowNode> },
-    Box { width: f64, height: f64, children: Vec<SnowNode> },
+    Text {
+        text: String,
+        id: u64,
+    },
+    Button {
+        text: String,
+        id: u64,
+    },
+    Row {
+        children: Vec<SnowNode>,
+    },
+    Column {
+        children: Vec<SnowNode>,
+    },
+    Box {
+        width: f64,
+        height: f64,
+        children: Vec<SnowNode>,
+    },
 }
 
 impl Default for SnowNode {
@@ -195,7 +240,11 @@ impl From<SnowNode> for Object {
             SnowNode::Column { children } => Object::from(Row {
                 children: children.into_iter().map(Object::from).collect(),
             }),
-            SnowNode::Box { width: _, height: _, children } => Object::from(Board {
+            SnowNode::Box {
+                width: _,
+                height: _,
+                children,
+            } => Object::from(Board {
                 width: crate::types::Size::ViewportWidth,
                 height: crate::types::Size::ViewportHeight,
                 h_align: crate::types::HAlign::Center,
@@ -243,11 +292,7 @@ impl From<Object> for SnowNode {
                 id: 0,
             },
             Object::Element(crate::elements::Element::Switch(switch_)) => SnowNode::Column {
-                children: switch_
-                    .children
-                    .into_iter()
-                    .map(SnowNode::from)
-                    .collect(),
+                children: switch_.children.into_iter().map(SnowNode::from).collect(),
             },
             Object::Element(crate::elements::Element::TextClock(_)) => SnowNode::Text {
                 text: String::new(),
@@ -259,7 +304,9 @@ impl From<Object> for SnowNode {
 
 impl From<SnowWorld> for World {
     fn from(world: SnowWorld) -> Self {
-        Self { root: world.root.into() }
+        Self {
+            root: world.root.into(),
+        }
     }
 }
 
@@ -298,9 +345,9 @@ impl SnowNode {
             SnowNode::Button { .. } => None,
             SnowNode::Row { children }
             | SnowNode::Column { children }
-            | SnowNode::Box { children, .. } => {
-                children.iter().find_map(|child| child.find_button(target_id))
-            }
+            | SnowNode::Box { children, .. } => children
+                .iter()
+                .find_map(|child| child.find_button(target_id)),
             SnowNode::Text { .. } => None,
         }
     }
@@ -403,10 +450,23 @@ impl SnowNode {
     pub fn reconcile(&self, snapshot: &SnowNode) -> SnowNode {
         match (self, snapshot) {
             (SnowNode::Text { id: left_id, .. }, SnowNode::Text { id: right_id, .. })
-                if left_id == right_id => snapshot.clone(),
+                if left_id == right_id =>
+            {
+                self.clone()
+            }
             (SnowNode::Button { id: left_id, .. }, SnowNode::Button { id: right_id, .. })
-                if left_id == right_id => snapshot.clone(),
-            (SnowNode::Row { children: left_children }, SnowNode::Row { children: right_children }) => {
+                if left_id == right_id =>
+            {
+                self.clone()
+            }
+            (
+                SnowNode::Row {
+                    children: left_children,
+                },
+                SnowNode::Row {
+                    children: right_children,
+                },
+            ) => {
                 let mut merged = Vec::with_capacity(right_children.len());
                 for (left, right) in left_children.iter().zip(right_children.iter()) {
                     merged.push(left.reconcile(right));
@@ -416,7 +476,14 @@ impl SnowNode {
                 }
                 SnowNode::Row { children: merged }
             }
-            (SnowNode::Column { children: left_children }, SnowNode::Column { children: right_children }) => {
+            (
+                SnowNode::Column {
+                    children: left_children,
+                },
+                SnowNode::Column {
+                    children: right_children,
+                },
+            ) => {
                 let mut merged = Vec::with_capacity(right_children.len());
                 for (left, right) in left_children.iter().zip(right_children.iter()) {
                     merged.push(left.reconcile(right));
@@ -426,8 +493,18 @@ impl SnowNode {
                 }
                 SnowNode::Column { children: merged }
             }
-            (SnowNode::Box { width: _, height: _, children: left_children },
-             SnowNode::Box { width, height, children: right_children }) => {
+            (
+                SnowNode::Box {
+                    width: _,
+                    height: _,
+                    children: left_children,
+                },
+                SnowNode::Box {
+                    width,
+                    height,
+                    children: right_children,
+                },
+            ) => {
                 let mut merged = Vec::with_capacity(right_children.len());
                 for (left, right) in left_children.iter().zip(right_children.iter()) {
                     merged.push(left.reconcile(right));
@@ -560,7 +637,10 @@ impl SnowState {
     }
 
     pub fn get(&self, id: u64, fallback: &str) -> String {
-        self.values.get(&id).cloned().unwrap_or_else(|| fallback.to_string())
+        self.values
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| fallback.to_string())
     }
 
     pub fn apply_update(&mut self, update: &SnowUpdate) {
@@ -625,12 +705,18 @@ impl SnowRuntime {
         self.adapter.render()
     }
 
-    pub fn step(&mut self, message: &SnowMessage) -> masonry::core::NewWidget<masonry::widgets::Flex> {
+    pub fn step(
+        &mut self,
+        message: &SnowMessage,
+    ) -> masonry::core::NewWidget<masonry::widgets::Flex> {
         self.update(message);
         self.render()
     }
 
-    pub fn run(&mut self, message: &SnowMessage) -> masonry::core::NewWidget<masonry::widgets::Flex> {
+    pub fn run(
+        &mut self,
+        message: &SnowMessage,
+    ) -> masonry::core::NewWidget<masonry::widgets::Flex> {
         self.step(message)
     }
 }
@@ -682,11 +768,17 @@ impl SnowView {
     }
 
     pub fn update_text(&mut self, id: u64, text: impl Into<String>) {
-        self.apply_update(&SnowUpdate::SetText { id, text: text.into() });
+        self.apply_update(&SnowUpdate::SetText {
+            id,
+            text: text.into(),
+        });
     }
 
     pub fn update_button_text(&mut self, id: u64, text: impl Into<String>) {
-        self.apply_update(&SnowUpdate::SetButtonText { id, text: text.into() });
+        self.apply_update(&SnowUpdate::SetButtonText {
+            id,
+            text: text.into(),
+        });
     }
 
     pub fn bind_state_to_node(&self) -> SnowNode {
@@ -873,19 +965,31 @@ impl SnowApp {
         self.runtime.adapter.render_library_world(&world)
     }
 
-    pub fn step(&mut self, message: &SnowMessage) -> masonry::core::NewWidget<masonry::widgets::Flex> {
+    pub fn step(
+        &mut self,
+        message: &SnowMessage,
+    ) -> masonry::core::NewWidget<masonry::widgets::Flex> {
         self.runtime.step(message)
     }
 
-    pub fn run(&mut self, message: &SnowMessage) -> masonry::core::NewWidget<masonry::widgets::Flex> {
+    pub fn run(
+        &mut self,
+        message: &SnowMessage,
+    ) -> masonry::core::NewWidget<masonry::widgets::Flex> {
         self.runtime.run(message)
     }
 
-    pub fn launch(&mut self, message: &SnowMessage) -> masonry::core::NewWidget<masonry::widgets::Flex> {
+    pub fn launch(
+        &mut self,
+        message: &SnowMessage,
+    ) -> masonry::core::NewWidget<masonry::widgets::Flex> {
         self.run(message)
     }
 
-    pub fn start(&mut self, message: &SnowMessage) -> masonry::core::NewWidget<masonry::widgets::Flex> {
+    pub fn start(
+        &mut self,
+        message: &SnowMessage,
+    ) -> masonry::core::NewWidget<masonry::widgets::Flex> {
         self.run(message)
     }
 }
@@ -901,6 +1005,10 @@ pub mod masonry_backend {
     }
 
     impl MasonryAdapter {
+        pub fn state(&self) -> &SnowState {
+            &self.state
+        }
+
         pub fn new() -> Self {
             Self {
                 state: SnowState::default(),
@@ -923,7 +1031,9 @@ pub mod masonry_backend {
 
         pub fn sync_state_from_world(&mut self) {
             self.state.values.clear();
-            self.state.values.extend(self.collect_text_values(&self.world.root));
+            self.state
+                .values
+                .extend(self.collect_text_values(&self.world.root));
         }
 
         pub fn apply_update(&mut self, update: &SnowUpdate) {
@@ -1060,7 +1170,8 @@ pub mod masonry_backend {
 
 #[cfg(test)]
 mod tests {
-    use super::{MasonryAdapter, SnowMessage, SnowNode, SnowWorld};
+    use super::masonry_backend::MasonryAdapter;
+    use super::{SnowMessage, SnowNode, SnowUpdate, SnowWorld};
 
     #[test]
     fn button_click_updates_live_world_text() {
@@ -1096,10 +1207,13 @@ mod tests {
             },
         };
 
-        let _ = adapter.apply_message_and_rebuild(&next, &SnowMessage::ButtonClicked {
-            button_id: 2,
-            count: 1,
-        });
+        let _ = adapter.apply_message_and_rebuild(
+            &next,
+            &SnowMessage::ButtonClicked {
+                button_id: 2,
+                count: 1,
+            },
+        );
 
         let button = adapter.world().root.find_button(2);
         assert!(button.is_some());
@@ -1126,8 +1240,8 @@ mod tests {
 
         adapter.sync_state_from_world();
 
-        assert_eq!(adapter.state.get(1, ""), "Snow UI + Masonry");
-        assert_eq!(adapter.state.get(2, ""), "Clicked 7 times");
+        assert_eq!(adapter.state().get(1, ""), "Snow UI + Masonry");
+        assert_eq!(adapter.state().get(2, ""), "Clicked 7 times");
     }
 
     #[test]
@@ -1145,13 +1259,18 @@ mod tests {
             ],
         };
 
-        root.apply_update(&SnowUpdate::SetText { id: 5, text: "after".to_string() });
+        root.apply_update(&SnowUpdate::SetText {
+            id: 5,
+            text: "after".to_string(),
+        });
         root.apply_update(&SnowUpdate::SetButtonText {
             id: 6,
             text: "new".to_string(),
         });
 
-        assert!(matches!(root.find_button(6), Some(SnowNode::Button { text, .. }) if text == "new"));
+        assert!(
+            matches!(root.find_button(6), Some(SnowNode::Button { text, .. }) if text == "new")
+        );
         assert!(matches!(root.find_text(5), Some(SnowNode::Text { text, .. }) if text == "after"));
     }
 
@@ -1312,7 +1431,7 @@ mod tests {
             super::SnowComponent::button(2, "press"),
         ]);
 
-        let root = component.into_node();
+        let root = component.clone().into_node();
         let app = super::SnowApp::with_component(component);
 
         assert!(matches!(root, SnowNode::Column { .. }));
@@ -1366,7 +1485,10 @@ mod tests {
         });
 
         assert_eq!(view.state.get(&2), Some(&"Clicked 3 times".to_string()));
-        assert!(matches!(view.component.into_node(), SnowNode::Column { .. }));
+        assert!(matches!(
+            view.component.into_node(),
+            SnowNode::Column { .. }
+        ));
     }
 
     #[test]
@@ -1377,7 +1499,8 @@ mod tests {
         ]));
 
         let from_root = super::SnowApp::from_root(super::SnowNode::text(3, "root"));
-        let from_component = super::SnowApp::from_component(super::SnowComponent::text(4, "component"));
+        let from_component =
+            super::SnowApp::from_component(super::SnowComponent::text(4, "component"));
         let from_view = super::SnowApp::from_view(view);
 
         assert!(matches!(from_root.world().root, SnowNode::Text { .. }));
@@ -1397,7 +1520,9 @@ mod tests {
         });
 
         assert_eq!(view.state.get(&2), Some(&"after".to_string()));
-        assert!(matches!(app.world().root.find_button(2), Some(SnowNode::Button { text, .. }) if text == "final"));
+        assert!(
+            matches!(app.world().root.find_button(2), Some(SnowNode::Button { text, .. }) if text == "final")
+        );
     }
 
     #[test]
@@ -1425,7 +1550,9 @@ mod tests {
         });
 
         let button = app.world().root.find_button(2);
-        assert!(matches!(button, Some(SnowNode::Button { text, .. }) if text == "Clicked 10 times"));
+        assert!(
+            matches!(button, Some(SnowNode::Button { text, .. }) if text == "Clicked 10 times")
+        );
     }
 
     #[test]
@@ -1465,24 +1592,26 @@ mod tests {
 
     #[test]
     fn component_instance_owns_state_and_converts_to_world() {
-        let mut instance = super::SnowComponentInstance::new(super::SnowComponent::button(2, "before"));
+        let mut instance =
+            super::SnowComponentInstance::new(super::SnowComponent::button(2, "before"));
         instance.update_text(2, "after");
 
         let world = instance.into_world();
-        let button = world.root
-            .clone()
-            .into();
+        let button: crate::object::Object = world.root.clone().into();
         let _ = button;
 
-        assert!(matches!(world.root, crate::object::Object::Element(crate::elements::Element::Button(_))));
+        assert!(matches!(
+            world.root,
+            crate::object::Object::Element(crate::elements::Element::Button(_))
+        ));
     }
 
     #[test]
     fn library_world_applies_runtime_message_to_button_text() {
         let mut world = crate::object::World {
-            root: crate::object::Object::Element(crate::elements::Element::Button(crate::elements::Button {
-                text: "before",
-            })),
+            root: crate::object::Object::Element(crate::elements::Element::Button(
+                crate::elements::Button { text: "before" },
+            )),
         };
 
         world.apply_message(&super::SnowMessage::ButtonClicked {
@@ -1507,16 +1636,19 @@ mod tests {
         });
 
         assert!(app.instance().is_some());
-        assert_eq!(app.instance().unwrap().state.get(&2), Some(&"Clicked 6 times".to_string()));
+        assert_eq!(
+            app.instance().unwrap().state.get(&2),
+            Some(&"Clicked 6 times".to_string())
+        );
     }
 
     #[test]
     fn app_can_be_built_from_real_library_world() {
         let world = crate::object::World {
             root: crate::object::Object::Row(crate::layout::Row {
-                children: vec![crate::object::Object::Element(crate::elements::Element::Button(
-                    crate::elements::Button { text: "hello" },
-                ))],
+                children: vec![crate::object::Object::Element(
+                    crate::elements::Element::Button(crate::elements::Button { text: "hello" }),
+                )],
             }),
         };
 
