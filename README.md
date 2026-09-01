@@ -1,6 +1,6 @@
 # Snow UI: Pure Rust UI Framework
 
-**Current status:** examples only.
+**Current status:** It works, initially.
 
 ## Philosophy
 
