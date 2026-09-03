@@ -273,7 +273,7 @@ impl From<u128> for Object {
         // Convert number to a textual representation for demonstration.
         let s = format!("{}", n);
         let leaked: &'static str = Box::leak(s.into_boxed_str());
-        Text { text: leaked }.into()
+        Text { text: leaked, ..Text::default() }.into()
     }
 }
 

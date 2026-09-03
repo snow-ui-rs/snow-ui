@@ -190,6 +190,41 @@ fn gen_into_object(
                 Some(field_ident),
             )
         }
+        syn::Fields::Named(n) if n.named.iter().any(|field| is_visible_ty(&field.ty)) => {
+            let visible_fields = n
+                .named
+                .iter()
+                .filter_map(|field| {
+                    is_visible_ty(&field.ty).then(|| field.ident.as_ref().unwrap())
+                })
+                .collect::<Vec<_>>();
+            let registrations = if message_paths.is_empty() {
+                quote! {
+                    if ::snow_ui::has_registered_handlers::<#name>() {
+                        ::snow_ui::register_handlers_for_instance(&rc);
+                    }
+                }
+            } else {
+                let regs = message_paths.iter();
+                quote! {
+                    #(::snow_ui::event_bus().register_handler::<#name, #regs>(rc.clone());)*
+                }
+            };
+            quote! {
+                #struct_item
+                #default_impl
+                impl ::snow_ui::IntoObject for #name {
+                    fn into_object(self) -> ::snow_ui::Object {
+                        let rc = ::std::sync::Arc::new(::std::sync::Mutex::new(self));
+                        #registrations
+                        let value = rc.lock().unwrap();
+                        ::snow_ui::Object::Row(::snow_ui::Row {
+                            children: vec![#(::snow_ui::Object::from(value.#visible_fields.clone())),*],
+                        })
+                    }
+                }
+            }
+        }
         _ => {
             // Multi-field or unit struct — inventory-based fallback.
             quote! {
@@ -201,11 +236,22 @@ fn gen_into_object(
                             let rc = ::std::sync::Arc::new(::std::sync::Mutex::new(self));
                             ::snow_ui::register_handlers_for_instance(&rc);
                         }
-                        ::snow_ui::Text { text: "" }.into()
+                        ::snow_ui::Text { text: "", .. ::snow_ui::prelude::default() }.into()
                     }
                 }
             }
         }
+    }
+}
+
+fn is_visible_ty(ty: &syn::Type) -> bool {
+    if let syn::Type::Path(p) = ty {
+        matches!(
+            p.path.segments.last().unwrap().ident.to_string().as_str(),
+            "Text" | "Button" | "Form" | "TextInput" | "Switch"
+        )
+    } else {
+        false
     }
 }
 

@@ -90,6 +90,9 @@ fn main() {
 
 A simple timer example that implements its own ticker.
 
+The `State` and `IntervalTimer` fields drive behavior but are not rendered;
+the visible `Text` field reads the current state when the element is rendered.
+
 ```rust
 use snow_ui::prelude::*;
 use tokio::time::Duration;
@@ -101,6 +104,7 @@ struct SimpleTextTimerTickEvent {}
 struct SimpleTextTimer {
     seconds: State<u128>,
     timer: IntervalTimer<SimpleTextTimerTickEvent>,
+    text: Text,
 }
 
 register_handler!(
@@ -112,9 +116,11 @@ register_handler!(
 );
 
 fn simple_text_timer() -> Object {
+    let seconds = State::new(0);
     obj!(SimpleTextTimer {
-        seconds: State::new(0),
+        seconds: seconds.clone(),
         timer: IntervalTimer::from_interval(Duration::from_secs(1)),
+        text: Text::from_state(&seconds),
     })
 }
 
@@ -153,6 +159,9 @@ fn main() {
 
 A minimal example demonstrating message transfer between components.
 
+Only visible element fields are rendered. The `count` state is kept for the
+message handler, while `text` displays its current value.
+
 ```rust
 use snow_ui::prelude::*;
 
@@ -181,6 +190,7 @@ fn increase_button() -> Object {
 #[element]
 struct SimpleText {
     count: State<u128>,
+    text: Text,
 }
 
 register_handler!(
@@ -192,8 +202,10 @@ register_handler!(
 );
 
 fn simple_text() -> Object {
+    let count = State::new(0);
     obj!(SimpleText {
-        count: State::new(0)
+        count: count.clone(),
+        text: Text::from_state(&count),
     })
 }
 

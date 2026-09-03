@@ -3,6 +3,7 @@ use masonry::widgets::{Button as MasonryButton, Flex, Label};
 
 use crate::form::Form;
 use crate::object::Object;
+use crate::state::State;
 use crate::traits::IntoObject;
 
 #[derive(Debug, Clone)]
@@ -17,27 +18,60 @@ pub enum Element {
 
 // ── Text ─────────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Text {
     pub text: &'static str,
+    pub state: Option<std::sync::Arc<dyn Fn() -> String + Send + Sync + 'static>>,
+}
+
+impl std::fmt::Debug for Text {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Text")
+            .field("text", &self.text)
+            .field("state", &self.state.as_ref().map(|_| "<bound>"))
+            .finish()
+    }
 }
 
 impl Default for Text {
     fn default() -> Self {
-        Self { text: "" }
+        Self {
+            text: "",
+            state: None,
+        }
     }
 }
 
 impl Text {
+    pub fn from_state<T>(state: &State<T>) -> Self
+    where
+        T: Clone + std::fmt::Display + Send + Sync + 'static,
+    {
+        let live_state = state.clone();
+        Self {
+            text: "",
+            state: Some(std::sync::Arc::new(move || live_state.get().to_string())),
+        }
+    }
+
+    pub fn visible_text(&self) -> String {
+        self.state
+            .as_ref()
+            .map(|value| value())
+            .unwrap_or_else(|| self.text.to_string())
+    }
+
     pub fn set_text(&mut self, text: impl Into<String>) {
         let s = text.into();
         let leaked: &'static str = Box::leak(s.into_boxed_str());
         self.text = leaked;
+        self.state = None;
     }
 
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
-        column = column.with_child(NewWidget::new(Label::new(self.text)));
+        let visible_text = self.visible_text();
+        column = column.with_child(NewWidget::new(Label::new(visible_text.as_str())));
         NewWidget::new(column)
     }
 }
@@ -246,6 +280,32 @@ impl<E> Default for IntervalTimer<E> {
 impl<E> IntoObject for IntervalTimer<E> {
     fn into_object(self) -> Object {
         // zero-sized representation
-        Text { text: "" }.into()
+        Text { text: "", ..Text::default() }.into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Text;
+    use crate::state::State;
+
+    #[test]
+    fn text_uses_bound_state_as_visible_text() {
+        let state = State::new(1u128);
+        let text = Text::from_state(&state);
+
+        assert_eq!(text.visible_text(), "1");
+        state.set(2);
+        assert_eq!(text.visible_text(), "2");
+    }
+
+    #[test]
+    fn text_without_state_uses_static_text() {
+        let text = Text {
+            text: "hello",
+            ..Text::default()
+        };
+
+        assert_eq!(text.visible_text(), "hello");
     }
 }

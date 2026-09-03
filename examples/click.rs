@@ -27,6 +27,7 @@ fn increase_button() -> Object {
 #[element]
 struct SimpleText {
     count: State<u128>,
+    text: Text,
 }
 
 register_handler!(
@@ -38,8 +39,10 @@ register_handler!(
 );
 
 fn simple_text() -> Object {
+    let count = State::new(0);
     obj!(SimpleText {
-        count: State::new(0)
+        count: count.clone(),
+        text: Text::from_state(&count),
     })
 }
 

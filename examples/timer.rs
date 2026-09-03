@@ -10,6 +10,7 @@ struct SimpleTextTimerTickEvent {}
 struct SimpleTextTimer {
     seconds: State<u128>,
     timer: IntervalTimer<SimpleTextTimerTickEvent>,
+    text: Text,
 }
 
 register_handler!(
@@ -21,9 +22,11 @@ register_handler!(
 );
 
 fn simple_text_timer() -> Object {
+    let seconds = State::new(0);
     obj!(SimpleTextTimer {
-        seconds: State::new(0),
+        seconds: seconds.clone(),
         timer: IntervalTimer::from_interval(Duration::from_secs(1)),
+        text: Text::from_state(&seconds),
     })
 }
 

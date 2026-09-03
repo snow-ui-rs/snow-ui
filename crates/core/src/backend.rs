@@ -97,7 +97,7 @@ impl SnowComponent {
         match self {
             SnowComponent::Text { text, .. } => {
                 let leaked: &'static str = Box::leak(text.into_boxed_str());
-                Object::from(Text { text: leaked })
+                Object::from(Text { text: leaked, ..Text::default() })
             }
             SnowComponent::Button { text, .. } => {
                 let leaked: &'static str = Box::leak(text.into_boxed_str());
@@ -228,7 +228,7 @@ impl From<SnowNode> for Object {
         match node {
             SnowNode::Text { text, .. } => {
                 let leaked: &'static str = Box::leak(text.into_boxed_str());
-                Object::from(Text { text: leaked })
+                Object::from(Text { text: leaked, ..Text::default() })
             }
             SnowNode::Button { text, .. } => {
                 let leaked: &'static str = Box::leak(text.into_boxed_str());
