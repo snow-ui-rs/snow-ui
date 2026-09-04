@@ -1,45 +1,42 @@
 use crate::traits::{Message, MessageContext, MessageHandler};
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::mpsc::{self, Sender};
 
-/// Run async handlers in an isolated, single-thread Tokio runtime so the UI
-/// callback never re-enters the masonry LocalPool executor while holding the
-/// message handler mutex across an await.
-fn execute_handler_in_thread<H, T>(
-    handler: std::sync::Arc<std::sync::Mutex<H>>,
-    msg: std::sync::Arc<dyn std::any::Any + Send + Sync>,
-) where
-    H: MessageHandler<T> + 'static + Send + Sync,
-    T: Message + 'static + Send + Sync,
-{
-    eprintln!(
-        "[snow-ui::event_bus] executing handler for {}",
-        std::any::type_name::<T>()
-    );
-    let join_handle = std::thread::spawn(move || {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("failed to build isolated Tokio runtime");
+type ErasedMessage = std::sync::Arc<dyn std::any::Any + Send + Sync>;
+type HandlerFuture<'a> = Pin<Box<dyn Future<Output = ()> + 'a>>;
 
-        if let Some(m) = msg.downcast_ref::<T>() {
-            let mut ctx = MessageContext::default();
-            runtime.block_on(async move {
-                let mut h = handler
-                    .lock()
-                    .unwrap_or_else(|poisoned| poisoned.into_inner());
-                eprintln!(
-                    "[snow-ui::event_bus] calling handle() for {}",
-                    std::any::type_name::<T>()
-                );
-                h.handle(m, &mut ctx).await;
-                eprintln!(
-                    "[snow-ui::event_bus] handle() completed for {}",
-                    std::any::type_name::<T>()
-                );
-            });
-        }
-    });
+struct QueuedMessage {
+    type_id: std::any::TypeId,
+    message: ErasedMessage,
+}
 
-    let _ = join_handle.join();
+fn run_event_worker(
+    receiver: mpsc::Receiver<QueuedMessage>,
+    handlers: std::sync::Arc<
+        std::sync::Mutex<std::collections::HashMap<std::any::TypeId, Vec<Box<dyn ErasedHandler>>>>,
+    >,
+) {
+    std::thread::Builder::new()
+        .name("snow-ui-event-worker".to_string())
+        .spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("failed to build event bus runtime");
+
+            while let Ok(queued) = receiver.recv() {
+                let handler_guard = handlers.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                runtime.block_on(async {
+                    if let Some(registered) = handler_guard.get(&queued.type_id) {
+                        for handler in registered {
+                            handler.handle_any(queued.message.clone()).await;
+                        }
+                    }
+                });
+            }
+        })
+        .expect("failed to start event bus worker");
 }
 
 /// An async-capable event bus used by examples to send and subscribe to typed messages.
@@ -56,21 +53,26 @@ pub struct EventBus {
         >,
     >,
     // Registered handlers keyed by message TypeId
-    handlers:
-        std::sync::Mutex<std::collections::HashMap<std::any::TypeId, Vec<Box<dyn ErasedHandler>>>>,
+    handlers: std::sync::Arc<std::sync::Mutex<
+        std::collections::HashMap<std::any::TypeId, Vec<Box<dyn ErasedHandler>>>,
+    >>,
+    queue: Sender<QueuedMessage>,
 }
 
 impl EventBus {
     pub fn new() -> Self {
+        let (queue, receiver) = mpsc::channel();
+        let handlers = std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new()));
+        run_event_worker(receiver, handlers.clone());
         Self {
             inner: std::sync::Mutex::new(std::collections::HashMap::new()),
-            handlers: std::sync::Mutex::new(std::collections::HashMap::new()),
+            handlers,
+            queue,
         }
     }
 
-    /// Send a typed message to all subscribers (synchronous in this API) and invoke any
-    /// registered `MessageHandler<T>` implementations immediately (runs their `async`
-    /// handlers to completion synchronously on the current thread).
+    /// Send a typed message synchronously to subscribers and enqueue registered handlers.
+    /// Handler futures are executed asynchronously by the event bus worker.
     pub fn send<T: Message + Send + Sync>(&self, msg: T) {
         let arc = std::sync::Arc::new(msg) as std::sync::Arc<dyn std::any::Any + Send + Sync>;
         eprintln!(
@@ -90,23 +92,10 @@ impl EventBus {
             }
         }
 
-        // then dispatch to registered handlers
-        let mut ctx = MessageContext::default();
-        let handlers_guard = self.handlers.lock().unwrap();
-        if let Some(handlers) = handlers_guard.get(&std::any::TypeId::of::<T>()) {
-            eprintln!(
-                "[snow-ui::event_bus] send::<{}>() handler_count={}",
-                std::any::type_name::<T>(),
-                handlers.len()
-            );
-            for h in handlers.iter() {
-                eprintln!(
-                    "[snow-ui::event_bus] send::<{}>() dispatching to a registered handler",
-                    std::any::type_name::<T>()
-                );
-                h.handle_any(arc.clone(), &mut ctx);
-            }
-        }
+        let _ = self.queue.send(QueuedMessage {
+            type_id: std::any::TypeId::of::<T>(),
+            message: arc,
+        });
         eprintln!(
             "[snow-ui::event_bus] send::<{}>() end",
             std::any::type_name::<T>()
@@ -139,7 +128,7 @@ impl EventBus {
             "[snow-ui::event_bus] register_handler::<{}>()",
             std::any::type_name::<T>()
         );
-        let mut guard = self.handlers.lock().unwrap();
+        let mut guard = self.handlers.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
         guard
             .entry(std::any::TypeId::of::<T>())
             .or_default()
@@ -171,11 +160,7 @@ impl<T: Message + Send + Sync> EventBusReceiver<T> {
 
 /// Trait used to type-erase message handlers so we can store them in a single map.
 trait ErasedHandler: Send + Sync {
-    fn handle_any(
-        &self,
-        msg: std::sync::Arc<dyn std::any::Any + Send + Sync>,
-        ctx: &mut MessageContext,
-    );
+    fn handle_any(&self, msg: ErasedMessage) -> HandlerFuture<'_>;
 }
 
 /// A concrete wrapper that holds an `Arc<Mutex<H>>` where `H: MessageHandler<T>`.
@@ -193,17 +178,17 @@ where
     H: MessageHandler<T> + 'static + Send + Sync,
     T: Message + 'static + Send + Sync,
 {
-    fn handle_any(
-        &self,
-        msg: std::sync::Arc<dyn std::any::Any + Send + Sync>,
-        ctx: &mut MessageContext,
-    ) {
-        eprintln!(
-            "[snow-ui::event_bus] HandlerBox::<{}>::handle_any()",
-            std::any::type_name::<T>()
-        );
-        let _ = ctx;
-        execute_handler_in_thread::<H, T>(self.h.clone(), msg);
+    fn handle_any(&self, msg: ErasedMessage) -> HandlerFuture<'_> {
+        let handler = self.h.clone();
+        Box::pin(async move {
+            if let Some(message) = msg.downcast_ref::<T>() {
+                let mut context = MessageContext::default();
+                let mut handler = handler
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                handler.handle(message, &mut context).await;
+            }
+        })
     }
 }
 
@@ -264,6 +249,24 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Debug)]
+    struct SlowPingMsg;
+
+    impl Message for SlowPingMsg {}
+
+    #[derive(Default)]
+    struct SlowPingHandler {
+        completed: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    }
+
+    impl MessageHandler<SlowPingMsg> for SlowPingHandler {
+        async fn handle(&mut self, _: &SlowPingMsg, _: &mut MessageContext) {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            self.completed
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+
     #[test]
     fn event_bus_routes_generic_messages_to_registered_handlers() {
         let handler = std::sync::Arc::new(std::sync::Mutex::new(PingHandler::default()));
@@ -277,5 +280,26 @@ mod tests {
         }
 
         assert_eq!(handler.lock().unwrap().count, 1);
+    }
+
+    #[test]
+    fn send_returns_before_async_handler_completes() {
+        let completed = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let handler = std::sync::Arc::new(std::sync::Mutex::new(SlowPingHandler {
+            completed: completed.clone(),
+        }));
+        event_bus().register_handler::<SlowPingHandler, SlowPingMsg>(handler);
+
+        let started = std::time::Instant::now();
+        event_bus().send(SlowPingMsg);
+        assert!(started.elapsed() < std::time::Duration::from_millis(40));
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+        while !completed.load(std::sync::atomic::Ordering::SeqCst)
+            && std::time::Instant::now() < deadline
+        {
+            std::thread::yield_now();
+        }
+        assert!(completed.load(std::sync::atomic::Ordering::SeqCst));
     }
 }
