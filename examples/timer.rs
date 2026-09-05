@@ -33,10 +33,6 @@ fn simple_text_timer() -> Object {
 fn world() -> World {
     World {
         root: obj!(Board {
-            width: VIEWPORT_WIDTH,
-            height: VIEWPORT_HEIGHT,
-            h_align: HAlign::Center,
-            v_align: VAlign::Middle,
             children: list![Card {
                 children: list![
                     Row {
