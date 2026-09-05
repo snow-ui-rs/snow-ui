@@ -174,6 +174,7 @@ fn gen_into_object(
                 default_impl,
                 message_paths,
                 is_button,
+                is_timer_ty(field_ty),
                 None, // unnamed: accessor is .0
             )
         }
@@ -187,6 +188,7 @@ fn gen_into_object(
                 default_impl,
                 message_paths,
                 is_button,
+                is_timer_ty(&field.ty),
                 Some(field_ident),
             )
         }
@@ -196,6 +198,13 @@ fn gen_into_object(
                 .iter()
                 .filter_map(|field| {
                     is_visible_ty(&field.ty).then(|| field.ident.as_ref().unwrap())
+                })
+                .collect::<Vec<_>>();
+            let timer_fields = n
+                .named
+                .iter()
+                .filter_map(|field| {
+                    is_timer_ty(&field.ty).then(|| field.ident.as_ref().unwrap())
                 })
                 .collect::<Vec<_>>();
             let registrations = if message_paths.is_empty() {
@@ -218,6 +227,7 @@ fn gen_into_object(
                         let rc = ::std::sync::Arc::new(::std::sync::Mutex::new(self));
                         #registrations
                         let value = rc.lock().unwrap();
+                        #(value.#timer_fields.start();)*
                         ::snow_ui::Object::Row(::snow_ui::Row {
                             children: vec![#(::snow_ui::Object::from(value.#visible_fields.clone())),*],
                         })
@@ -227,6 +237,16 @@ fn gen_into_object(
         }
         _ => {
             // Multi-field or unit struct — inventory-based fallback.
+            let timer_fields = match &s.fields {
+                syn::Fields::Named(fields) => fields
+                    .named
+                    .iter()
+                    .filter_map(|field| {
+                        is_timer_ty(&field.ty).then(|| field.ident.as_ref().unwrap())
+                    })
+                    .collect::<Vec<_>>(),
+                _ => Vec::new(),
+            };
             quote! {
                 #struct_item
                 #default_impl
@@ -235,6 +255,11 @@ fn gen_into_object(
                         if ::snow_ui::has_registered_handlers::<#name>() {
                             let rc = ::std::sync::Arc::new(::std::sync::Mutex::new(self));
                             ::snow_ui::register_handlers_for_instance(&rc);
+                            let value = rc.lock().unwrap();
+                            #(value.#timer_fields.start();)*
+                        } else {
+                            let value = self;
+                            #(value.#timer_fields.start();)*
                         }
                         ::snow_ui::Text { text: "", .. ::snow_ui::prelude::default() }.into()
                     }
@@ -250,6 +275,14 @@ fn is_visible_ty(ty: &syn::Type) -> bool {
             p.path.segments.last().unwrap().ident.to_string().as_str(),
             "Text" | "Button" | "Form" | "TextInput" | "Switch"
         )
+    } else {
+        false
+    }
+}
+
+fn is_timer_ty(ty: &syn::Type) -> bool {
+    if let syn::Type::Path(p) = ty {
+        p.path.segments.last().unwrap().ident == "IntervalTimer"
     } else {
         false
     }
@@ -271,6 +304,7 @@ fn gen_single_field_into_object(
     default_impl: &proc_macro2::TokenStream,
     message_paths: &[syn::Path],
     is_button: bool,
+    is_timer: bool,
     field_ident: Option<&syn::Ident>,
 ) -> proc_macro2::TokenStream {
     // Build the accessor expression for the inner field.
@@ -315,7 +349,14 @@ fn gen_single_field_into_object(
             button.into()
         }
     } else {
-        quote! { #value_from_self }
+        if is_timer {
+            quote! {
+                self.#accessor.start();
+                #value_from_self
+            }
+        } else {
+            quote! { #value_from_self }
+        }
     };
 
     if message_paths.is_empty() {

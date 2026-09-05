@@ -98,6 +98,7 @@ use snow_ui::prelude::*;
 use tokio::time::Duration;
 
 #[message]
+#[derive(Default)]
 struct SimpleTextTimerTickEvent {}
 
 #[element]

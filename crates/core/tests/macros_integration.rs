@@ -8,7 +8,10 @@ struct FooElement {
     y: Vec<u8>,
 }
 
+#[derive(Default)]
 struct TestTick;
+
+impl Message for TestTick {}
 
 #[element]
 struct VisibleElement {
