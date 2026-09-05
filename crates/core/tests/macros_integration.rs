@@ -1,5 +1,5 @@
-use snow_ui::prelude::*;
 use snow_ui::Element;
+use snow_ui::prelude::*;
 
 // Verify `#[element]` generates the hidden default factory and `impl Default` for non-generic structs
 #[element]
@@ -32,12 +32,13 @@ fn element_has_factory_and_default() {
 #[test]
 fn element_renders_only_visible_fields() {
     let state = State::new(7);
-    let object = VisibleElement {
+    let element = VisibleElement {
         state: state.clone(),
         timer: IntervalTimer::default(),
         text: Text::from_state(&state),
-    }
-    .into_object();
+    };
+    assert_eq!(element.state.get(), 7);
+    let object = element.into_object();
 
     match object {
         Object::Row(row) => {
