@@ -2,9 +2,6 @@
 members = ["crates/core", "crates/macros"]
 resolver = "2"
 
-[patch.crates-io]
-masonry_core = { path = "vendor/masonry_core" }
-
 [workspace.package]
 version = "0.0.0"
 authors = ["clia <helloclia@gmail.com>"]
