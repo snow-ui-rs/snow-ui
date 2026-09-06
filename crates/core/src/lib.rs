@@ -44,6 +44,25 @@ pub use crate::traits::{
 };
 pub use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
 
+#[derive(Debug)]
+struct RenderRefresh;
+
+static EVENT_LOOP_PROXY: std::sync::OnceLock<masonry_winit::app::EventLoopProxy> =
+    std::sync::OnceLock::new();
+static ACTIVE_WINDOW_ID: std::sync::OnceLock<masonry_winit::app::WindowId> =
+    std::sync::OnceLock::new();
+
+pub(crate) fn request_render_refresh_for_active_window() {
+    let (Some(proxy), Some(window_id)) = (EVENT_LOOP_PROXY.get(), ACTIVE_WINDOW_ID.get()) else {
+        return;
+    };
+    let _ = proxy.send_event(masonry_winit::app::MasonryUserEvent::Action(
+        *window_id,
+        Box::new(RenderRefresh),
+        masonry::core::WidgetId::next(),
+    ));
+}
+
 /// Run an async operation through Snow UI's runtime abstraction.
 pub fn run_async<F>(future: F)
 where
@@ -181,19 +200,21 @@ fn run_masonry_window(world: World) {
         ) {
             debug_assert_eq!(window_id, self.window_id, "unknown window");
 
-            if action.is::<ButtonPress>() {
-                eprintln!("[snow-ui] AppDriver::on_action: ButtonPress received");
-                crate::trigger_clicks();
+            if action.is::<ButtonPress>() || action.is::<RenderRefresh>() {
+                if action.is::<ButtonPress>() {
+                    eprintln!("[snow-ui] AppDriver::on_action: ButtonPress received");
+                    crate::trigger_clicks();
 
-                if let Some(message) = self.adapter.dispatch_action(&action) {
-                    eprintln!(
-                        "[snow-ui] AppDriver::on_action: dispatch_action produced message: {:?}",
-                        message
-                    );
-                    self.adapter.handle_message(&message);
-                    eprintln!("[snow-ui] AppDriver::on_action: handle_message completed");
-                } else {
-                    eprintln!("[snow-ui] AppDriver::on_action: dispatch_action returned None");
+                    if let Some(message) = self.adapter.dispatch_action(&action) {
+                        eprintln!(
+                            "[snow-ui] AppDriver::on_action: dispatch_action produced message: {:?}",
+                            message
+                        );
+                        self.adapter.handle_message(&message);
+                        eprintln!("[snow-ui] AppDriver::on_action: handle_message completed");
+                    } else {
+                        eprintln!("[snow-ui] AppDriver::on_action: dispatch_action returned None");
+                    }
                 }
 
                 let rebuilt_root = self.world.clone().into_masonry_widget();
@@ -214,6 +235,10 @@ fn run_masonry_window(world: World) {
     adapter.set_world(world.clone().into());
     let main_widget = adapter.render_library_world(&world).erased();
 
+    let event_loop = EventLoop::with_user_event().build().unwrap();
+    let _ = EVENT_LOOP_PROXY.set(event_loop.create_proxy());
+    let _ = ACTIVE_WINDOW_ID.set(WindowId::next());
+
     let window_size = LogicalSize::new(500.0, 300.0);
     let window_attributes = Window::default_attributes()
         .with_title("Snow UI")
@@ -221,13 +246,13 @@ fn run_masonry_window(world: World) {
         .with_min_inner_size(window_size);
 
     let driver = LaunchDriver {
-        window_id: WindowId::next(),
+        window_id: *ACTIVE_WINDOW_ID.get().unwrap(),
         world: world.clone(),
         adapter,
     };
 
-    masonry_winit::app::run(
-        EventLoop::with_user_event(),
+    masonry_winit::app::run_with(
+        event_loop,
         vec![NewWindow::new_with_id(
             driver.window_id,
             window_attributes,

@@ -26,7 +26,9 @@ fn run_event_worker(
                 .expect("failed to build event bus runtime");
 
             while let Ok(queued) = receiver.recv() {
-                let handler_guard = handlers.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                let handler_guard = handlers
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
                 runtime.block_on(async {
                     if let Some(registered) = handler_guard.get(&queued.type_id) {
                         for handler in registered {
@@ -34,6 +36,7 @@ fn run_event_worker(
                         }
                     }
                 });
+                crate::request_render_refresh_for_active_window();
             }
         })
         .expect("failed to start event bus worker");
@@ -53,9 +56,9 @@ pub struct EventBus {
         >,
     >,
     // Registered handlers keyed by message TypeId
-    handlers: std::sync::Arc<std::sync::Mutex<
-        std::collections::HashMap<std::any::TypeId, Vec<Box<dyn ErasedHandler>>>,
-    >>,
+    handlers: std::sync::Arc<
+        std::sync::Mutex<std::collections::HashMap<std::any::TypeId, Vec<Box<dyn ErasedHandler>>>>,
+    >,
     queue: Sender<QueuedMessage>,
 }
 
@@ -128,7 +131,10 @@ impl EventBus {
             "[snow-ui::event_bus] register_handler::<{}>()",
             std::any::type_name::<T>()
         );
-        let mut guard = self.handlers.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut guard = self
+            .handlers
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         guard
             .entry(std::any::TypeId::of::<T>())
             .or_default()
