@@ -196,6 +196,21 @@ fn run_masonry_window(world: World) {
         adapter: crate::backend::masonry_backend::MasonryAdapter,
     }
 
+    impl LaunchDriver {
+        fn refresh_root(&self, window_id: WindowId, ctx: &mut DriverCtx<'_>) {
+            let rebuilt_root = self.world.clone().into_masonry_widget();
+            eprintln!("[snow-ui] LaunchDriver: rebuilding render root from live world");
+            ctx.render_root(window_id).edit_layer(0, |mut root| {
+                let mut flex = root.downcast::<masonry::widgets::Flex>();
+                while flex.widget.len() > 0 {
+                    masonry::widgets::Flex::remove(&mut flex, 0);
+                }
+                masonry::widgets::Flex::add_fixed(&mut flex, rebuilt_root);
+            });
+            eprintln!("[snow-ui] LaunchDriver: render root rebuild complete");
+        }
+    }
+
     impl AppDriver for LaunchDriver {
         fn on_action(
             &mut self,
@@ -206,33 +221,33 @@ fn run_masonry_window(world: World) {
         ) {
             debug_assert_eq!(window_id, self.window_id, "unknown window");
 
-            if action.is::<ButtonPress>() || action.is::<RenderRefresh>() {
-                if action.is::<ButtonPress>() {
-                    eprintln!("[snow-ui] AppDriver::on_action: ButtonPress received");
-                    crate::trigger_clicks();
+            if action.is::<ButtonPress>() {
+                eprintln!("[snow-ui] AppDriver::on_action: ButtonPress received");
+                crate::trigger_clicks();
 
-                    if let Some(message) = self.adapter.dispatch_action(&action) {
-                        eprintln!(
-                            "[snow-ui] AppDriver::on_action: dispatch_action produced message: {:?}",
-                            message
-                        );
-                        self.adapter.handle_message(&message);
-                        eprintln!("[snow-ui] AppDriver::on_action: handle_message completed");
-                    } else {
-                        eprintln!("[snow-ui] AppDriver::on_action: dispatch_action returned None");
-                    }
+                if let Some(message) = self.adapter.dispatch_action(&action) {
+                    eprintln!(
+                        "[snow-ui] AppDriver::on_action: dispatch_action produced message: {:?}",
+                        message
+                    );
+                    self.adapter.handle_message(&message);
+                    eprintln!("[snow-ui] AppDriver::on_action: handle_message completed");
+                } else {
+                    eprintln!("[snow-ui] AppDriver::on_action: dispatch_action returned None");
                 }
 
-                let rebuilt_root = self.world.clone().into_masonry_widget();
-                eprintln!("[snow-ui] AppDriver::on_action: rebuilding render root from live world");
-                ctx.render_root(window_id).edit_layer(0, |mut root| {
-                    let mut flex = root.downcast::<masonry::widgets::Flex>();
-                    while flex.widget.len() > 0 {
-                        masonry::widgets::Flex::remove(&mut flex, 0);
-                    }
-                    masonry::widgets::Flex::add_fixed(&mut flex, rebuilt_root);
-                });
-                eprintln!("[snow-ui] AppDriver::on_action: render root rebuild complete");
+                self.refresh_root(window_id, ctx);
+            }
+        }
+
+        fn on_async_action(
+            &mut self,
+            window_id: WindowId,
+            ctx: &mut DriverCtx<'_>,
+            action: ErasedAction,
+        ) {
+            if action.is::<RenderRefresh>() {
+                self.refresh_root(window_id, ctx);
             }
         }
     }
