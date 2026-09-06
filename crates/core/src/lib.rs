@@ -15,6 +15,12 @@ pub mod state;
 pub mod traits;
 pub mod types;
 
+/// Platform-facing time types. The implementation can be replaced for WASM
+/// without exposing the async runtime used by the core crate.
+pub mod time {
+    pub use std::time::Duration;
+}
+
 // Re-export the public API for ergonomic `snow_ui::...` usage.
 pub use crate::backend::masonry_backend;
 pub use crate::backend::{
@@ -37,6 +43,18 @@ pub use crate::traits::{
     MessageReceiver, UpdateContext,
 };
 pub use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
+
+/// Run an async operation through Snow UI's runtime abstraction.
+pub fn run_async<F>(future: F)
+where
+    F: std::future::Future<Output = ()>,
+{
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build Snow UI async runtime")
+        .block_on(future);
+}
 
 // Pulled in by the old-day convenient prelude and `register_handler!` macro flow.
 pub use inventory;
@@ -124,8 +142,10 @@ pub mod prelude {
         Message, MessageContext, MessageHandler, MessageReceiver, Object, Row, ServerApi,
         SkinColor, State, Switch, Text, TextClock, TextInput, UpdateContext, VAlign,
         VIEWPORT_HEIGHT, VIEWPORT_WIDTH, World, event_bus, has_registered_handlers,
-        register_click_handler, register_handlers_for_instance, trigger_clicks,
+        register_click_handler, register_handlers_for_instance, run_async, trigger_clicks,
     };
+
+    pub use crate::time::Duration;
 
     pub use super::inventory;
     pub use crate::actions;

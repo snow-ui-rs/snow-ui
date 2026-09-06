@@ -334,11 +334,7 @@ fn gen_single_field_into_object(
             ::snow_ui::register_click_handler(move || {
                 let handler = click_rc.clone();
                 let join_handle = std::thread::spawn(move || {
-                    let runtime = tokio::runtime::Builder::new_current_thread()
-                        .enable_all()
-                        .build()
-                        .expect("failed to build isolated Tokio runtime");
-                    runtime.block_on(async move {
+                    ::snow_ui::run_async(async move {
                         let mut target = handler.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
                         <#name as ::snow_ui::ClickHandler>::on_click(&mut *target).await;
                     });

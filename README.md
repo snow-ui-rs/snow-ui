@@ -95,7 +95,6 @@ the visible `Text` field reads the current state when the element is rendered.
 
 ```rust
 use snow_ui::prelude::*;
-use tokio::time::Duration;
 
 #[message]
 #[derive(Default)]
