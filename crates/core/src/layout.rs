@@ -17,7 +17,7 @@ impl Board {
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         for child in &self.children {
-            column = column.with_child(child.into_masonry_widget());
+            column = column.with_fixed(child.into_masonry_widget());
         }
         NewWidget::new(column)
     }
@@ -44,7 +44,7 @@ impl Card {
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         for child in &self.children {
-            column = column.with_child(child.into_masonry_widget());
+            column = column.with_fixed(child.into_masonry_widget());
         }
         NewWidget::new(column)
     }
@@ -65,7 +65,7 @@ impl Row {
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut row = Flex::row();
         for child in &self.children {
-            row = row.with_child(child.into_masonry_widget());
+            row = row.with_fixed(child.into_masonry_widget());
         }
         NewWidget::new(row)
     }

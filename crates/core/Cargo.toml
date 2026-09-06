@@ -18,8 +18,8 @@ snow-ui-macros = { workspace = true }
 tokio = { workspace = true, features = ["time", "rt"] }
 futures = { workspace = true }
 inventory = { workspace = true }
-masonry = { git = "https://github.com/linebender/xilem.git", rev = "26f555f36279c8c573198dd883b8f2674bc54e88" }
-masonry_winit = { git = "https://github.com/linebender/xilem.git", rev = "26f555f36279c8c573198dd883b8f2674bc54e88" }
+masonry = { git = "https://github.com/linebender/xilem.git", branch = "main" }
+masonry_winit = { git = "https://github.com/linebender/xilem.git", branch = "main" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"

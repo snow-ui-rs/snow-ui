@@ -57,10 +57,9 @@ pub(crate) fn request_render_refresh_for_active_window() {
     let (Some(proxy), Some(window_id)) = (EVENT_LOOP_PROXY.get(), ACTIVE_WINDOW_ID.get()) else {
         return;
     };
-    let _ = proxy.send_event(masonry_winit::app::MasonryUserEvent::Action(
+    let _ = proxy.send_event(masonry_winit::app::MasonryUserEvent::AsyncAction(
         *window_id,
         Box::new(RenderRefresh),
-        masonry::core::WidgetId::next(),
     ));
 }
 
@@ -183,8 +182,9 @@ pub mod prelude {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn run_masonry_window(world: World) {
-    use masonry::core::{ErasedAction, WidgetId};
+    use masonry::core::{CollectionWidget, ErasedAction, WidgetId};
     use masonry::dpi::LogicalSize;
     use masonry::widgets::ButtonPress;
     use masonry_winit::app::{AppDriver, DriverCtx, EventLoop, NewWindow, WindowId};
@@ -200,7 +200,7 @@ fn run_masonry_window(world: World) {
         fn on_action(
             &mut self,
             window_id: WindowId,
-            ctx: &mut DriverCtx<'_, '_>,
+            ctx: &mut DriverCtx<'_>,
             _widget_id: WidgetId,
             action: ErasedAction,
         ) {
@@ -228,9 +228,9 @@ fn run_masonry_window(world: World) {
                 ctx.render_root(window_id).edit_layer(0, |mut root| {
                     let mut flex = root.downcast::<masonry::widgets::Flex>();
                     while flex.widget.len() > 0 {
-                        masonry::widgets::Flex::remove_child(&mut flex, 0);
+                        masonry::widgets::Flex::remove(&mut flex, 0);
                     }
-                    masonry::widgets::Flex::add_child(&mut flex, rebuilt_root);
+                    masonry::widgets::Flex::add_fixed(&mut flex, rebuilt_root);
                 });
                 eprintln!("[snow-ui] AppDriver::on_action: render root rebuild complete");
             }
@@ -274,12 +274,18 @@ fn run_masonry_window(world: World) {
 ///
 /// Example: `snow_ui::launch(world);` where `fn world() -> World { ... }`.
 pub fn launch<F: FnOnce() -> World>(builder: F) {
+    #[cfg(not(target_arch = "wasm32"))]
     run_masonry_window(builder());
+    #[cfg(target_arch = "wasm32")]
+    let _ = builder();
 }
 
 /// Launch a concrete library `World` immediately.
 pub fn launch_world(world: World) {
+    #[cfg(not(target_arch = "wasm32"))]
     run_masonry_window(world);
+    #[cfg(target_arch = "wasm32")]
+    let _ = world;
 }
 
 /// Launch a concrete `Object` as the app root.

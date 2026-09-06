@@ -6,7 +6,7 @@ resolver = "2"
 version = "0.0.0"
 authors = ["clia <helloclia@gmail.com>"]
 edition = "2024"
-rust-version = "1.89"
+rust-version = "1.96"
 description = """
 Snow UI is a pure rust UI framework.
 """
@@ -27,3 +27,6 @@ futures = "0.3"
 inventory = "0.3"
 anyhow = "1"
 snow-ui-macros = { path = "crates/macros", version = "0.0.0" }
+
+[patch."https://github.com/linebender/xilem.git"]
+masonry_winit = { path = "vendor/masonry_winit" }

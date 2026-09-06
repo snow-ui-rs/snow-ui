@@ -49,7 +49,7 @@ impl Object {
             Object::DynamicText { value } => {
                 let inner = value();
                 let mut column = Flex::column();
-                column = column.with_child(NewWidget::new(Label::new(inner.as_str())));
+                column = column.with_fixed(NewWidget::new(Label::new(inner.as_str())));
                 NewWidget::new(column)
             }
         }

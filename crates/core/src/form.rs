@@ -96,7 +96,7 @@ impl Form {
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         for child in &self.children {
-            column = column.with_child(child.into_masonry_widget());
+            column = column.with_fixed(child.into_masonry_widget());
         }
         NewWidget::new(column)
     }

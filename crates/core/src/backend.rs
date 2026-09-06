@@ -1102,20 +1102,20 @@ pub mod masonry_backend {
                 SnowNode::Text { text, id } => {
                     let display = self.state.get(*id, text);
                     let mut column = Flex::column();
-                    column = column.with_child(NewWidget::new(Label::new(display.as_str())));
+                    column = column.with_fixed(NewWidget::new(Label::new(display.as_str())));
                     column
                 }
                 SnowNode::Button { text, id } => {
                     let display = self.state.get(*id, text);
                     let mut column = Flex::column();
-                    column = column.with_child(NewWidget::new(Button::with_text(display.as_str())));
+                    column = column.with_fixed(NewWidget::new(Button::with_text(display.as_str())));
                     column
                 }
                 SnowNode::Row { children } => {
                     let mut row = Flex::row();
                     for child in children {
                         let child_widget = NewWidget::new(self.build_node(child));
-                        row = row.with_child(child_widget);
+                        row = row.with_fixed(child_widget);
                     }
                     row
                 }
@@ -1123,7 +1123,7 @@ pub mod masonry_backend {
                     let mut column = Flex::column();
                     for child in children {
                         let child_widget = NewWidget::new(self.build_node(child));
-                        column = column.with_child(child_widget);
+                        column = column.with_fixed(child_widget);
                     }
                     column
                 }
@@ -1131,7 +1131,7 @@ pub mod masonry_backend {
                     let mut box_widget = Flex::column();
                     for child in children {
                         let child_widget = NewWidget::new(self.build_node(child));
-                        box_widget = box_widget.with_child(child_widget);
+                        box_widget = box_widget.with_fixed(child_widget);
                     }
                     box_widget
                 }

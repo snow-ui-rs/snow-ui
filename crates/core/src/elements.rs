@@ -71,7 +71,7 @@ impl Text {
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         let visible_text = self.visible_text();
-        column = column.with_child(NewWidget::new(Label::new(visible_text.as_str())));
+        column = column.with_fixed(NewWidget::new(Label::new(visible_text.as_str())));
         NewWidget::new(column)
     }
 }
@@ -123,7 +123,7 @@ impl Button {
 
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
-        column = column.with_child(NewWidget::new(MasonryButton::with_text(self.text)));
+        column = column.with_fixed(NewWidget::new(MasonryButton::with_text(self.text)));
         NewWidget::new(column)
     }
 }
@@ -167,9 +167,9 @@ impl TextInput {
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         if !self.label.is_empty() {
-            column = column.with_child(NewWidget::new(Label::new(self.label)));
+            column = column.with_fixed(NewWidget::new(Label::new(self.label)));
         }
-        column = column.with_child(NewWidget::new(Label::new(self.name)));
+        column = column.with_fixed(NewWidget::new(Label::new(self.name)));
         NewWidget::new(column)
     }
 }
@@ -228,7 +228,7 @@ impl Switch {
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         if let Some(child) = self.children.get(self.active.min(self.children.len().saturating_sub(1))) {
-            column = column.with_child(child.into_masonry_widget());
+            column = column.with_fixed(child.into_masonry_widget());
         }
         NewWidget::new(column)
     }
