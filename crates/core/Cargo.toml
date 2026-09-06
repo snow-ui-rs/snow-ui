@@ -21,6 +21,10 @@ inventory = { workspace = true }
 masonry = "0.4.0"
 masonry_winit = "0.4.0"
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures = "0.4"
+gloo-timers = "0.3"
+
 [[example]]
 name = "lovely_girl"
 path = "../../examples/lovely_girl.rs"

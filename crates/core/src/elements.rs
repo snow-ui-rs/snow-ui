@@ -291,13 +291,9 @@ where
         }
 
         let interval = self.interval;
-        std::thread::Builder::new()
-            .name("snow-ui-interval-timer".to_string())
-            .spawn(move || loop {
-                std::thread::sleep(interval);
-                crate::event_bus().send(E::default());
-            })
-            .expect("failed to start interval timer");
+        crate::runtime::interval(interval, || {
+            crate::event_bus().send(E::default());
+        });
     }
 }
 

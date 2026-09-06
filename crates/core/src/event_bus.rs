@@ -1,16 +1,19 @@
 use crate::traits::{Message, MessageContext, MessageHandler};
 use std::future::Future;
 use std::pin::Pin;
+#[cfg(not(target_arch = "wasm32"))]
 use std::sync::mpsc::{self, Sender};
 
 type ErasedMessage = std::sync::Arc<dyn std::any::Any + Send + Sync>;
-type HandlerFuture<'a> = Pin<Box<dyn Future<Output = ()> + 'a>>;
+type HandlerFuture = Pin<Box<dyn Future<Output = ()> + 'static>>;
 
+#[cfg(not(target_arch = "wasm32"))]
 struct QueuedMessage {
     type_id: std::any::TypeId,
     message: ErasedMessage,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn run_event_worker(
     receiver: mpsc::Receiver<QueuedMessage>,
     handlers: std::sync::Arc<
@@ -20,16 +23,11 @@ fn run_event_worker(
     std::thread::Builder::new()
         .name("snow-ui-event-worker".to_string())
         .spawn(move || {
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("failed to build event bus runtime");
-
             while let Ok(queued) = receiver.recv() {
                 let handler_guard = handlers
                     .lock()
                     .unwrap_or_else(|poisoned| poisoned.into_inner());
-                runtime.block_on(async {
+                crate::runtime::run(async {
                     if let Some(registered) = handler_guard.get(&queued.type_id) {
                         for handler in registered {
                             handler.handle_any(queued.message.clone()).await;
@@ -59,17 +57,21 @@ pub struct EventBus {
     handlers: std::sync::Arc<
         std::sync::Mutex<std::collections::HashMap<std::any::TypeId, Vec<Box<dyn ErasedHandler>>>>,
     >,
+    #[cfg(not(target_arch = "wasm32"))]
     queue: Sender<QueuedMessage>,
 }
 
 impl EventBus {
     pub fn new() -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
         let (queue, receiver) = mpsc::channel();
         let handlers = std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new()));
+        #[cfg(not(target_arch = "wasm32"))]
         run_event_worker(receiver, handlers.clone());
         Self {
             inner: std::sync::Mutex::new(std::collections::HashMap::new()),
             handlers,
+            #[cfg(not(target_arch = "wasm32"))]
             queue,
         }
     }
@@ -95,10 +97,32 @@ impl EventBus {
             }
         }
 
+        #[cfg(not(target_arch = "wasm32"))]
         let _ = self.queue.send(QueuedMessage {
             type_id: std::any::TypeId::of::<T>(),
             message: arc,
         });
+        #[cfg(target_arch = "wasm32")]
+        {
+            let futures = {
+                let guard = self.handlers.lock().unwrap();
+                guard
+                    .get(&std::any::TypeId::of::<T>())
+                    .map(|registered| {
+                        registered
+                            .iter()
+                            .map(|handler| handler.handle_any(arc.clone()))
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default()
+            };
+            crate::runtime::run(async move {
+                for future in futures {
+                    future.await;
+                }
+                crate::request_render_refresh_for_active_window();
+            });
+        }
         eprintln!(
             "[snow-ui::event_bus] send::<{}>() end",
             std::any::type_name::<T>()
@@ -166,7 +190,7 @@ impl<T: Message + Send + Sync> EventBusReceiver<T> {
 
 /// Trait used to type-erase message handlers so we can store them in a single map.
 trait ErasedHandler: Send + Sync {
-    fn handle_any(&self, msg: ErasedMessage) -> HandlerFuture<'_>;
+    fn handle_any(&self, msg: ErasedMessage) -> HandlerFuture;
 }
 
 /// A concrete wrapper that holds an `Arc<Mutex<H>>` where `H: MessageHandler<T>`.
@@ -184,7 +208,7 @@ where
     H: MessageHandler<T> + 'static + Send + Sync,
     T: Message + 'static + Send + Sync,
 {
-    fn handle_any(&self, msg: ErasedMessage) -> HandlerFuture<'_> {
+    fn handle_any(&self, msg: ErasedMessage) -> HandlerFuture {
         let handler = self.h.clone();
         Box::pin(async move {
             if let Some(message) = msg.downcast_ref::<T>() {

@@ -10,6 +10,7 @@ pub mod girl;
 pub mod handler;
 pub mod layout;
 pub mod object;
+pub mod runtime;
 pub mod server_api;
 pub mod state;
 pub mod traits;
@@ -64,15 +65,20 @@ pub(crate) fn request_render_refresh_for_active_window() {
 }
 
 /// Run an async operation through Snow UI's runtime abstraction.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn run_async<F>(future: F)
 where
     F: std::future::Future<Output = ()>,
 {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .expect("failed to build Snow UI async runtime")
-        .block_on(future);
+    crate::runtime::run(future);
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn run_async<F>(future: F)
+where
+    F: std::future::Future<Output = ()> + 'static,
+{
+    crate::runtime::run(future);
 }
 
 // Pulled in by the old-day convenient prelude and `register_handler!` macro flow.
