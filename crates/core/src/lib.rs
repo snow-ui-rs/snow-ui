@@ -15,6 +15,8 @@ pub mod server_api;
 pub mod state;
 pub mod traits;
 pub mod types;
+#[cfg(target_arch = "wasm32")]
+mod web;
 
 /// Platform-facing time types. The implementation can be replaced for WASM
 /// without exposing the async runtime used by the core crate.
@@ -23,6 +25,7 @@ pub mod time {
 }
 
 // Re-export the public API for ergonomic `snow_ui::...` usage.
+#[cfg(not(target_arch = "wasm32"))]
 pub use crate::backend::masonry_backend;
 pub use crate::backend::{
     SnowAction, SnowApp, SnowComponent, SnowComponentInstance, SnowMessage, SnowNode, SnowRuntime,
@@ -45,14 +48,18 @@ pub use crate::traits::{
 };
 pub use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug)]
 struct RenderRefresh;
 
+#[cfg(not(target_arch = "wasm32"))]
 static EVENT_LOOP_PROXY: std::sync::OnceLock<masonry_winit::app::EventLoopProxy> =
     std::sync::OnceLock::new();
+#[cfg(not(target_arch = "wasm32"))]
 static ACTIVE_WINDOW_ID: std::sync::OnceLock<masonry_winit::app::WindowId> =
     std::sync::OnceLock::new();
 
+#[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn request_render_refresh_for_active_window() {
     let (Some(proxy), Some(window_id)) = (EVENT_LOOP_PROXY.get(), ACTIVE_WINDOW_ID.get()) else {
         return;
@@ -285,7 +292,7 @@ pub fn launch_world(world: World) {
     #[cfg(not(target_arch = "wasm32"))]
     run_masonry_window(world);
     #[cfg(target_arch = "wasm32")]
-    let _ = world;
+    crate::web::launch_world(world);
 }
 
 /// Launch a concrete `Object` as the app root.

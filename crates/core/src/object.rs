@@ -1,4 +1,6 @@
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::core::NewWidget;
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::widgets::{Flex, Label};
 
 use crate::elements::{Element, Text, TextClock};
@@ -34,6 +36,7 @@ impl std::fmt::Debug for Object {
 }
 
 impl Object {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         match self {
             Object::Board(board) => board.into_masonry_widget(),
@@ -196,6 +199,7 @@ impl Object {
 }
 
 impl World {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         self.root.into_masonry_widget()
     }

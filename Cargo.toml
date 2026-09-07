@@ -28,5 +28,3 @@ inventory = "0.3"
 anyhow = "1"
 snow-ui-macros = { path = "crates/macros", version = "0.0.0" }
 
-[patch."https://github.com/linebender/xilem.git"]
-masonry_winit = { path = "vendor/masonry_winit" }

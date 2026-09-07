@@ -1,4 +1,6 @@
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::core::NewWidget;
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::widgets::Flex;
 
 use crate::elements::{Button, Element};
@@ -93,6 +95,7 @@ impl std::fmt::Debug for Form {
 }
 
 impl Form {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         for child in &self.children {

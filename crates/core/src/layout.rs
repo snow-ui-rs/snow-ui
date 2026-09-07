@@ -1,4 +1,6 @@
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::core::NewWidget;
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::widgets::Flex;
 
 use crate::object::Object;
@@ -14,6 +16,7 @@ pub struct Board {
 }
 
 impl Board {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         for child in &self.children {
@@ -41,6 +44,7 @@ pub struct Card {
 }
 
 impl Card {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         for child in &self.children {
@@ -62,6 +66,7 @@ pub struct Row {
 }
 
 impl Row {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut row = Flex::row();
         for child in &self.children {

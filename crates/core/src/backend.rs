@@ -663,20 +663,33 @@ impl SnowState {
 }
 
 pub struct SnowRuntime {
+    #[cfg(not(target_arch = "wasm32"))]
     adapter: masonry_backend::MasonryAdapter,
+    #[cfg(target_arch = "wasm32")]
+    world: SnowWorld,
     last_world: SnowWorld,
 }
 
 impl SnowRuntime {
     pub fn new() -> Self {
         Self {
+            #[cfg(not(target_arch = "wasm32"))]
             adapter: masonry_backend::MasonryAdapter::new(),
+            #[cfg(target_arch = "wasm32")]
+            world: SnowWorld::default(),
             last_world: SnowWorld::default(),
         }
     }
 
     pub fn mount(&mut self, world: SnowWorld) {
-        self.adapter.set_world(world.clone());
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.adapter.set_world(world.clone());
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.world = world.clone();
+        }
         self.last_world = world;
     }
 
@@ -689,12 +702,27 @@ impl SnowRuntime {
     }
 
     pub fn world(&self) -> &SnowWorld {
-        self.adapter.world()
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            return self.adapter.world();
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            &self.world
+        }
     }
 
     pub fn dispatch(&mut self, message: &SnowMessage) {
-        self.adapter.handle_message(message);
-        self.last_world = self.adapter.world().clone();
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.adapter.handle_message(message);
+            self.last_world = self.adapter.world().clone();
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.world.apply_message(message);
+            self.last_world = self.world.clone();
+        }
     }
 
     pub fn update(&mut self, message: &SnowMessage) {
@@ -705,10 +733,13 @@ impl SnowRuntime {
         self.update(message);
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn render(&mut self) -> masonry::core::NewWidget<masonry::widgets::Flex> {
         self.adapter.render()
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn step(
         &mut self,
         message: &SnowMessage,
@@ -717,6 +748,7 @@ impl SnowRuntime {
         self.render()
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn run(
         &mut self,
         message: &SnowMessage,
@@ -942,7 +974,14 @@ impl SnowApp {
             }
         }
 
-        self.runtime.adapter.apply_update(&update);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.runtime.adapter.apply_update(&update);
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.runtime.world.apply_update(&update);
+        }
     }
 
     pub fn update_view(&mut self, update: &SnowUpdate) {
@@ -960,15 +999,18 @@ impl SnowApp {
         self.update(message);
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn render(&mut self) -> masonry::core::NewWidget<masonry::widgets::Flex> {
         self.runtime.render()
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn render_library_world(&mut self) -> masonry::core::NewWidget<masonry::widgets::Flex> {
         let world: World = self.runtime.world().clone().into();
         self.runtime.adapter.render_library_world(&world)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn step(
         &mut self,
         message: &SnowMessage,
@@ -976,6 +1018,7 @@ impl SnowApp {
         self.runtime.step(message)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn run(
         &mut self,
         message: &SnowMessage,
@@ -983,6 +1026,7 @@ impl SnowApp {
         self.runtime.run(message)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn launch(
         &mut self,
         message: &SnowMessage,
@@ -990,6 +1034,7 @@ impl SnowApp {
         self.run(message)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn start(
         &mut self,
         message: &SnowMessage,
@@ -998,6 +1043,7 @@ impl SnowApp {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub mod masonry_backend {
     use super::{SnowMessage, SnowNode, SnowState, SnowUpdate, SnowWorld};
     use masonry::core::{ErasedAction, NewWidget};
@@ -1174,6 +1220,7 @@ pub mod masonry_backend {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(target_arch = "wasm32"))]
     use super::masonry_backend::MasonryAdapter;
     use super::{SnowMessage, SnowNode, SnowUpdate, SnowWorld};
 

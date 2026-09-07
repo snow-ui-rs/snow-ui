@@ -1,4 +1,6 @@
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::core::NewWidget;
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::widgets::{Button as MasonryButton, Flex, Label};
 
 use crate::form::Form;
@@ -68,6 +70,7 @@ impl Text {
         self.state = None;
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         let visible_text = self.visible_text();
@@ -121,6 +124,7 @@ impl Button {
         self.text = leaked;
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         column = column.with_fixed(NewWidget::new(MasonryButton::with_text(self.text)));
@@ -164,6 +168,7 @@ impl Default for TextInput {
 }
 
 impl TextInput {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         if !self.label.is_empty() {
@@ -225,6 +230,7 @@ impl Default for Switch {
 }
 
 impl Switch {
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         if let Some(child) = self.children.get(self.active.min(self.children.len().saturating_sub(1))) {
