@@ -2,7 +2,7 @@
 
 use snow_ui::prelude::*;
 
-fn world() -> World {
+pub fn world() -> World {
     World {
         root: obj!(Board {
             width: VIEWPORT_WIDTH,
@@ -26,6 +26,7 @@ fn world() -> World {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn main() {
     snow_ui::launch(world);
 }

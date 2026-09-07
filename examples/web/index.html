@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Snow UI Web Examples</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 2rem;
+        background: #f3f6f8;
+        color: #17212b;
+        font-family: system-ui, sans-serif;
+      }
+
+      #snow-root {
+        display: grid;
+        gap: 1rem;
+        max-width: 48rem;
+        margin: 0 auto;
+      }
+
+      #snow-root > div {
+        display: grid !important;
+        gap: 0.5rem !important;
+        padding: 1rem;
+        border: 1px solid #cbd5dc;
+        border-radius: 0.5rem;
+        background: white;
+      }
+
+      #snow-root > div > span:first-child {
+        font-size: 1.2rem;
+        font-weight: 700;
+      }
+
+      button {
+        width: fit-content;
+        padding: 0.5rem 0.75rem;
+        border: 0;
+        border-radius: 0.35rem;
+        background: #176b87;
+        color: white;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="snow-root"></main>
+    <script type="module">
+      import init from "./pkg/snow_ui_web_example.js";
+
+      init();
+    </script>
+  </body>
+</html>

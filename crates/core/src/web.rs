@@ -47,7 +47,7 @@ fn render_world(world: &World) {
 
 fn render_object(document: &Document, object: &Object, button_index: &mut usize) -> Element {
     match object {
-        Object::Board(board) => render_group(document, "div", &board.children, true, button_index),
+        Object::Board(board) => render_group(document, "div", &board.children, false, button_index),
         Object::Card(card) => render_group(document, "div", &card.children, false, button_index),
         Object::Row(row) => render_group(document, "div", &row.children, true, button_index),
         Object::Girl(_) => element_with_text(document, "div", ""),

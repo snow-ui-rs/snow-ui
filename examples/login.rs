@@ -86,13 +86,14 @@ fn my_switch() -> Object {
     })
 }
 
-fn world() -> World {
+pub fn world() -> World {
     World {
         root: my_switch(),
         ..default()
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn main() {
     snow_ui::launch(world);
 }

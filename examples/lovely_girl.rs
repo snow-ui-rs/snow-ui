@@ -19,13 +19,14 @@ fn lovely_girl() -> Object {
     })
 }
 
-fn world() -> World {
+pub fn world() -> World {
     World {
         root: lovely_girl(),
         ..default()
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn main() {
     snow_ui::launch(world);
 }

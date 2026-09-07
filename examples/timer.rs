@@ -30,7 +30,7 @@ fn simple_text_timer() -> Object {
     })
 }
 
-fn world() -> World {
+pub fn world() -> World {
     World {
         root: obj!(Board {
             children: list![Card {
@@ -50,6 +50,7 @@ fn world() -> World {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn main() {
     snow_ui::launch(world);
 }
