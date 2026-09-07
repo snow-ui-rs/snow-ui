@@ -120,6 +120,7 @@ impl EventBus {
                 for future in futures {
                     future.await;
                 }
+                crate::web::request_render_refresh();
             });
         }
         eprintln!(

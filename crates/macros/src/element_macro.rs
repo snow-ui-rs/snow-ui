@@ -196,16 +196,12 @@ fn gen_into_object(
             let visible_fields = n
                 .named
                 .iter()
-                .filter_map(|field| {
-                    is_visible_ty(&field.ty).then(|| field.ident.as_ref().unwrap())
-                })
+                .filter_map(|field| is_visible_ty(&field.ty).then(|| field.ident.as_ref().unwrap()))
                 .collect::<Vec<_>>();
             let timer_fields = n
                 .named
                 .iter()
-                .filter_map(|field| {
-                    is_timer_ty(&field.ty).then(|| field.ident.as_ref().unwrap())
-                })
+                .filter_map(|field| is_timer_ty(&field.ty).then(|| field.ident.as_ref().unwrap()))
                 .collect::<Vec<_>>();
             let registrations = if message_paths.is_empty() {
                 quote! {
@@ -333,13 +329,20 @@ fn gen_single_field_into_object(
             let click_rc = rc.clone();
             ::snow_ui::register_click_handler(move || {
                 let handler = click_rc.clone();
+                #[cfg(not(target_arch = "wasm32"))]
                 let join_handle = std::thread::spawn(move || {
                     ::snow_ui::run_async(async move {
                         let mut target = handler.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
                         <#name as ::snow_ui::ClickHandler>::on_click(&mut *target).await;
                     });
                 });
+                #[cfg(not(target_arch = "wasm32"))]
                 let _ = join_handle.join();
+                #[cfg(target_arch = "wasm32")]
+                ::snow_ui::run_async(async move {
+                    let mut target = handler.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                    <#name as ::snow_ui::ClickHandler>::on_click(&mut *target).await;
+                });
             });
             let button = rc.lock().unwrap().#accessor.clone();
             button.into()

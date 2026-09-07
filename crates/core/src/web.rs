@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 use web_sys::{Document, Element, Event};
@@ -5,7 +7,27 @@ use web_sys::{Document, Element, Event};
 use crate::elements::Element as SnowElement;
 use crate::object::{Object, World};
 
+thread_local! {
+    static RENDER_REFRESH: RefCell<Option<Box<dyn Fn()>>> = RefCell::new(None);
+}
+
 pub fn launch_world(world: World) {
+    let world_for_refresh = world.clone();
+    RENDER_REFRESH.with(|refresh| {
+        *refresh.borrow_mut() = Some(Box::new(move || render_world(&world_for_refresh)));
+    });
+    render_world(&world);
+}
+
+pub(crate) fn request_render_refresh() {
+    RENDER_REFRESH.with(|refresh| {
+        if let Some(render) = refresh.borrow().as_ref() {
+            render();
+        }
+    });
+}
+
+fn render_world(world: &World) {
     let window = web_sys::window().expect("Snow UI requires a browser window");
     let document = window
         .document()

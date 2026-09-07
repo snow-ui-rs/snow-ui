@@ -734,7 +734,6 @@ impl SnowRuntime {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn render(&mut self) -> masonry::core::NewWidget<masonry::widgets::Flex> {
         self.adapter.render()
     }
