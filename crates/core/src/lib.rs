@@ -118,6 +118,19 @@ pub fn trigger_clicks() {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn trigger_click_handler(index: usize) {
+    let handlers = get_click_handlers().lock().unwrap();
+    if let Some(handler) = handlers.get(index) {
+        handler();
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+pub(crate) fn reset_click_handlers() {
+    get_click_handlers().lock().unwrap().clear();
+}
+
 /// Macro to register a `MessageHandler` implementation and automatically submit it to inventory.
 ///
 /// Actual implementation is the same behavior that existed in the legacy monolithic `lib.rs`.
@@ -299,7 +312,10 @@ pub fn launch<F: FnOnce() -> World>(builder: F) {
     #[cfg(not(target_arch = "wasm32"))]
     run_masonry_window(builder());
     #[cfg(target_arch = "wasm32")]
-    let _ = builder();
+    {
+        crate::reset_click_handlers();
+        crate::web::launch_world(builder());
+    }
 }
 
 /// Launch a concrete library `World` immediately.

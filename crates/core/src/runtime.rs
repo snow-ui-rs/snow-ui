@@ -27,9 +27,11 @@ where
 {
     std::thread::Builder::new()
         .name("snow-ui-interval-timer".to_string())
-        .spawn(move || loop {
-            std::thread::sleep(duration);
-            callback();
+        .spawn(move || {
+            loop {
+                std::thread::sleep(duration);
+                callback();
+            }
         })
         .expect("failed to start Snow UI interval timer");
 }

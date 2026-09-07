@@ -40,22 +40,29 @@ fn render_world(world: &World) {
         root.remove_child(&child)
             .expect("failed to clear snow-root");
     }
-    root.append_child(&render_object(&document, &world.root))
+    let mut button_index = 0;
+    root.append_child(&render_object(&document, &world.root, &mut button_index))
         .expect("failed to mount Snow UI root");
 }
 
-fn render_object(document: &Document, object: &Object) -> Element {
+fn render_object(document: &Document, object: &Object, button_index: &mut usize) -> Element {
     match object {
-        Object::Board(board) => render_group(document, "div", &board.children, true),
-        Object::Card(card) => render_group(document, "div", &card.children, false),
-        Object::Row(row) => render_group(document, "div", &row.children, true),
+        Object::Board(board) => render_group(document, "div", &board.children, true, button_index),
+        Object::Card(card) => render_group(document, "div", &card.children, false, button_index),
+        Object::Row(row) => render_group(document, "div", &row.children, true, button_index),
         Object::Girl(_) => element_with_text(document, "div", ""),
         Object::DynamicText { value } => element_with_text(document, "span", &value()),
-        Object::Element(element) => render_element(document, element),
+        Object::Element(element) => render_element(document, element, button_index),
     }
 }
 
-fn render_group(document: &Document, tag: &str, children: &[Object], horizontal: bool) -> Element {
+fn render_group(
+    document: &Document,
+    tag: &str,
+    children: &[Object],
+    horizontal: bool,
+    button_index: &mut usize,
+) -> Element {
     let element = document
         .create_element(tag)
         .expect("failed to create Snow UI container");
@@ -69,26 +76,32 @@ fn render_group(document: &Document, tag: &str, children: &[Object], horizontal:
         .expect("failed to style Snow UI container");
     for child in children {
         element
-            .append_child(&render_object(document, child))
+            .append_child(&render_object(document, child, button_index))
             .expect("failed to append Snow UI child");
     }
     element
 }
 
-fn render_element(document: &Document, element: &SnowElement) -> Element {
+fn render_element(document: &Document, element: &SnowElement, button_index: &mut usize) -> Element {
     match element {
         SnowElement::Text(text) => element_with_text(document, "span", &text.visible_text()),
         SnowElement::TextClock(clock) => element_with_text(document, "span", clock.format),
         SnowElement::Button(button) => {
             let button_element = element_with_text(document, "button", button.text);
-            let callback = Closure::<dyn FnMut(Event)>::new(|_| crate::trigger_clicks());
+            let current_index = *button_index;
+            *button_index += 1;
+            let callback = Closure::<dyn FnMut(Event)>::new(move |_| {
+                crate::trigger_click_handler(current_index)
+            });
             button_element
                 .add_event_listener_with_callback("click", callback.as_ref().unchecked_ref())
                 .expect("failed to register Snow UI button handler");
             callback.forget();
             button_element
         }
-        SnowElement::Form(form) => render_group(document, "form", &form.children, false),
+        SnowElement::Form(form) => {
+            render_group(document, "form", &form.children, false, button_index)
+        }
         SnowElement::TextInput(input) => {
             let wrapper = document
                 .create_element("label")
@@ -118,7 +131,7 @@ fn render_element(document: &Document, element: &SnowElement) -> Element {
         SnowElement::Switch(switch_) => switch_
             .children
             .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
-            .map(|child| render_object(document, child))
+            .map(|child| render_object(document, child, button_index))
             .unwrap_or_else(|| element_with_text(document, "div", "")),
     }
 }

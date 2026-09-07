@@ -233,7 +233,10 @@ impl Switch {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
-        if let Some(child) = self.children.get(self.active.min(self.children.len().saturating_sub(1))) {
+        if let Some(child) = self
+            .children
+            .get(self.active.min(self.children.len().saturating_sub(1)))
+        {
             column = column.with_fixed(child.into_masonry_widget());
         }
         NewWidget::new(column)
@@ -288,11 +291,7 @@ where
     E: crate::traits::Message + Default + Send + Sync + 'static,
 {
     pub fn start(&self) {
-        if self.interval.is_zero()
-            || self
-                .started
-                .swap(true, std::sync::atomic::Ordering::SeqCst)
-        {
+        if self.interval.is_zero() || self.started.swap(true, std::sync::atomic::Ordering::SeqCst) {
             return;
         }
 
@@ -309,7 +308,11 @@ where
 impl<E> IntoObject for IntervalTimer<E> {
     fn into_object(self) -> Object {
         // zero-sized representation
-        Text { text: "", ..Text::default() }.into()
+        Text {
+            text: "",
+            ..Text::default()
+        }
+        .into()
     }
 }
 

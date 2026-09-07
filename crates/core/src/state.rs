@@ -14,7 +14,10 @@ pub struct State<T> {
 impl<T> State<T> {
     /// Create a new state wrapping the given value.
     pub fn new(value: T) -> Self {
-        eprintln!("[snow-ui::state] State::<{}>::new()", std::any::type_name::<T>());
+        eprintln!(
+            "[snow-ui::state] State::<{}>::new()",
+            std::any::type_name::<T>()
+        );
         Self {
             inner: std::sync::Arc::new(std::sync::Mutex::new(value)),
         }
@@ -26,13 +29,19 @@ impl<T> State<T> {
         T: Clone,
     {
         let value = self.inner.lock().unwrap().clone();
-        eprintln!("[snow-ui::state] State::<{}>::get() -> value read", std::any::type_name::<T>());
+        eprintln!(
+            "[snow-ui::state] State::<{}>::get() -> value read",
+            std::any::type_name::<T>()
+        );
         value
     }
 
     /// Set the inner value.
     pub fn set(&self, value: T) {
-        eprintln!("[snow-ui::state] State::<{}>::set()", std::any::type_name::<T>());
+        eprintln!(
+            "[snow-ui::state] State::<{}>::set()",
+            std::any::type_name::<T>()
+        );
         *self.inner.lock().unwrap() = value;
     }
 
@@ -41,10 +50,16 @@ impl<T> State<T> {
     where
         F: FnOnce(&mut T),
     {
-        eprintln!("[snow-ui::state] State::<{}>::update() begin", std::any::type_name::<T>());
+        eprintln!(
+            "[snow-ui::state] State::<{}>::update() begin",
+            std::any::type_name::<T>()
+        );
         let mut b = self.inner.lock().unwrap();
         f(&mut *b);
-        eprintln!("[snow-ui::state] State::<{}>::update() end", std::any::type_name::<T>());
+        eprintln!(
+            "[snow-ui::state] State::<{}>::update() end",
+            std::any::type_name::<T>()
+        );
     }
 
     /// Borrow the inner value immutably (returns a guard).
