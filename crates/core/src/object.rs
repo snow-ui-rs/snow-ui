@@ -1,9 +1,11 @@
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::core::NewWidget;
 #[cfg(not(target_arch = "wasm32"))]
+use masonry::layout::Length;
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::peniko::{ImageAlphaType, ImageData, ImageFormat};
 #[cfg(not(target_arch = "wasm32"))]
-use masonry::widgets::{Flex, Image, Label};
+use masonry::widgets::{Flex, Image, Label, SizedBox};
 
 use crate::elements::{Element, Text, TextClock};
 use crate::girl::Girl;
@@ -54,9 +56,11 @@ impl Object {
                     width,
                     height,
                 };
+                let image = NewWidget::new(Image::new(image_data).with_alt_text("Girl"));
+                let image =
+                    SizedBox::new(image).size(Length::const_px(200.0), Length::const_px(300.0));
                 let mut column = Flex::column();
-                column =
-                    column.with_fixed(NewWidget::new(Image::new(image_data).with_alt_text("Girl")));
+                column = column.with_fixed(NewWidget::new(image));
                 NewWidget::new(column)
             }
             Object::Card(card) => card.into_masonry_widget(),
