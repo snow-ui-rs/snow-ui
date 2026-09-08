@@ -21,9 +21,9 @@ wasm-bindgen \
 Serve the example over HTTP:
 
 ```bash
-python3 -m http.server 8080 --directory examples/web
+python3 -m http.server 8080 --directory .
 ```
 
-Open <http://127.0.0.1:8080> and verify the five example sections in
+Open <http://127.0.0.1:8080/examples/web/> and verify the five example sections in
 `#snow-root`. The click and login buttons update their sections, while the
 clock and timer update once per second.

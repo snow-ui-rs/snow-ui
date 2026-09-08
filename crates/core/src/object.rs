@@ -1,7 +1,9 @@
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::core::NewWidget;
 #[cfg(not(target_arch = "wasm32"))]
-use masonry::widgets::{Flex, Label};
+use masonry::peniko::{ImageAlphaType, ImageData, ImageFormat};
+#[cfg(not(target_arch = "wasm32"))]
+use masonry::widgets::{Flex, Image, Label};
 
 use crate::elements::{Element, Text, TextClock};
 use crate::girl::Girl;
@@ -40,7 +42,23 @@ impl Object {
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         match self {
             Object::Board(board) => board.into_masonry_widget(),
-            Object::Girl(_girl) => NewWidget::new(Flex::column()),
+            Object::Girl(_girl) => {
+                let rgba = image::load_from_memory(include_bytes!("../../../assets/girl.png"))
+                    .expect("failed to decode Girl image")
+                    .to_rgba8();
+                let (width, height) = rgba.dimensions();
+                let image_data = ImageData {
+                    data: rgba.into_raw().into(),
+                    format: ImageFormat::Rgba8,
+                    alpha_type: ImageAlphaType::Alpha,
+                    width,
+                    height,
+                };
+                let mut column = Flex::column();
+                column =
+                    column.with_fixed(NewWidget::new(Image::new(image_data).with_alt_text("Girl")));
+                NewWidget::new(column)
+            }
             Object::Card(card) => card.into_masonry_widget(),
             Object::Row(row) => row.into_masonry_widget(),
             Object::Element(Element::Text(text)) => text.into_masonry_widget(),

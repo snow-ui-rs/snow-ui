@@ -50,10 +50,29 @@ fn render_object(document: &Document, object: &Object, button_index: &mut usize)
         Object::Board(board) => render_group(document, "div", &board.children, false, button_index),
         Object::Card(card) => render_group(document, "div", &card.children, false, button_index),
         Object::Row(row) => render_group(document, "div", &row.children, true, button_index),
-        Object::Girl(_) => element_with_text(document, "div", ""),
+        Object::Girl(_) => render_girl(document),
         Object::DynamicText { value } => element_with_text(document, "span", &value()),
         Object::Element(element) => render_element(document, element, button_index),
     }
+}
+
+fn render_girl(document: &Document) -> Element {
+    let image = document
+        .create_element("img")
+        .expect("failed to create Snow UI girl image");
+    image
+        .set_attribute("src", "/assets/girl.png")
+        .expect("failed to set Snow UI girl image source");
+    image
+        .set_attribute("alt", "Girl")
+        .expect("failed to set Snow UI girl image alt text");
+    image
+        .set_attribute(
+            "style",
+            "display:block;max-width:100%;height:auto;object-fit:contain;",
+        )
+        .expect("failed to style Snow UI girl image");
+    image
 }
 
 fn render_group(
