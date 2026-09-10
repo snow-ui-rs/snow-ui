@@ -17,6 +17,7 @@ pub mod traits;
 pub mod types;
 #[cfg(target_arch = "wasm32")]
 mod web;
+pub mod widgets;
 
 /// Platform-facing time types. The implementation can be replaced for WASM
 /// without exposing the async runtime used by the core crate.
