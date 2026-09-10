@@ -285,7 +285,7 @@ impl From<Object> for SnowNode {
                 children: row.children.into_iter().map(SnowNode::from).collect(),
             },
             Object::Element(crate::elements::Element::Text(text)) => SnowNode::Text {
-                text: text.text.to_string(),
+                text: text.visible_text(),
                 id: 0,
             },
             Object::Element(crate::elements::Element::Button(button)) => SnowNode::Button {
@@ -304,10 +304,6 @@ impl From<Object> for SnowNode {
             },
             Object::Element(crate::elements::Element::TextClock(_)) => SnowNode::Text {
                 text: String::new(),
-                id: 0,
-            },
-            Object::DynamicText { value } => SnowNode::Text {
-                text: value(),
                 id: 0,
             },
         }

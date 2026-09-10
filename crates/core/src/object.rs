@@ -20,9 +20,6 @@ pub enum Object {
     Card(Card),
     Row(Row),
     Element(Element),
-    DynamicText {
-        value: std::sync::Arc<dyn Fn() -> String + Send + Sync + 'static>,
-    },
 }
 
 impl std::fmt::Debug for Object {
@@ -32,7 +29,6 @@ impl std::fmt::Debug for Object {
             Self::Card(v) => f.debug_tuple("Card").field(v).finish(),
             Self::Row(v) => f.debug_tuple("Row").field(v).finish(),
             Self::Element(v) => f.debug_tuple("Element").field(v).finish(),
-            Self::DynamicText { .. } => f.write_str("DynamicText { .. }"),
         }
     }
 }
@@ -75,12 +71,6 @@ impl Object {
             Object::Element(Element::Form(form)) => form.clone().into_masonry_widget(),
             Object::Element(Element::TextInput(text_input)) => text_input.into_masonry_widget(),
             Object::Element(Element::Switch(switch_)) => switch_.into_masonry_widget(),
-            Object::DynamicText { value } => {
-                let inner = value();
-                let mut column = Flex::column();
-                column = column.with_fixed(NewWidget::new(Label::new(inner.as_str())));
-                NewWidget::new(column)
-            }
         }
     }
 
@@ -117,7 +107,6 @@ impl Object {
             }
             Object::Element(Element::TextClock(_)) => {}
             Object::Element(Element::Girl(_)) => {}
-            Object::DynamicText { .. } => {}
         }
     }
 
@@ -154,7 +143,6 @@ impl Object {
             }
             Object::Element(Element::Text(_) | Element::TextInput(_) | Element::TextClock(_)) => {}
             Object::Element(Element::Girl(_)) => {}
-            Object::DynamicText { .. } => {}
         }
     }
 
@@ -219,7 +207,6 @@ impl Object {
             | Object::Element(Element::TextClock(_))
             | Object::Element(Element::TextInput(_))
             | Object::Element(Element::Girl(_)) => {}
-            Object::DynamicText { .. } => {}
         }
     }
 }

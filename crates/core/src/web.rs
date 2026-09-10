@@ -59,7 +59,6 @@ fn render_object(document: &Document, object: &Object, button_index: &mut usize)
         Object::Board(board) => render_group(document, "div", &board.children, false, button_index),
         Object::Card(card) => render_group(document, "div", &card.children, false, button_index),
         Object::Row(row) => render_group(document, "div", &row.children, true, button_index),
-        Object::DynamicText { value } => element_with_text(document, "span", &value()),
         Object::Element(element) => render_element(document, element, button_index),
     }
 }

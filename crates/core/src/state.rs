@@ -1,3 +1,4 @@
+use crate::elements::{Element, Text};
 use crate::object::Object;
 
 // ============================================================================
@@ -85,10 +86,6 @@ where
     T: Clone + std::fmt::Display + Send + Sync + 'static,
 {
     fn from(s: State<T>) -> Self {
-        let live = s.clone();
-        Object::DynamicText {
-            value: std::sync::Arc::new(move || live.get().to_string())
-                as std::sync::Arc<dyn Fn() -> String + Send + Sync + 'static>,
-        }
+        Object::from(Element::from(Text::from_state(&s)))
     }
 }
