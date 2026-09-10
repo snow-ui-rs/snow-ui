@@ -20,11 +20,13 @@ futures = { workspace = true }
 inventory = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
 masonry = { git = "https://github.com/linebender/xilem.git", branch = "main" }
 masonry_winit = { git = "https://github.com/linebender/xilem.git", branch = "main" }
 image = { version = "0.25", default-features = false, features = ["png"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys = "0.3"
 wasm-bindgen-futures = "0.4"
 gloo-timers = "0.3"
 wasm-bindgen = "0.2"

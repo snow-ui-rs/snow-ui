@@ -66,7 +66,13 @@ impl Object {
             Object::Card(card) => card.into_masonry_widget(),
             Object::Row(row) => row.into_masonry_widget(),
             Object::Element(Element::Text(text)) => text.into_masonry_widget(),
-            Object::Element(Element::TextClock(_text_clock)) => NewWidget::new(Flex::column()),
+            Object::Element(Element::TextClock(text_clock)) => {
+                let mut column = Flex::column();
+                column = column.with_fixed(NewWidget::new(Label::new(
+                    text_clock.visible_text().as_str(),
+                )));
+                NewWidget::new(column)
+            }
             Object::Element(Element::Button(button)) => button.into_masonry_widget(),
             Object::Element(Element::Form(form)) => form.clone().into_masonry_widget(),
             Object::Element(Element::TextInput(text_input)) => text_input.into_masonry_widget(),

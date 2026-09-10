@@ -9,12 +9,21 @@ use crate::object::{Object, World};
 
 thread_local! {
     static RENDER_REFRESH: RefCell<Option<Box<dyn Fn()>>> = RefCell::new(None);
+    static CLOCK_REFRESH_STARTED: RefCell<bool> = const { RefCell::new(false) };
 }
 
 pub fn launch_world(world: World) {
     let world_for_refresh = world.clone();
     RENDER_REFRESH.with(|refresh| {
         *refresh.borrow_mut() = Some(Box::new(move || render_world(&world_for_refresh)));
+    });
+    CLOCK_REFRESH_STARTED.with(|started| {
+        if !*started.borrow() {
+            *started.borrow_mut() = true;
+            crate::runtime::interval(std::time::Duration::from_secs(1), || {
+                request_render_refresh();
+            });
+        }
     });
     render_world(&world);
 }
@@ -104,7 +113,7 @@ fn render_group(
 fn render_element(document: &Document, element: &SnowElement, button_index: &mut usize) -> Element {
     match element {
         SnowElement::Text(text) => element_with_text(document, "span", &text.visible_text()),
-        SnowElement::TextClock(clock) => element_with_text(document, "span", clock.format),
+        SnowElement::TextClock(clock) => element_with_text(document, "span", &clock.visible_text()),
         SnowElement::Button(button) => {
             let button_element = element_with_text(document, "button", button.text);
             let current_index = *button_index;

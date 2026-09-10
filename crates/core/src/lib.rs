@@ -279,6 +279,9 @@ fn run_masonry_window(world: World) {
     let event_loop = EventLoop::with_user_event().build().unwrap();
     let _ = EVENT_LOOP_PROXY.set(event_loop.create_proxy());
     let _ = ACTIVE_WINDOW_ID.set(WindowId::next());
+    crate::runtime::interval(std::time::Duration::from_secs(1), || {
+        request_render_refresh_for_active_window();
+    });
 
     let window_size = LogicalSize::new(500.0, 300.0);
     let window_attributes = Window::default_attributes()
