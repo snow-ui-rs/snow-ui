@@ -7,7 +7,7 @@ login, lovely girl, and timer. It exercises the `web-sys` renderer on
 Build the WASM module and generate browser bindings from the workspace root:
 
 ```bash
-cargo +1.96.0 build \
+cargo build \
   --manifest-path Cargo.toml \
   --package snow-ui-web-example \
   --target wasm32-unknown-unknown
