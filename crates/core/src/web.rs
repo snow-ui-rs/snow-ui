@@ -59,7 +59,6 @@ fn render_object(document: &Document, object: &Object, button_index: &mut usize)
         Object::Board(board) => render_group(document, "div", &board.children, false, button_index),
         Object::Card(card) => render_group(document, "div", &card.children, false, button_index),
         Object::Row(row) => render_group(document, "div", &row.children, true, button_index),
-        Object::Girl(_) => render_girl(document),
         Object::DynamicText { value } => element_with_text(document, "span", &value()),
         Object::Element(element) => render_element(document, element, button_index),
     }
@@ -161,6 +160,7 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
             .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
             .map(|child| render_object(document, child, button_index))
             .unwrap_or_else(|| element_with_text(document, "div", "")),
+        SnowElement::Girl(_) => render_girl(document),
     }
 }
 

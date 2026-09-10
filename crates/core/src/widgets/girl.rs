@@ -1,3 +1,5 @@
+use crate::elements::Element;
+
 #[derive(Debug, Default, Clone)]
 pub struct Girl {
     pub hair_color: HairColor,
@@ -17,7 +19,7 @@ pub enum HairColor {
 
 impl Default for HairColor {
     fn default() -> Self {
-        HairColor::Brown
+        Self::Brown
     }
 }
 
@@ -30,7 +32,7 @@ pub enum SkinColor {
 
 impl Default for SkinColor {
     fn default() -> Self {
-        SkinColor::Light
+        Self::Light
     }
 }
 
@@ -43,7 +45,7 @@ pub enum BodyType {
 
 impl Default for BodyType {
     fn default() -> Self {
-        BodyType::Average
+        Self::Average
     }
 }
 
@@ -56,7 +58,7 @@ pub enum Appearance {
 
 impl Default for Appearance {
     fn default() -> Self {
-        Appearance::Cute
+        Self::Cute
     }
 }
 
@@ -64,4 +66,10 @@ impl Default for Appearance {
 pub enum GirlActions {
     SayHi,
     PrepareBreakfast,
+}
+
+impl From<Girl> for Element {
+    fn from(girl: Girl) -> Self {
+        Element::Girl(girl)
+    }
 }

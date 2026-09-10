@@ -1,6 +1,7 @@
-pub use crate::widgets::{Button, IntervalTimer, Switch, Text, TextClock, TextInput};
-
-use crate::form::Form;
+pub use crate::widgets::{
+    Appearance, BodyType, Button, Form, Girl, GirlActions, HairColor, IntervalTimer, SkinColor,
+    SubmitHandler, Switch, Text, TextClock, TextInput,
+};
 
 #[derive(Debug, Clone)]
 pub enum Element {
@@ -10,6 +11,7 @@ pub enum Element {
     Form(Form),
     TextInput(TextInput),
     Switch(Switch),
+    Girl(Girl),
 }
 
 #[cfg(test)]

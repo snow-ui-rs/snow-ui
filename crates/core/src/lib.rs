@@ -5,8 +5,6 @@
 pub mod backend;
 pub mod elements;
 pub mod event_bus;
-pub mod form;
-pub mod girl;
 pub mod handler;
 pub mod layout;
 pub mod object;
@@ -32,10 +30,11 @@ pub use crate::backend::{
     SnowAction, SnowApp, SnowComponent, SnowComponentInstance, SnowMessage, SnowNode, SnowRuntime,
     SnowState, SnowUpdate, SnowView, SnowWorld,
 };
-pub use crate::elements::{Button, Element, IntervalTimer, Switch, Text, TextClock, TextInput};
+pub use crate::elements::{
+    Appearance, BodyType, Button, Element, Form, Girl, GirlActions, HairColor, IntervalTimer,
+    SkinColor, SubmitHandler, Switch, Text, TextClock, TextInput,
+};
 pub use crate::event_bus::{EventBus, EventBusHandle, EventBusReceiver, event_bus};
-pub use crate::form::Form;
-pub use crate::girl::{Appearance, BodyType, Girl, GirlActions, HairColor, SkinColor};
 pub use crate::handler::{
     HandlerRegistryEntry, has_registered_handlers, register_handlers_for_instance,
 };

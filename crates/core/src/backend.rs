@@ -275,7 +275,9 @@ impl From<Object> for SnowNode {
                 height: 0.0,
                 children: board.children.into_iter().map(SnowNode::from).collect(),
             },
-            Object::Girl(_) => SnowNode::Column { children: vec![] },
+            Object::Element(crate::elements::Element::Girl(_)) => {
+                SnowNode::Column { children: vec![] }
+            }
             Object::Card(card) => SnowNode::Column {
                 children: card.children.into_iter().map(SnowNode::from).collect(),
             },

@@ -8,16 +8,15 @@ use masonry::peniko::{ImageAlphaType, ImageData, ImageFormat};
 use masonry::widgets::{Flex, Image, Label, SizedBox};
 
 use crate::elements::{Element, Text, TextClock};
-use crate::girl::Girl;
 use crate::layout::{Board, Card, Row};
 use crate::traits::IntoObject;
+use crate::widgets::Girl;
 
 // ── Object enum ──────────────────────────────────────────────────────────────
 
 #[derive(Clone)]
 pub enum Object {
     Board(Board),
-    Girl(Girl),
     Card(Card),
     Row(Row),
     Element(Element),
@@ -30,7 +29,6 @@ impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Board(v) => f.debug_tuple("Board").field(v).finish(),
-            Self::Girl(v) => f.debug_tuple("Girl").field(v).finish(),
             Self::Card(v) => f.debug_tuple("Card").field(v).finish(),
             Self::Row(v) => f.debug_tuple("Row").field(v).finish(),
             Self::Element(v) => f.debug_tuple("Element").field(v).finish(),
@@ -44,7 +42,9 @@ impl Object {
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         match self {
             Object::Board(board) => board.into_masonry_widget(),
-            Object::Girl(_girl) => {
+            Object::Card(card) => card.into_masonry_widget(),
+            Object::Row(row) => row.into_masonry_widget(),
+            Object::Element(Element::Girl(_girl)) => {
                 let rgba = image::load_from_memory(include_bytes!("../../../assets/girl.png"))
                     .expect("failed to decode Girl image")
                     .to_rgba8();
@@ -63,8 +63,6 @@ impl Object {
                 column = column.with_fixed(NewWidget::new(image));
                 NewWidget::new(column)
             }
-            Object::Card(card) => card.into_masonry_widget(),
-            Object::Row(row) => row.into_masonry_widget(),
             Object::Element(Element::Text(text)) => text.into_masonry_widget(),
             Object::Element(Element::TextClock(text_clock)) => {
                 let mut column = Flex::column();
@@ -118,7 +116,7 @@ impl Object {
                 }
             }
             Object::Element(Element::TextClock(_)) => {}
-            Object::Girl(_) => {}
+            Object::Element(Element::Girl(_)) => {}
             Object::DynamicText { .. } => {}
         }
     }
@@ -155,7 +153,7 @@ impl Object {
                 }
             }
             Object::Element(Element::Text(_) | Element::TextInput(_) | Element::TextClock(_)) => {}
-            Object::Girl(_) => {}
+            Object::Element(Element::Girl(_)) => {}
             Object::DynamicText { .. } => {}
         }
     }
@@ -220,7 +218,7 @@ impl Object {
             Object::Element(Element::Text(_))
             | Object::Element(Element::TextClock(_))
             | Object::Element(Element::TextInput(_))
-            | Object::Girl(_) => {}
+            | Object::Element(Element::Girl(_)) => {}
             Object::DynamicText { .. } => {}
         }
     }
@@ -264,7 +262,7 @@ impl From<Board> for Object {
 
 impl From<Girl> for Object {
     fn from(g: Girl) -> Self {
-        Object::Girl(g)
+        Object::from(Element::from(g))
     }
 }
 
