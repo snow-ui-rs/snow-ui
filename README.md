@@ -342,7 +342,10 @@ fn main() {
 
 ## Products using Snow UI
 
-<center>
+<div align="center">
+<a href="https://clia.cc" target="_blank">
 <img width="120" height="52" alt="image" src="https://github.com/user-attachments/assets/2a90f9b7-dedf-41e6-a6f8-5483ccaea440" />
+<br/>
 clia.cc
-</center>
+</a>
+</div>
