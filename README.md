@@ -2,11 +2,10 @@
 
 [![Crates.io](https://img.shields.io/crates/v/snow-ui.svg)](https://crates.io/crates/snow-ui)
 [![Documentation](https://docs.rs/snow-ui/badge.svg)](https://docs.rs/snow-ui)
+[![Docs passing](https://github.com/snow-ui-rs/snow-ui/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/snow-ui-rs/snow-ui/actions/workflows/docs.yml)
+[![Tests passing](https://github.com/snow-ui-rs/snow-ui/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/snow-ui-rs/snow-ui/actions/workflows/tests.yml)
 [![License](https://img.shields.io/github/license/snow-ui-rs/snow-ui.svg)](https://github.com/snow-ui-rs/snow-ui/blob/main/LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/snow-ui-rs/snow-ui.svg?style=flat)](https://github.com/snow-ui-rs/snow-ui/stargazers)
 [![Crates.io downloads](https://img.shields.io/crates/d/snow-ui.svg)](https://crates.io/crates/snow-ui)
-[![Last commit](https://img.shields.io/github/last-commit/snow-ui-rs/snow-ui.svg)](https://github.com/snow-ui-rs/snow-ui/commits/main)
-[![Top language](https://img.shields.io/github/languages/top/snow-ui-rs/snow-ui.svg)](https://github.com/snow-ui-rs/snow-ui)
 [![Repository size](https://img.shields.io/github/repo-size/snow-ui-rs/snow-ui.svg)](https://github.com/snow-ui-rs/snow-ui)
 [![Rust source lines](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/snow-ui-rs/snow-ui/main/.github/badges/rust-lines.json&cacheSeconds=86400)](https://github.com/snow-ui-rs/snow-ui/search?l=Rust)
 
