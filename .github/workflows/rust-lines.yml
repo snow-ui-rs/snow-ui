@@ -1,0 +1,52 @@
+name: Update Rust source lines badge
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '**/*.rs'
+      - '.github/workflows/rust-lines.yml'
+  schedule:
+    - cron: '17 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-badge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Count tracked Rust source lines
+        id: count
+        shell: bash
+        run: |
+          lines=$(git ls-files '*.rs' ':(exclude)research/**' ':(exclude)vendor/**' | xargs wc -l | awk 'END { print $1 }')
+          if (( lines >= 1000 )); then
+            message=$(awk -v lines="$lines" 'BEGIN { printf "%.1fk", lines / 1000 }')
+          else
+            message="$lines"
+          fi
+          echo "lines=$lines" >> "$GITHUB_OUTPUT"
+          echo "message=$message" >> "$GITHUB_OUTPUT"
+
+      - name: Write Shields endpoint data
+        env:
+          MESSAGE: ${{ steps.count.outputs.message }}
+        run: |
+          mkdir -p .github/badges
+          printf '{"schemaVersion":1,"label":"Rust source lines","message":"%s","color":"blue"}\n' "$MESSAGE" > .github/badges/rust-lines.json
+
+      - name: Commit updated badge
+        run: |
+          if git diff --quiet -- .github/badges/rust-lines.json; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/badges/rust-lines.json
+          git commit -m 'chore: update Rust source lines badge'
+          git push

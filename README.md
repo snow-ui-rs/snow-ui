@@ -8,7 +8,7 @@
 [![Last commit](https://img.shields.io/github/last-commit/snow-ui-rs/snow-ui.svg)](https://github.com/snow-ui-rs/snow-ui/commits/main)
 [![Top language](https://img.shields.io/github/languages/top/snow-ui-rs/snow-ui.svg)](https://github.com/snow-ui-rs/snow-ui)
 [![Repository size](https://img.shields.io/github/repo-size/snow-ui-rs/snow-ui.svg)](https://github.com/snow-ui-rs/snow-ui)
-[![Rust source lines](https://img.shields.io/badge/Rust%20source%20lines-5.4k-blue.svg)](https://github.com/snow-ui-rs/snow-ui/search?l=Rust)
+[![Rust source lines](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/snow-ui-rs/snow-ui/main/.github/badges/rust-lines.json&cacheSeconds=86400)](https://github.com/snow-ui-rs/snow-ui/search?l=Rust)
 
 **Current status:** It works, initially.
 
