@@ -1,16 +1,22 @@
+mod board;
 mod button;
+mod card;
 mod form;
 mod girl;
 mod interval_timer;
+mod row;
 mod switch;
 mod text;
 mod text_clock;
 mod text_input;
 
+pub use board::Board;
 pub use button::Button;
+pub use card::Card;
 pub use form::{Form, SubmitHandler};
 pub use girl::{Appearance, BodyType, Girl, GirlActions, HairColor, SkinColor};
 pub use interval_timer::IntervalTimer;
+pub use row::Row;
 pub use switch::Switch;
 pub use text::Text;
 pub use text_clock::TextClock;

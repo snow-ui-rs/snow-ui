@@ -16,18 +16,12 @@ use crate::widgets::Girl;
 
 #[derive(Clone)]
 pub enum Object {
-    Board(Board),
-    Card(Card),
-    Row(Row),
     Element(Element),
 }
 
 impl std::fmt::Debug for Object {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Board(v) => f.debug_tuple("Board").field(v).finish(),
-            Self::Card(v) => f.debug_tuple("Card").field(v).finish(),
-            Self::Row(v) => f.debug_tuple("Row").field(v).finish(),
             Self::Element(v) => f.debug_tuple("Element").field(v).finish(),
         }
     }
@@ -37,9 +31,9 @@ impl Object {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         match self {
-            Object::Board(board) => board.into_masonry_widget(),
-            Object::Card(card) => card.into_masonry_widget(),
-            Object::Row(row) => row.into_masonry_widget(),
+            Object::Element(Element::Board(board)) => board.into_masonry_widget(),
+            Object::Element(Element::Card(card)) => card.into_masonry_widget(),
+            Object::Element(Element::Row(row)) => row.into_masonry_widget(),
             Object::Element(Element::Girl(_girl)) => {
                 let rgba = image::load_from_memory(include_bytes!("../../../assets/girl.png"))
                     .expect("failed to decode Girl image")
@@ -77,17 +71,17 @@ impl Object {
     pub fn update_text_recursive(&mut self, text: impl Into<String>) {
         let next = text.into();
         match self {
-            Object::Board(board) => {
+            Object::Element(Element::Board(board)) => {
                 for child in &mut board.children {
                     child.update_text_recursive(next.clone());
                 }
             }
-            Object::Card(card) => {
+            Object::Element(Element::Card(card)) => {
                 for child in &mut card.children {
                     child.update_text_recursive(next.clone());
                 }
             }
-            Object::Row(row) => {
+            Object::Element(Element::Row(row)) => {
                 for child in &mut row.children {
                     child.update_text_recursive(next.clone());
                 }
@@ -113,17 +107,17 @@ impl Object {
     pub fn update_button_text_recursive(&mut self, text: impl Into<String>) {
         let next = text.into();
         match self {
-            Object::Board(board) => {
+            Object::Element(Element::Board(board)) => {
                 for child in &mut board.children {
                     child.update_button_text_recursive(next.clone());
                 }
             }
-            Object::Card(card) => {
+            Object::Element(Element::Card(card)) => {
                 for child in &mut card.children {
                     child.update_button_text_recursive(next.clone());
                 }
             }
-            Object::Row(row) => {
+            Object::Element(Element::Row(row)) => {
                 for child in &mut row.children {
                     child.update_button_text_recursive(next.clone());
                 }
@@ -174,17 +168,17 @@ pub struct World {
 impl Object {
     fn collect_button_ids(&self, next_id: &mut u64, ids: &mut Vec<u64>) {
         match self {
-            Object::Board(board) => {
+            Object::Element(Element::Board(board)) => {
                 for child in &board.children {
                     child.collect_button_ids(next_id, ids);
                 }
             }
-            Object::Card(card) => {
+            Object::Element(Element::Card(card)) => {
                 for child in &card.children {
                     child.collect_button_ids(next_id, ids);
                 }
             }
-            Object::Row(row) => {
+            Object::Element(Element::Row(row)) => {
                 for child in &row.children {
                     child.collect_button_ids(next_id, ids);
                 }
@@ -236,14 +230,14 @@ impl World {
 impl Default for World {
     fn default() -> Self {
         Self {
-            root: Object::Board(Board::default()),
+            root: Object::from(Element::from(Board::default())),
         }
     }
 }
 
 impl From<Board> for Object {
     fn from(b: Board) -> Self {
-        Object::Board(b)
+        Object::from(Element::from(b))
     }
 }
 
@@ -255,13 +249,13 @@ impl From<Girl> for Object {
 
 impl From<Card> for Object {
     fn from(c: Card) -> Self {
-        Object::Card(c)
+        Object::from(Element::from(c))
     }
 }
 
 impl From<Row> for Object {
     fn from(r: Row) -> Self {
-        Object::Row(r)
+        Object::from(Element::from(r))
     }
 }
 

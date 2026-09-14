@@ -270,7 +270,7 @@ impl From<SnowComponent> for Object {
 impl From<Object> for SnowNode {
     fn from(object: Object) -> Self {
         match object {
-            Object::Board(board) => SnowNode::Box {
+            Object::Element(crate::elements::Element::Board(board)) => SnowNode::Box {
                 width: 0.0,
                 height: 0.0,
                 children: board.children.into_iter().map(SnowNode::from).collect(),
@@ -278,10 +278,10 @@ impl From<Object> for SnowNode {
             Object::Element(crate::elements::Element::Girl(_)) => {
                 SnowNode::Column { children: vec![] }
             }
-            Object::Card(card) => SnowNode::Column {
+            Object::Element(crate::elements::Element::Card(card)) => SnowNode::Column {
                 children: card.children.into_iter().map(SnowNode::from).collect(),
             },
-            Object::Row(row) => SnowNode::Row {
+            Object::Element(crate::elements::Element::Row(row)) => SnowNode::Row {
                 children: row.children.into_iter().map(SnowNode::from).collect(),
             },
             Object::Element(crate::elements::Element::Text(text)) => SnowNode::Text {
@@ -1629,8 +1629,14 @@ mod tests {
         let object: crate::object::Object = component.clone().into();
         let world: crate::object::World = super::SnowWorld::new(component.into_node()).into();
 
-        assert!(matches!(object, crate::object::Object::Row(_)));
-        assert!(matches!(world.root, crate::object::Object::Row(_)));
+        assert!(matches!(
+            object,
+            crate::object::Object::Element(crate::elements::Element::Row(_))
+        ));
+        assert!(matches!(
+            world.root,
+            crate::object::Object::Element(crate::elements::Element::Row(_))
+        ));
     }
 
     #[test]
@@ -1641,7 +1647,10 @@ mod tests {
         ]);
 
         let world = component.into_world();
-        assert!(matches!(world.root, crate::object::Object::Row(_)));
+        assert!(matches!(
+            world.root,
+            crate::object::Object::Element(crate::elements::Element::Row(_))
+        ));
     }
 
     #[test]
@@ -1699,11 +1708,13 @@ mod tests {
     #[test]
     fn app_can_be_built_from_real_library_world() {
         let world = crate::object::World {
-            root: crate::object::Object::Row(crate::layout::Row {
-                children: vec![crate::object::Object::Element(
-                    crate::elements::Element::Button(crate::elements::Button { text: "hello" }),
-                )],
-            }),
+            root: crate::object::Object::Element(crate::elements::Element::Row(
+                crate::layout::Row {
+                    children: vec![crate::object::Object::Element(
+                        crate::elements::Element::Button(crate::elements::Button { text: "hello" }),
+                    )],
+                },
+            )),
         };
 
         let app = super::SnowApp::from_world(world.clone());

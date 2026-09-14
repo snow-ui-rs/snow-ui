@@ -1,10 +1,13 @@
 pub use crate::widgets::{
-    Appearance, BodyType, Button, Form, Girl, GirlActions, HairColor, IntervalTimer, SkinColor,
-    SubmitHandler, Switch, Text, TextClock, TextInput,
+    Appearance, Board, BodyType, Button, Card, Form, Girl, GirlActions, HairColor, IntervalTimer,
+    Row, SkinColor, SubmitHandler, Switch, Text, TextClock, TextInput,
 };
 
 #[derive(Debug, Clone)]
 pub enum Element {
+    Board(Board),
+    Card(Card),
+    Row(Row),
     Text(Text),
     TextClock(TextClock),
     Button(Button),

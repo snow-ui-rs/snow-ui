@@ -56,9 +56,6 @@ fn render_world(world: &World) {
 
 fn render_object(document: &Document, object: &Object, button_index: &mut usize) -> Element {
     match object {
-        Object::Board(board) => render_group(document, "div", &board.children, false, button_index),
-        Object::Card(card) => render_group(document, "div", &card.children, false, button_index),
-        Object::Row(row) => render_group(document, "div", &row.children, true, button_index),
         Object::Element(element) => render_element(document, element, button_index),
     }
 }
@@ -110,6 +107,13 @@ fn render_group(
 
 fn render_element(document: &Document, element: &SnowElement, button_index: &mut usize) -> Element {
     match element {
+        SnowElement::Board(board) => {
+            render_group(document, "div", &board.children, false, button_index)
+        }
+        SnowElement::Card(card) => {
+            render_group(document, "div", &card.children, false, button_index)
+        }
+        SnowElement::Row(row) => render_group(document, "div", &row.children, true, button_index),
         SnowElement::Text(text) => element_with_text(document, "span", &text.visible_text()),
         SnowElement::TextClock(clock) => element_with_text(document, "span", &clock.visible_text()),
         SnowElement::Button(button) => {

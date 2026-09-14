@@ -41,7 +41,7 @@ fn element_renders_only_visible_fields() {
     let object = element.into_object();
 
     match object {
-        Object::Row(row) => {
+        Object::Element(Element::Row(row)) => {
             assert_eq!(row.children.len(), 1);
             assert!(matches!(row.children[0], Object::Element(Element::Text(_))));
         }

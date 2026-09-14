@@ -104,17 +104,17 @@ impl Form {
                         input.max_len
                     ));
                 }
-                Object::Board(board) => {
+                Object::Element(Element::Board(board)) => {
                     for child in &board.children {
                         walk(child, output, escape);
                     }
                 }
-                Object::Row(row) => {
+                Object::Element(Element::Row(row)) => {
                     for child in &row.children {
                         walk(child, output, escape);
                     }
                 }
-                Object::Card(card) => {
+                Object::Element(Element::Card(card)) => {
                     for child in &card.children {
                         walk(child, output, escape);
                     }

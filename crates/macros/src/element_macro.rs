@@ -224,9 +224,9 @@ fn gen_into_object(
                         #registrations
                         let value = rc.lock().unwrap();
                         #(value.#timer_fields.start();)*
-                        ::snow_ui::Object::Row(::snow_ui::Row {
+                        ::snow_ui::Object::from(::snow_ui::Element::Row(::snow_ui::Row {
                             children: vec![#(::snow_ui::Object::from(value.#visible_fields.clone())),*],
-                        })
+                        }))
                     }
                 }
             }
