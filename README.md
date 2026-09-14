@@ -2,7 +2,7 @@
 
 **Current status:** It works, initially.
 
-<img width="422" height="588" alt="image" src="https://github.com/user-attachments/assets/b6801cdb-19c0-4141-b672-1dc266abd716" />
+<img width="415" height="598" alt="image" src="https://github.com/user-attachments/assets/c9c56e45-5833-4fc7-b757-faf1d417e826" />
 
 ## Philosophy
 
