@@ -6,8 +6,10 @@
 [![Crates.io downloads](https://img.shields.io/crates/d/snow-ui.svg)](https://crates.io/crates/snow-ui)
 [![Repository size](https://img.shields.io/github/repo-size/snow-ui-rs/snow-ui.svg)](https://github.com/snow-ui-rs/snow-ui)
 [![Source lines](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/snow-ui-rs/snow-ui/main/.github/badges/rust-lines.json&cacheSeconds=86400)](https://github.com/snow-ui-rs/snow-ui/search?l=Rust)
-[![Docs passing](https://github.com/snow-ui-rs/snow-ui/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/snow-ui-rs/snow-ui/actions/workflows/docs.yml)
 [![Tests passing](https://github.com/snow-ui-rs/snow-ui/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/snow-ui-rs/snow-ui/actions/workflows/tests.yml)
+<!--
+[![Docs passing](https://github.com/snow-ui-rs/snow-ui/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/snow-ui-rs/snow-ui/actions/workflows/docs.yml)
+-->
 
 **Current status:** It works, initially.
 
