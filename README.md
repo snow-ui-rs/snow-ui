@@ -2,15 +2,15 @@
 
 [![Crates.io](https://img.shields.io/crates/v/snow-ui.svg)](https://crates.io/crates/snow-ui)
 [![Documentation](https://docs.rs/snow-ui/badge.svg)](https://docs.rs/snow-ui)
+[![License](https://img.shields.io/github/license/snow-ui-rs/snow-ui.svg)](https://github.com/snow-ui-rs/snow-ui/blob/main/LICENSE)
+[![Crates.io downloads](https://img.shields.io/crates/d/snow-ui.svg)](https://crates.io/crates/snow-ui)
+[![Repository size](https://img.shields.io/github/repo-size/snow-ui-rs/snow-ui.svg)](https://github.com/snow-ui-rs/snow-ui)
+[![Rust source lines](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/snow-ui-rs/snow-ui/main/.github/badges/rust-lines.json&cacheSeconds=86400)](https://github.com/snow-ui-rs/snow-ui/search?l=Rust)
 <!--
 Disabled while the GitHub Actions builds are blocked by a dependency compilation issue.
 [![Docs passing](https://github.com/snow-ui-rs/snow-ui/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/snow-ui-rs/snow-ui/actions/workflows/docs.yml)
 [![Tests passing](https://github.com/snow-ui-rs/snow-ui/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/snow-ui-rs/snow-ui/actions/workflows/tests.yml)
 -->
-[![License](https://img.shields.io/github/license/snow-ui-rs/snow-ui.svg)](https://github.com/snow-ui-rs/snow-ui/blob/main/LICENSE)
-[![Crates.io downloads](https://img.shields.io/crates/d/snow-ui.svg)](https://crates.io/crates/snow-ui)
-[![Repository size](https://img.shields.io/github/repo-size/snow-ui-rs/snow-ui.svg)](https://github.com/snow-ui-rs/snow-ui)
-[![Rust source lines](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/snow-ui-rs/snow-ui/main/.github/badges/rust-lines.json&cacheSeconds=86400)](https://github.com/snow-ui-rs/snow-ui/search?l=Rust)
 
 **Current status:** It works, initially.
 
