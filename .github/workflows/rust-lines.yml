@@ -38,7 +38,7 @@ jobs:
           MESSAGE: ${{ steps.count.outputs.message }}
         run: |
           mkdir -p .github/badges
-          printf '{"schemaVersion":1,"label":"Rust source lines","message":"%s","color":"blue"}\n' "$MESSAGE" > .github/badges/rust-lines.json
+          printf '{"schemaVersion":1,"label":"code lines","message":"%s","color":"blue"}\n' "$MESSAGE" > .github/badges/rust-lines.json
 
       - name: Commit updated badge
         run: |
