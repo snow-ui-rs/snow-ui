@@ -2,6 +2,8 @@
 
 **Current status:** It works, initially.
 
+<img width="1686" height="2348" alt="image" src="https://github.com/user-attachments/assets/271d826f-1daf-4c49-bbf3-a001ffaf6351" />
+
 ## Philosophy
 
 The UI is a projection of a virtual world onto the screen.
