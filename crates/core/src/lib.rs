@@ -53,6 +53,10 @@ pub use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
 struct RenderRefresh;
 
 #[cfg(not(target_arch = "wasm32"))]
+#[derive(Debug)]
+struct ClockRefresh;
+
+#[cfg(not(target_arch = "wasm32"))]
 static EVENT_LOOP_PROXY: std::sync::OnceLock<masonry_winit::app::EventLoopProxy> =
     std::sync::OnceLock::new();
 #[cfg(not(target_arch = "wasm32"))]
@@ -67,6 +71,17 @@ pub(crate) fn request_render_refresh_for_active_window() {
     let _ = proxy.send_event(masonry_winit::app::MasonryUserEvent::AsyncAction(
         *window_id,
         Box::new(RenderRefresh),
+    ));
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn request_clock_refresh_for_active_window() {
+    let (Some(proxy), Some(window_id)) = (EVENT_LOOP_PROXY.get(), ACTIVE_WINDOW_ID.get()) else {
+        return;
+    };
+    let _ = proxy.send_event(masonry_winit::app::MasonryUserEvent::AsyncAction(
+        *window_id,
+        Box::new(ClockRefresh),
     ));
 }
 
@@ -204,9 +219,9 @@ pub mod prelude {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn run_masonry_window(world: World) {
-    use masonry::core::{CollectionWidget, ErasedAction, WidgetId};
+    use masonry::core::{ErasedAction, WidgetId, WidgetTag};
     use masonry::dpi::LogicalSize;
-    use masonry::widgets::ButtonPress;
+    use masonry::widgets::{ButtonPress, Label};
     use masonry_winit::app::{AppDriver, DriverCtx, EventLoop, NewWindow, WindowId};
     use masonry_winit::winit::window::Window;
 
@@ -214,20 +229,50 @@ fn run_masonry_window(world: World) {
         window_id: WindowId,
         world: World,
         adapter: crate::backend::masonry_backend::MasonryAdapter,
+        native_tags: crate::object::NativeTags,
     }
 
     impl LaunchDriver {
-        fn refresh_root(&self, window_id: WindowId, ctx: &mut DriverCtx<'_>) {
-            let rebuilt_root = self.world.clone().into_masonry_widget();
-            eprintln!("[snow-ui] LaunchDriver: rebuilding render root from live world");
-            ctx.render_root(window_id).edit_layer(0, |mut root| {
-                let mut flex = root.downcast::<masonry::widgets::Flex>();
-                while flex.widget.len() > 0 {
-                    masonry::widgets::Flex::remove(&mut flex, 0);
+        fn refresh_leaf_widgets(
+            &self,
+            window_id: WindowId,
+            ctx: &mut DriverCtx<'_>,
+            update_text: bool,
+            update_buttons: bool,
+            update_clocks: bool,
+        ) {
+            let mut text_values = Vec::new();
+            let mut button_values = Vec::new();
+            let mut clock_values = Vec::new();
+            self.world.root.native_text_values(
+                &mut text_values,
+                &mut button_values,
+                &mut clock_values,
+            );
+            if update_text {
+                for (tag, value) in self.native_tags.text.iter().zip(text_values) {
+                    ctx.render_root(window_id)
+                        .edit_widget_with_tag(*tag, |mut label| {
+                            Label::set_text(&mut label, value);
+                        });
                 }
-                masonry::widgets::Flex::add_fixed(&mut flex, rebuilt_root);
-            });
-            eprintln!("[snow-ui] LaunchDriver: render root rebuild complete");
+            }
+            if update_buttons {
+                for (tag, value) in self.native_tags.button.iter().zip(button_values) {
+                    ctx.render_root(window_id)
+                        .edit_widget_with_tag(*tag, |mut label| {
+                            Label::set_text(&mut label, value);
+                        });
+                }
+            }
+            if update_clocks {
+                for (tag, value) in self.native_tags.clock.iter().zip(clock_values) {
+                    ctx.render_root(window_id)
+                        .edit_widget_with_tag(*tag, |mut label| {
+                            Label::set_text(&mut label, value);
+                        });
+                }
+            }
         }
     }
 
@@ -251,12 +296,13 @@ fn run_masonry_window(world: World) {
                         message
                     );
                     self.adapter.handle_message(&message);
+                    self.world = self.adapter.world().clone().into();
                     eprintln!("[snow-ui] AppDriver::on_action: handle_message completed");
                 } else {
                     eprintln!("[snow-ui] AppDriver::on_action: dispatch_action returned None");
                 }
 
-                self.refresh_root(window_id, ctx);
+                self.refresh_leaf_widgets(window_id, ctx, true, true, false);
             }
         }
 
@@ -267,21 +313,46 @@ fn run_masonry_window(world: World) {
             action: ErasedAction,
         ) {
             if action.is::<RenderRefresh>() {
-                self.refresh_root(window_id, ctx);
+                self.refresh_leaf_widgets(window_id, ctx, true, true, false);
+            } else if action.is::<ClockRefresh>() {
+                self.refresh_leaf_widgets(window_id, ctx, false, false, true);
             }
         }
     }
 
     let mut adapter = crate::backend::masonry_backend::MasonryAdapter::new();
     adapter.set_world(world.clone().into());
-    let main_widget = adapter.render_library_world(&world).erased();
+    let (text_count, button_count, clock_count) = world.root.native_tag_counts();
+    let native_tags = crate::object::NativeTags {
+        text: (0..text_count)
+            .map(|_| WidgetTag::<Label>::unique())
+            .collect(),
+        button: (0..button_count)
+            .map(|_| WidgetTag::<Label>::unique())
+            .collect(),
+        clock: (0..clock_count)
+            .map(|_| WidgetTag::<Label>::unique())
+            .collect(),
+    };
+    let mut next_text = 0;
+    let mut next_button = 0;
+    let mut next_clock = 0;
+    let main_widget = world
+        .root
+        .into_masonry_widget_with_native_tags(
+            &native_tags,
+            &mut next_text,
+            &mut next_button,
+            &mut next_clock,
+        )
+        .erased();
 
     let event_loop = EventLoop::with_user_event().build().unwrap();
     let _ = EVENT_LOOP_PROXY.set(event_loop.create_proxy());
     let _ = ACTIVE_WINDOW_ID.set(WindowId::next());
     if world.root.has_text_clock() {
         crate::runtime::interval(std::time::Duration::from_secs(1), || {
-            request_render_refresh_for_active_window();
+            request_clock_refresh_for_active_window();
         });
     }
 
@@ -295,6 +366,7 @@ fn run_masonry_window(world: World) {
         window_id: *ACTIVE_WINDOW_ID.get().unwrap(),
         world: world.clone(),
         adapter,
+        native_tags,
     };
 
     masonry_winit::app::run_with(

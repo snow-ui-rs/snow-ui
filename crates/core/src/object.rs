@@ -1,22 +1,37 @@
 #[cfg(not(target_arch = "wasm32"))]
-use masonry::core::NewWidget;
+use masonry::core::{NewWidget, WidgetTag};
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::layout::Length;
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::peniko::{ImageAlphaType, ImageData, ImageFormat};
 #[cfg(not(target_arch = "wasm32"))]
-use masonry::widgets::{Flex, Image, Label, SizedBox};
+use masonry::widgets::{Button as MasonryButton, Flex, Image, Label, SizedBox};
 
 use crate::elements::{Element, Text, TextClock};
 use crate::layout::{Board, Card, Row};
 use crate::traits::IntoObject;
 use crate::widgets::Girl;
 
+#[cfg(not(target_arch = "wasm32"))]
+fn sum_tag_counts(
+    left: (usize, usize, usize),
+    right: (usize, usize, usize),
+) -> (usize, usize, usize) {
+    (left.0 + right.0, left.1 + right.1, left.2 + right.2)
+}
+
 // ── Object enum ──────────────────────────────────────────────────────────────
 
 #[derive(Clone)]
 pub enum Object {
     Element(Element),
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) struct NativeTags {
+    pub text: Vec<WidgetTag<Label>>,
+    pub button: Vec<WidgetTag<Label>>,
+    pub clock: Vec<WidgetTag<Label>>,
 }
 
 impl std::fmt::Debug for Object {
@@ -28,6 +43,208 @@ impl std::fmt::Debug for Object {
 }
 
 impl Object {
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn native_tag_counts(&self) -> (usize, usize, usize) {
+        match self {
+            Object::Element(Element::Text(_)) => (1, 0, 0),
+            Object::Element(Element::Button(_)) => (0, 1, 0),
+            Object::Element(Element::TextClock(_)) => (0, 0, 1),
+            Object::Element(Element::Board(board)) => board
+                .children
+                .iter()
+                .map(Object::native_tag_counts)
+                .fold((0, 0, 0), sum_tag_counts),
+            Object::Element(Element::Card(card)) => card
+                .children
+                .iter()
+                .map(Object::native_tag_counts)
+                .fold((0, 0, 0), sum_tag_counts),
+            Object::Element(Element::Row(row)) => row
+                .children
+                .iter()
+                .map(Object::native_tag_counts)
+                .fold((0, 0, 0), sum_tag_counts),
+            Object::Element(Element::Form(form)) => {
+                let children = form
+                    .children
+                    .iter()
+                    .map(Object::native_tag_counts)
+                    .fold((0, 0, 0), sum_tag_counts);
+                (children.0, children.1 + 2, children.2)
+            }
+            Object::Element(Element::Switch(switch_)) => switch_
+                .children
+                .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
+                .map_or((0, 0, 0), Object::native_tag_counts),
+            Object::Element(Element::TextInput(input)) => {
+                (usize::from(!input.label.is_empty()) + 1, 0, 0)
+            }
+            Object::Element(Element::Girl(_)) => (0, 0, 0),
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn native_text_values(
+        &self,
+        text_values: &mut Vec<String>,
+        button_values: &mut Vec<String>,
+        clock_values: &mut Vec<String>,
+    ) {
+        match self {
+            Object::Element(Element::Text(text)) => text_values.push(text.visible_text()),
+            Object::Element(Element::Button(button)) => button_values.push(button.text.to_string()),
+            Object::Element(Element::TextClock(clock)) => clock_values.push(clock.visible_text()),
+            Object::Element(Element::Board(board)) => {
+                for child in &board.children {
+                    child.native_text_values(text_values, button_values, clock_values);
+                }
+            }
+            Object::Element(Element::Card(card)) => {
+                for child in &card.children {
+                    child.native_text_values(text_values, button_values, clock_values);
+                }
+            }
+            Object::Element(Element::Row(row)) => {
+                for child in &row.children {
+                    child.native_text_values(text_values, button_values, clock_values);
+                }
+            }
+            Object::Element(Element::Form(form)) => {
+                button_values.push(form.submit_button.text.to_string());
+                button_values.push(form.reset_button.text.to_string());
+                for child in &form.children {
+                    child.native_text_values(text_values, button_values, clock_values);
+                }
+            }
+            Object::Element(Element::Switch(switch_)) => {
+                if let Some(child) = switch_
+                    .children
+                    .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
+                {
+                    child.native_text_values(text_values, button_values, clock_values);
+                }
+            }
+            Object::Element(Element::TextInput(input)) => {
+                if !input.label.is_empty() {
+                    text_values.push(input.label.to_string());
+                }
+                text_values.push(input.name.to_string());
+            }
+            Object::Element(Element::Girl(_)) => {}
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn into_masonry_widget_with_native_tags(
+        &self,
+        tags: &NativeTags,
+        next_text: &mut usize,
+        next_button: &mut usize,
+        next_clock: &mut usize,
+    ) -> NewWidget<Flex> {
+        let mut column = Flex::column();
+        match self {
+            Object::Element(Element::Board(board)) => {
+                for child in &board.children {
+                    column = column.with_fixed(child.into_masonry_widget_with_native_tags(
+                        tags,
+                        next_text,
+                        next_button,
+                        next_clock,
+                    ));
+                }
+            }
+            Object::Element(Element::Card(card)) => {
+                for child in &card.children {
+                    column = column.with_fixed(child.into_masonry_widget_with_native_tags(
+                        tags,
+                        next_text,
+                        next_button,
+                        next_clock,
+                    ));
+                }
+            }
+            Object::Element(Element::Row(row)) => {
+                let mut horizontal = Flex::row();
+                for child in &row.children {
+                    horizontal = horizontal.with_fixed(child.into_masonry_widget_with_native_tags(
+                        tags,
+                        next_text,
+                        next_button,
+                        next_clock,
+                    ));
+                }
+                return NewWidget::new(horizontal);
+            }
+            Object::Element(Element::Form(form)) => {
+                let submit_tag = tags.button[*next_button];
+                *next_button += 1;
+                column = column.with_fixed(NewWidget::new(MasonryButton::new(
+                    NewWidget::new(Label::new(form.submit_button.text)).with_tag(submit_tag),
+                )));
+                let reset_tag = tags.button[*next_button];
+                *next_button += 1;
+                column = column.with_fixed(NewWidget::new(MasonryButton::new(
+                    NewWidget::new(Label::new(form.reset_button.text)).with_tag(reset_tag),
+                )));
+                for child in &form.children {
+                    column = column.with_fixed(child.into_masonry_widget_with_native_tags(
+                        tags,
+                        next_text,
+                        next_button,
+                        next_clock,
+                    ));
+                }
+            }
+            Object::Element(Element::Switch(switch_)) => {
+                if let Some(child) = switch_
+                    .children
+                    .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
+                {
+                    column = column.with_fixed(child.into_masonry_widget_with_native_tags(
+                        tags,
+                        next_text,
+                        next_button,
+                        next_clock,
+                    ));
+                }
+            }
+            Object::Element(Element::Text(text)) => {
+                let tag = tags.text[*next_text];
+                *next_text += 1;
+                column = column.with_fixed(
+                    NewWidget::new(Label::new(text.visible_text().as_str())).with_tag(tag),
+                );
+            }
+            Object::Element(Element::Button(button)) => {
+                let tag = tags.button[*next_button];
+                *next_button += 1;
+                let label = NewWidget::new(Label::new(button.text)).with_tag(tag);
+                column = column.with_fixed(NewWidget::new(MasonryButton::new(label)));
+            }
+            Object::Element(Element::TextClock(clock)) => {
+                let tag = tags.clock[*next_clock];
+                *next_clock += 1;
+                column = column.with_fixed(
+                    NewWidget::new(Label::new(clock.visible_text().as_str())).with_tag(tag),
+                );
+            }
+            Object::Element(Element::Girl(_)) => return self.into_masonry_widget(),
+            Object::Element(Element::TextInput(input)) => {
+                if !input.label.is_empty() {
+                    let tag = tags.text[*next_text];
+                    *next_text += 1;
+                    column =
+                        column.with_fixed(NewWidget::new(Label::new(input.label)).with_tag(tag));
+                }
+                let tag = tags.text[*next_text];
+                *next_text += 1;
+                column = column.with_fixed(NewWidget::new(Label::new(input.name)).with_tag(tag));
+            }
+        }
+        NewWidget::new(column)
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         match self {
@@ -66,6 +283,129 @@ impl Object {
             Object::Element(Element::TextInput(text_input)) => text_input.into_masonry_widget(),
             Object::Element(Element::Switch(switch_)) => switch_.into_masonry_widget(),
         }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn text_clock_count(&self) -> usize {
+        match self {
+            Object::Element(Element::TextClock(_)) => 1,
+            Object::Element(Element::Board(board)) => {
+                board.children.iter().map(Object::text_clock_count).sum()
+            }
+            Object::Element(Element::Card(card)) => {
+                card.children.iter().map(Object::text_clock_count).sum()
+            }
+            Object::Element(Element::Row(row)) => {
+                row.children.iter().map(Object::text_clock_count).sum()
+            }
+            Object::Element(Element::Form(form)) => {
+                form.children.iter().map(Object::text_clock_count).sum()
+            }
+            Object::Element(Element::Switch(switch_)) => switch_
+                .children
+                .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
+                .map_or(0, Object::text_clock_count),
+            Object::Element(
+                Element::Text(_) | Element::Button(_) | Element::TextInput(_) | Element::Girl(_),
+            ) => 0,
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn text_clock_values(&self, values: &mut Vec<String>) {
+        match self {
+            Object::Element(Element::TextClock(clock)) => values.push(clock.visible_text()),
+            Object::Element(Element::Board(board)) => {
+                for child in &board.children {
+                    child.text_clock_values(values);
+                }
+            }
+            Object::Element(Element::Card(card)) => {
+                for child in &card.children {
+                    child.text_clock_values(values);
+                }
+            }
+            Object::Element(Element::Row(row)) => {
+                for child in &row.children {
+                    child.text_clock_values(values);
+                }
+            }
+            Object::Element(Element::Form(form)) => {
+                for child in &form.children {
+                    child.text_clock_values(values);
+                }
+            }
+            Object::Element(Element::Switch(switch_)) => {
+                if let Some(child) = switch_
+                    .children
+                    .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
+                {
+                    child.text_clock_values(values);
+                }
+            }
+            Object::Element(
+                Element::Text(_) | Element::Button(_) | Element::TextInput(_) | Element::Girl(_),
+            ) => {}
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn into_masonry_widget_with_clock_tags(
+        &self,
+        tags: &[WidgetTag<Label>],
+        next_tag: &mut usize,
+    ) -> NewWidget<Flex> {
+        let mut column = Flex::column();
+        match self {
+            Object::Element(Element::Board(board)) => {
+                for child in &board.children {
+                    column = column
+                        .with_fixed(child.into_masonry_widget_with_clock_tags(tags, next_tag));
+                }
+            }
+            Object::Element(Element::Card(card)) => {
+                for child in &card.children {
+                    column = column
+                        .with_fixed(child.into_masonry_widget_with_clock_tags(tags, next_tag));
+                }
+            }
+            Object::Element(Element::Row(row)) => {
+                let mut horizontal = Flex::row();
+                for child in &row.children {
+                    horizontal = horizontal
+                        .with_fixed(child.into_masonry_widget_with_clock_tags(tags, next_tag));
+                }
+                return NewWidget::new(horizontal);
+            }
+            Object::Element(Element::Form(form)) => {
+                for child in &form.children {
+                    column = column
+                        .with_fixed(child.into_masonry_widget_with_clock_tags(tags, next_tag));
+                }
+            }
+            Object::Element(Element::Switch(switch_)) => {
+                if let Some(child) = switch_
+                    .children
+                    .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
+                {
+                    column = column
+                        .with_fixed(child.into_masonry_widget_with_clock_tags(tags, next_tag));
+                }
+            }
+            Object::Element(Element::TextClock(clock)) => {
+                let tag = tags[*next_tag];
+                *next_tag += 1;
+                let label = NewWidget::new(Label::new(clock.visible_text().as_str())).with_tag(tag);
+                column = column.with_fixed(label);
+            }
+            Object::Element(Element::Girl(_)) => {
+                return self.into_masonry_widget();
+            }
+            Object::Element(Element::Text(text)) => return text.into_masonry_widget(),
+            Object::Element(Element::Button(button)) => return button.into_masonry_widget(),
+            Object::Element(Element::TextInput(input)) => return input.into_masonry_widget(),
+        }
+        NewWidget::new(column)
     }
 
     pub fn update_text_recursive(&mut self, text: impl Into<String>) {
