@@ -203,6 +203,28 @@ impl Object {
             | Object::Element(Element::Girl(_)) => {}
         }
     }
+
+    pub fn has_text_clock(&self) -> bool {
+        match self {
+            Object::Element(Element::TextClock(_)) => true,
+            Object::Element(Element::Board(board)) => {
+                board.children.iter().any(Object::has_text_clock)
+            }
+            Object::Element(Element::Card(card)) => {
+                card.children.iter().any(Object::has_text_clock)
+            }
+            Object::Element(Element::Row(row)) => row.children.iter().any(Object::has_text_clock),
+            Object::Element(Element::Form(form)) => {
+                form.children.iter().any(Object::has_text_clock)
+            }
+            Object::Element(Element::Switch(switch_)) => {
+                switch_.children.iter().any(Object::has_text_clock)
+            }
+            Object::Element(
+                Element::Text(_) | Element::Button(_) | Element::TextInput(_) | Element::Girl(_),
+            ) => false,
+        }
+    }
 }
 
 impl World {
