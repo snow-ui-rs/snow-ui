@@ -228,7 +228,6 @@ fn run_masonry_window(world: World) {
     struct LaunchDriver {
         window_id: WindowId,
         world: World,
-        adapter: crate::backend::masonry_backend::MasonryAdapter,
         native_tags: crate::object::NativeTags,
     }
 
@@ -280,29 +279,14 @@ fn run_masonry_window(world: World) {
         fn on_action(
             &mut self,
             window_id: WindowId,
-            ctx: &mut DriverCtx<'_>,
+            _ctx: &mut DriverCtx<'_>,
             _widget_id: WidgetId,
             action: ErasedAction,
         ) {
             debug_assert_eq!(window_id, self.window_id, "unknown window");
 
             if action.is::<ButtonPress>() {
-                eprintln!("[snow-ui] AppDriver::on_action: ButtonPress received");
                 crate::trigger_clicks();
-
-                if let Some(message) = self.adapter.dispatch_action(&action) {
-                    eprintln!(
-                        "[snow-ui] AppDriver::on_action: dispatch_action produced message: {:?}",
-                        message
-                    );
-                    self.adapter.handle_message(&message);
-                    self.world = self.adapter.world().clone().into();
-                    eprintln!("[snow-ui] AppDriver::on_action: handle_message completed");
-                } else {
-                    eprintln!("[snow-ui] AppDriver::on_action: dispatch_action returned None");
-                }
-
-                self.refresh_leaf_widgets(window_id, ctx, true, true, false);
             }
         }
 
@@ -320,8 +304,6 @@ fn run_masonry_window(world: World) {
         }
     }
 
-    let mut adapter = crate::backend::masonry_backend::MasonryAdapter::new();
-    adapter.set_world(world.clone().into());
     let (text_count, button_count, clock_count) = world.root.native_tag_counts();
     let native_tags = crate::object::NativeTags {
         text: (0..text_count)
@@ -365,7 +347,6 @@ fn run_masonry_window(world: World) {
     let driver = LaunchDriver {
         window_id: *ACTIVE_WINDOW_ID.get().unwrap(),
         world: world.clone(),
-        adapter,
         native_tags,
     };
 
