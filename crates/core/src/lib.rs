@@ -288,10 +288,18 @@ fn run_masonry_window(world: World) {
                 clock: (0..clock_count)
                     .map(|_| WidgetTag::<Label>::unique())
                     .collect(),
+                reset: (0..self.world.root.native_reset_count())
+                    .map(|_| WidgetTag::unique())
+                    .collect(),
+                form: (0..self.world.root.native_form_count())
+                    .map(|_| WidgetTag::unique())
+                    .collect(),
             };
             let mut next_text = 0;
             let mut next_button = 0;
             let mut next_clock = 0;
+            let mut next_reset = 0;
+            let mut next_form = 0;
             let rebuilt = self
                 .world
                 .root
@@ -300,6 +308,8 @@ fn run_masonry_window(world: World) {
                     &mut next_text,
                     &mut next_button,
                     &mut next_clock,
+                    &mut next_reset,
+                    &mut next_form,
                 )
                 .erased();
             ctx.render_root(window_id).edit_layer(0, |mut root| {
@@ -320,14 +330,113 @@ fn run_masonry_window(world: World) {
         fn on_action(
             &mut self,
             window_id: WindowId,
-            _ctx: &mut DriverCtx<'_>,
-            _widget_id: WidgetId,
+            ctx: &mut DriverCtx<'_>,
+            widget_id: WidgetId,
             action: ErasedAction,
         ) {
             debug_assert_eq!(window_id, self.window_id, "unknown window");
 
             if action.is::<ButtonPress>() {
-                crate::trigger_clicks();
+                let is_reset = self.native_tags.reset.iter().any(|tag| {
+                    ctx.render_root(window_id)
+                        .get_widget_with_tag(*tag)
+                        .is_some_and(|widget| widget.id() == widget_id)
+                });
+                if is_reset {
+                    let reset_index =
+                        self.native_tags
+                            .reset
+                            .iter()
+                            .enumerate()
+                            .find_map(|(index, tag)| {
+                                ctx.render_root(window_id)
+                                    .get_widget_with_tag(*tag)
+                                    .is_some_and(|widget| widget.id() == widget_id)
+                                    .then_some(index)
+                            });
+                    if let Some(reset_index) = reset_index {
+                        let form_index = reset_index;
+                        let mut reset_index = reset_index;
+                        if let Some(form) =
+                            self.world.root.native_form_at_reset_index(&mut reset_index)
+                        {
+                            let mut target = form_index;
+                            let mut next_text = 0;
+                            let mut next_button = 0;
+                            let mut next_clock = 0;
+                            let mut next_reset = 0;
+                            let offsets = self.world.root.native_form_tag_offsets(
+                                &mut target,
+                                &mut next_text,
+                                &mut next_button,
+                                &mut next_clock,
+                                &mut next_reset,
+                            );
+                            if let Some((text_offset, button_offset, clock_offset, reset_offset)) =
+                                offsets
+                            {
+                                let (text_count, button_count, clock_count) =
+                                    form.native_tag_counts();
+                                let local_tags = crate::object::NativeTags {
+                                    text: (0..text_count)
+                                        .map(|_| WidgetTag::<Label>::unique())
+                                        .collect(),
+                                    button: (0..button_count)
+                                        .map(|_| WidgetTag::<Label>::unique())
+                                        .collect(),
+                                    clock: (0..clock_count)
+                                        .map(|_| WidgetTag::<Label>::unique())
+                                        .collect(),
+                                    reset: (0..form.native_reset_count())
+                                        .map(|_| WidgetTag::unique())
+                                        .collect(),
+                                    form: (0..form.native_form_count().saturating_sub(1))
+                                        .map(|_| WidgetTag::unique())
+                                        .collect(),
+                                };
+                                let mut local_text = 0;
+                                let mut local_button = 0;
+                                let mut local_clock = 0;
+                                let mut local_reset = 0;
+                                let mut local_form = 0;
+                                if let Some(rebuilt) = form
+                                    .into_masonry_form_contents_with_native_tags(
+                                        &local_tags,
+                                        &mut local_text,
+                                        &mut local_button,
+                                        &mut local_clock,
+                                        &mut local_reset,
+                                        &mut local_form,
+                                    )
+                                {
+                                    let form_tag = self.native_tags.form[form_index];
+                                    ctx.render_root(window_id).edit_widget_with_tag(
+                                        form_tag,
+                                        |mut form_widget| {
+                                            while form_widget.widget.len() > 0 {
+                                                Flex::remove(&mut form_widget, 0);
+                                            }
+                                            Flex::add_fixed(&mut form_widget, rebuilt);
+                                        },
+                                    );
+                                    self.native_tags.text[text_offset..text_offset + text_count]
+                                        .clone_from_slice(&local_tags.text);
+                                    self.native_tags.button
+                                        [button_offset..button_offset + button_count]
+                                        .clone_from_slice(&local_tags.button);
+                                    self.native_tags.clock
+                                        [clock_offset..clock_offset + clock_count]
+                                        .clone_from_slice(&local_tags.clock);
+                                    self.native_tags.reset
+                                        [reset_offset..reset_offset + local_tags.reset.len()]
+                                        .clone_from_slice(&local_tags.reset);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    crate::trigger_clicks();
+                }
             }
         }
 
@@ -364,10 +473,18 @@ fn run_masonry_window(world: World) {
         clock: (0..clock_count)
             .map(|_| WidgetTag::<Label>::unique())
             .collect(),
+        reset: (0..world.root.native_reset_count())
+            .map(|_| WidgetTag::unique())
+            .collect(),
+        form: (0..world.root.native_form_count())
+            .map(|_| WidgetTag::unique())
+            .collect(),
     };
     let mut next_text = 0;
     let mut next_button = 0;
     let mut next_clock = 0;
+    let mut next_reset = 0;
+    let mut next_form = 0;
     let main_widget = world
         .root
         .into_masonry_widget_with_native_tags(
@@ -375,6 +492,8 @@ fn run_masonry_window(world: World) {
             &mut next_text,
             &mut next_button,
             &mut next_clock,
+            &mut next_reset,
+            &mut next_form,
         )
         .erased();
     let mut switch_indices = Vec::new();

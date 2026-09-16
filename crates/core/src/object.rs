@@ -34,6 +34,8 @@ pub(crate) struct NativeTags {
     pub text: Vec<WidgetTag<Label>>,
     pub button: Vec<WidgetTag<Label>>,
     pub clock: Vec<WidgetTag<Label>>,
+    pub reset: Vec<WidgetTag<MasonryButton>>,
+    pub form: Vec<WidgetTag<Flex>>,
 }
 
 impl std::fmt::Debug for Object {
@@ -90,6 +92,166 @@ impl Object {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
+    pub fn native_reset_count(&self) -> usize {
+        match self {
+            Object::Element(Element::Form(form)) => {
+                1 + form
+                    .children
+                    .iter()
+                    .map(Object::native_reset_count)
+                    .sum::<usize>()
+            }
+            Object::Element(Element::Board(board)) => {
+                board.children.iter().map(Object::native_reset_count).sum()
+            }
+            Object::Element(Element::Card(card)) => {
+                card.children.iter().map(Object::native_reset_count).sum()
+            }
+            Object::Element(Element::Row(row)) => {
+                row.children.iter().map(Object::native_reset_count).sum()
+            }
+            Object::Element(Element::Switch(switch_)) => switch_
+                .children
+                .get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                )
+                .map_or(0, Object::native_reset_count),
+            _ => 0,
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn native_form_count(&self) -> usize {
+        match self {
+            Object::Element(Element::Form(form)) => {
+                1 + form
+                    .children
+                    .iter()
+                    .map(Object::native_form_count)
+                    .sum::<usize>()
+            }
+            Object::Element(Element::Board(board)) => {
+                board.children.iter().map(Object::native_form_count).sum()
+            }
+            Object::Element(Element::Card(card)) => {
+                card.children.iter().map(Object::native_form_count).sum()
+            }
+            Object::Element(Element::Row(row)) => {
+                row.children.iter().map(Object::native_form_count).sum()
+            }
+            Object::Element(Element::Switch(switch_)) => switch_
+                .children
+                .get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                )
+                .map_or(0, Object::native_form_count),
+            _ => 0,
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn native_form_at_reset_index(&self, target: &mut usize) -> Option<Object> {
+        match self {
+            Object::Element(Element::Form(form)) => {
+                for child in &form.children {
+                    if let Some(found) = child.native_form_at_reset_index(target) {
+                        return Some(found);
+                    }
+                }
+                if *target == 0 {
+                    Some(self.clone())
+                } else {
+                    *target -= 1;
+                    None
+                }
+            }
+            Object::Element(Element::Board(board)) => board
+                .children
+                .iter()
+                .find_map(|child| child.native_form_at_reset_index(target)),
+            Object::Element(Element::Card(card)) => card
+                .children
+                .iter()
+                .find_map(|child| child.native_form_at_reset_index(target)),
+            Object::Element(Element::Row(row)) => row
+                .children
+                .iter()
+                .find_map(|child| child.native_form_at_reset_index(target)),
+            Object::Element(Element::Switch(switch_)) => switch_
+                .children
+                .get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                )
+                .and_then(|child| child.native_form_at_reset_index(target)),
+            _ => None,
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn native_form_tag_offsets(
+        &self,
+        target: &mut usize,
+        text: &mut usize,
+        button: &mut usize,
+        clock: &mut usize,
+        reset: &mut usize,
+    ) -> Option<(usize, usize, usize, usize)> {
+        match self {
+            Object::Element(Element::Form(form)) => {
+                let starts = (*text, *button, *clock, *reset);
+                for child in &form.children {
+                    if let Some(found) =
+                        child.native_form_tag_offsets(target, text, button, clock, reset)
+                    {
+                        return Some(found);
+                    }
+                }
+                if *target == 0 {
+                    Some(starts)
+                } else {
+                    *target -= 1;
+                    *button += 2;
+                    *reset += 1;
+                    None
+                }
+            }
+            Object::Element(Element::Board(board)) => board.children.iter().find_map(|child| {
+                child.native_form_tag_offsets(target, text, button, clock, reset)
+            }),
+            Object::Element(Element::Card(card)) => card.children.iter().find_map(|child| {
+                child.native_form_tag_offsets(target, text, button, clock, reset)
+            }),
+            Object::Element(Element::Row(row)) => row.children.iter().find_map(|child| {
+                child.native_form_tag_offsets(target, text, button, clock, reset)
+            }),
+            Object::Element(Element::Switch(switch_)) => switch_
+                .children
+                .get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                )
+                .and_then(|child| {
+                    child.native_form_tag_offsets(target, text, button, clock, reset)
+                }),
+            _ => {
+                let (text_count, button_count, clock_count) = self.native_tag_counts();
+                *text += text_count;
+                *button += button_count;
+                *clock += clock_count;
+                *reset += self.native_reset_count();
+                None
+            }
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn native_text_values(
         &self,
         text_values: &mut Vec<String>,
@@ -141,12 +303,54 @@ impl Object {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn into_masonry_form_contents_with_native_tags(
+        &self,
+        tags: &NativeTags,
+        next_text: &mut usize,
+        next_button: &mut usize,
+        next_clock: &mut usize,
+        next_reset: &mut usize,
+        next_form: &mut usize,
+    ) -> Option<NewWidget<Flex>> {
+        let Object::Element(Element::Form(form)) = self else {
+            return None;
+        };
+        let mut column = Flex::column();
+        for child in &form.children {
+            column = column.with_fixed(child.into_masonry_widget_with_native_tags(
+                tags,
+                next_text,
+                next_button,
+                next_clock,
+                next_reset,
+                next_form,
+            ));
+        }
+        let mut buttons = Flex::row();
+        let submit_tag = tags.button[*next_button];
+        *next_button += 1;
+        buttons = buttons.with_fixed(NewWidget::new(MasonryButton::new(
+            NewWidget::new(Label::new(form.submit_button.text)).with_tag(submit_tag),
+        )));
+        let reset_tag = tags.reset[*next_reset];
+        *next_reset += 1;
+        buttons = buttons.with_fixed(
+            NewWidget::new(MasonryButton::new(NewWidget::new(Label::new(
+                form.reset_button.text,
+            ))))
+            .with_tag(reset_tag),
+        );
+        Some(NewWidget::new(column.with_fixed(NewWidget::new(buttons))))
+    }
+
     pub(crate) fn into_masonry_widget_with_native_tags(
         &self,
         tags: &NativeTags,
         next_text: &mut usize,
         next_button: &mut usize,
         next_clock: &mut usize,
+        next_reset: &mut usize,
+        next_form: &mut usize,
     ) -> NewWidget<Flex> {
         let mut column = Flex::column();
         match self {
@@ -157,6 +361,8 @@ impl Object {
                         next_text,
                         next_button,
                         next_clock,
+                        next_reset,
+                        next_form,
                     ));
                 }
             }
@@ -167,6 +373,8 @@ impl Object {
                         next_text,
                         next_button,
                         next_clock,
+                        next_reset,
+                        next_form,
                     ));
                 }
             }
@@ -178,6 +386,8 @@ impl Object {
                         next_text,
                         next_button,
                         next_clock,
+                        next_reset,
+                        next_form,
                     ));
                 }
                 return NewWidget::new(horizontal);
@@ -189,6 +399,8 @@ impl Object {
                         next_text,
                         next_button,
                         next_clock,
+                        next_reset,
+                        next_form,
                     ));
                 }
                 let mut buttons = Flex::row();
@@ -197,12 +409,18 @@ impl Object {
                 buttons = buttons.with_fixed(NewWidget::new(MasonryButton::new(
                     NewWidget::new(Label::new(form.submit_button.text)).with_tag(submit_tag),
                 )));
-                let reset_tag = tags.button[*next_button];
-                *next_button += 1;
-                buttons = buttons.with_fixed(NewWidget::new(MasonryButton::new(
-                    NewWidget::new(Label::new(form.reset_button.text)).with_tag(reset_tag),
-                )));
+                let reset_tag = tags.reset[*next_reset];
+                *next_reset += 1;
+                buttons = buttons.with_fixed(
+                    NewWidget::new(MasonryButton::new(NewWidget::new(Label::new(
+                        form.reset_button.text,
+                    ))))
+                    .with_tag(reset_tag),
+                );
+                let form_tag = tags.form[*next_form];
+                *next_form += 1;
                 column = column.with_fixed(NewWidget::new(buttons));
+                return NewWidget::new(column).with_tag(form_tag);
             }
             Object::Element(Element::Switch(switch_)) => {
                 if let Some(child) = switch_.children.get(
@@ -215,6 +433,8 @@ impl Object {
                         next_text,
                         next_button,
                         next_clock,
+                        next_reset,
+                        next_form,
                     ));
                 }
             }
