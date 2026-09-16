@@ -160,7 +160,11 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
         }
         SnowElement::Switch(switch_) => switch_
             .children
-            .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
+            .get(
+                switch_
+                    .active_index()
+                    .min(switch_.children.len().saturating_sub(1)),
+            )
             .map(|child| render_object(document, child, button_index))
             .unwrap_or_else(|| element_with_text(document, "div", "")),
         SnowElement::Girl(_) => render_girl(document),

@@ -219,8 +219,9 @@ pub mod prelude {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn run_masonry_window(world: World) {
-    use masonry::core::{ErasedAction, WidgetId, WidgetTag};
+    use masonry::core::{CollectionWidget, ErasedAction, WidgetId, WidgetTag};
     use masonry::dpi::LogicalSize;
+    use masonry::widgets::Flex;
     use masonry::widgets::{ButtonPress, Label};
     use masonry_winit::app::{AppDriver, DriverCtx, EventLoop, NewWindow, WindowId};
     use masonry_winit::winit::window::Window;
@@ -229,6 +230,7 @@ fn run_masonry_window(world: World) {
         window_id: WindowId,
         world: World,
         native_tags: crate::object::NativeTags,
+        switch_indices: Vec<usize>,
     }
 
     impl LaunchDriver {
@@ -273,6 +275,45 @@ fn run_masonry_window(world: World) {
                 }
             }
         }
+
+        fn refresh_root(&mut self, window_id: WindowId, ctx: &mut DriverCtx<'_>) {
+            let (text_count, button_count, clock_count) = self.world.root.native_tag_counts();
+            self.native_tags = crate::object::NativeTags {
+                text: (0..text_count)
+                    .map(|_| WidgetTag::<Label>::unique())
+                    .collect(),
+                button: (0..button_count)
+                    .map(|_| WidgetTag::<Label>::unique())
+                    .collect(),
+                clock: (0..clock_count)
+                    .map(|_| WidgetTag::<Label>::unique())
+                    .collect(),
+            };
+            let mut next_text = 0;
+            let mut next_button = 0;
+            let mut next_clock = 0;
+            let rebuilt = self
+                .world
+                .root
+                .into_masonry_widget_with_native_tags(
+                    &self.native_tags,
+                    &mut next_text,
+                    &mut next_button,
+                    &mut next_clock,
+                )
+                .erased();
+            ctx.render_root(window_id).edit_layer(0, |mut root| {
+                let mut flex = root.downcast::<Flex>();
+                while flex.widget.len() > 0 {
+                    Flex::remove(&mut flex, 0);
+                }
+                Flex::add_fixed(&mut flex, rebuilt);
+            });
+            self.switch_indices.clear();
+            self.world
+                .root
+                .switch_active_indices(&mut self.switch_indices);
+        }
     }
 
     impl AppDriver for LaunchDriver {
@@ -297,7 +338,15 @@ fn run_masonry_window(world: World) {
             action: ErasedAction,
         ) {
             if action.is::<RenderRefresh>() {
-                self.refresh_leaf_widgets(window_id, ctx, true, true, false);
+                let mut current_switch_indices = Vec::new();
+                self.world
+                    .root
+                    .switch_active_indices(&mut current_switch_indices);
+                if current_switch_indices != self.switch_indices {
+                    self.refresh_root(window_id, ctx);
+                } else {
+                    self.refresh_leaf_widgets(window_id, ctx, true, true, false);
+                }
             } else if action.is::<ClockRefresh>() {
                 self.refresh_leaf_widgets(window_id, ctx, false, false, true);
             }
@@ -328,6 +377,8 @@ fn run_masonry_window(world: World) {
             &mut next_clock,
         )
         .erased();
+    let mut switch_indices = Vec::new();
+    world.root.switch_active_indices(&mut switch_indices);
 
     let event_loop = EventLoop::with_user_event().build().unwrap();
     let _ = EVENT_LOOP_PROXY.set(event_loop.create_proxy());
@@ -348,6 +399,7 @@ fn run_masonry_window(world: World) {
         window_id: *ACTIVE_WINDOW_ID.get().unwrap(),
         world: world.clone(),
         native_tags,
+        switch_indices,
     };
 
     masonry_winit::app::run_with(

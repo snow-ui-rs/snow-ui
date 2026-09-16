@@ -144,6 +144,24 @@ impl From<Form> for Element {
 
 impl IntoObject for Form {
     fn into_object(self) -> Object {
+        let submit_handler = self.submit_handler.clone();
+        let submit_form = self.clone();
+        crate::register_click_handler(move || {
+            let submit_handler = submit_handler.clone();
+            let submit_form = submit_form.clone();
+            #[cfg(not(target_arch = "wasm32"))]
+            let join_handle = std::thread::spawn(move || {
+                crate::run_async(async move {
+                    let _ = submit_handler.call_box(&submit_form).await;
+                });
+            });
+            #[cfg(not(target_arch = "wasm32"))]
+            let _ = join_handle.join();
+            #[cfg(target_arch = "wasm32")]
+            crate::run_async(async move {
+                let _ = submit_handler.call_box(&submit_form).await;
+            });
+        });
         Object::from(Element::from(self))
     }
 }

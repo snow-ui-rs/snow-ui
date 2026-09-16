@@ -74,7 +74,11 @@ impl Object {
             }
             Object::Element(Element::Switch(switch_)) => switch_
                 .children
-                .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
+                .get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                )
                 .map_or((0, 0, 0), Object::native_tag_counts),
             Object::Element(Element::TextInput(input)) => {
                 (usize::from(!input.label.is_empty()) + 1, 0, 0)
@@ -117,10 +121,11 @@ impl Object {
                 }
             }
             Object::Element(Element::Switch(switch_)) => {
-                if let Some(child) = switch_
-                    .children
-                    .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
-                {
+                if let Some(child) = switch_.children.get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                ) {
                     child.native_text_values(text_values, button_values, clock_values);
                 }
             }
@@ -197,10 +202,11 @@ impl Object {
                 }
             }
             Object::Element(Element::Switch(switch_)) => {
-                if let Some(child) = switch_
-                    .children
-                    .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
-                {
+                if let Some(child) = switch_.children.get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                ) {
                     column = column.with_fixed(child.into_masonry_widget_with_native_tags(
                         tags,
                         next_text,
@@ -303,7 +309,11 @@ impl Object {
             }
             Object::Element(Element::Switch(switch_)) => switch_
                 .children
-                .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
+                .get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                )
                 .map_or(0, Object::text_clock_count),
             Object::Element(
                 Element::Text(_) | Element::Button(_) | Element::TextInput(_) | Element::Girl(_),
@@ -336,10 +346,11 @@ impl Object {
                 }
             }
             Object::Element(Element::Switch(switch_)) => {
-                if let Some(child) = switch_
-                    .children
-                    .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
-                {
+                if let Some(child) = switch_.children.get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                ) {
                     child.text_clock_values(values);
                 }
             }
@@ -384,10 +395,11 @@ impl Object {
                 }
             }
             Object::Element(Element::Switch(switch_)) => {
-                if let Some(child) = switch_
-                    .children
-                    .get(switch_.active.min(switch_.children.len().saturating_sub(1)))
-                {
+                if let Some(child) = switch_.children.get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                ) {
                     column = column
                         .with_fixed(child.into_masonry_widget_with_clock_tags(tags, next_tag));
                 }
@@ -563,6 +575,44 @@ impl Object {
             Object::Element(
                 Element::Text(_) | Element::Button(_) | Element::TextInput(_) | Element::Girl(_),
             ) => false,
+        }
+    }
+
+    pub fn switch_active_indices(&self, indices: &mut Vec<usize>) {
+        match self {
+            Object::Element(Element::Switch(switch_)) => {
+                indices.push(switch_.active_index());
+                for child in &switch_.children {
+                    child.switch_active_indices(indices);
+                }
+            }
+            Object::Element(Element::Board(board)) => {
+                for child in &board.children {
+                    child.switch_active_indices(indices);
+                }
+            }
+            Object::Element(Element::Card(card)) => {
+                for child in &card.children {
+                    child.switch_active_indices(indices);
+                }
+            }
+            Object::Element(Element::Row(row)) => {
+                for child in &row.children {
+                    child.switch_active_indices(indices);
+                }
+            }
+            Object::Element(Element::Form(form)) => {
+                for child in &form.children {
+                    child.switch_active_indices(indices);
+                }
+            }
+            Object::Element(
+                Element::Text(_)
+                | Element::TextClock(_)
+                | Element::Button(_)
+                | Element::TextInput(_)
+                | Element::Girl(_),
+            ) => {}
         }
     }
 }
