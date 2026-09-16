@@ -1,7 +1,9 @@
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::core::NewWidget;
 #[cfg(not(target_arch = "wasm32"))]
-use masonry::widgets::{Flex, Label};
+use masonry::layout::Length;
+#[cfg(not(target_arch = "wasm32"))]
+use masonry::widgets::{Flex, Label, SizedBox, TextInput as MasonryTextInput};
 
 use crate::elements::Element;
 use crate::object::Object;
@@ -28,12 +30,16 @@ impl Default for TextInput {
 impl TextInput {
     #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
-        let mut column = Flex::column();
+        let mut row = Flex::row();
         if !self.label.is_empty() {
-            column = column.with_fixed(NewWidget::new(Label::new(self.label)));
+            row = row.with_fixed(NewWidget::new(Label::new(self.label)));
         }
-        column = column.with_fixed(NewWidget::new(Label::new(self.name)));
-        NewWidget::new(column)
+        let input_width = self.name.chars().count() as f64 * 12.0 + 24.0;
+        let input = MasonryTextInput::new("").with_placeholder(self.name);
+        row = row.with_fixed(NewWidget::new(
+            SizedBox::new(NewWidget::new(input)).width(Length::const_px(input_width)),
+        ));
+        NewWidget::new(row)
     }
 }
 

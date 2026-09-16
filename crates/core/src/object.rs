@@ -238,15 +238,18 @@ impl Object {
             }
             Object::Element(Element::Girl(_)) => return self.into_masonry_widget(),
             Object::Element(Element::TextInput(input)) => {
+                let mut row = Flex::row();
                 if !input.label.is_empty() {
                     let tag = tags.text[*next_text];
                     *next_text += 1;
-                    column =
-                        column.with_fixed(NewWidget::new(Label::new(input.label)).with_tag(tag));
+                    row = row.with_fixed(NewWidget::new(Label::new(input.label)).with_tag(tag));
                 }
-                column = column.with_fixed(NewWidget::new(
-                    MasonryTextInput::new("").with_placeholder(input.name),
+                let input_width = input.name.chars().count() as f64 * 12.0 + 24.0;
+                let input = MasonryTextInput::new("").with_placeholder(input.name);
+                row = row.with_fixed(NewWidget::new(
+                    SizedBox::new(NewWidget::new(input)).width(Length::const_px(input_width)),
                 ));
+                column = column.with_fixed(NewWidget::new(row));
             }
         }
         NewWidget::new(column)
