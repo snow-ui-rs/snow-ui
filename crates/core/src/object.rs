@@ -5,7 +5,9 @@ use masonry::layout::Length;
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::peniko::{ImageAlphaType, ImageData, ImageFormat};
 #[cfg(not(target_arch = "wasm32"))]
-use masonry::widgets::{Button as MasonryButton, Flex, Image, Label, SizedBox};
+use masonry::widgets::{
+    Button as MasonryButton, Flex, Image, Label, SizedBox, TextInput as MasonryTextInput,
+};
 
 use crate::elements::{Element, Text, TextClock};
 use crate::layout::{Board, Card, Row};
@@ -81,7 +83,7 @@ impl Object {
                 )
                 .map_or((0, 0, 0), Object::native_tag_counts),
             Object::Element(Element::TextInput(input)) => {
-                (usize::from(!input.label.is_empty()) + 1, 0, 0)
+                (usize::from(!input.label.is_empty()), 0, 0)
             }
             Object::Element(Element::Girl(_)) => (0, 0, 0),
         }
@@ -133,7 +135,6 @@ impl Object {
                 if !input.label.is_empty() {
                     text_values.push(input.label.to_string());
                 }
-                text_values.push(input.name.to_string());
             }
             Object::Element(Element::Girl(_)) => {}
         }
@@ -243,9 +244,9 @@ impl Object {
                     column =
                         column.with_fixed(NewWidget::new(Label::new(input.label)).with_tag(tag));
                 }
-                let tag = tags.text[*next_text];
-                *next_text += 1;
-                column = column.with_fixed(NewWidget::new(Label::new(input.name)).with_tag(tag));
+                column = column.with_fixed(NewWidget::new(
+                    MasonryTextInput::new("").with_placeholder(input.name),
+                ));
             }
         }
         NewWidget::new(column)
