@@ -116,11 +116,11 @@ impl Object {
                 }
             }
             Object::Element(Element::Form(form)) => {
-                button_values.push(form.submit_button.text.to_string());
-                button_values.push(form.reset_button.text.to_string());
                 for child in &form.children {
                     child.native_text_values(text_values, button_values, clock_values);
                 }
+                button_values.push(form.submit_button.text.to_string());
+                button_values.push(form.reset_button.text.to_string());
             }
             Object::Element(Element::Switch(switch_)) => {
                 if let Some(child) = switch_.children.get(
@@ -183,16 +183,6 @@ impl Object {
                 return NewWidget::new(horizontal);
             }
             Object::Element(Element::Form(form)) => {
-                let submit_tag = tags.button[*next_button];
-                *next_button += 1;
-                column = column.with_fixed(NewWidget::new(MasonryButton::new(
-                    NewWidget::new(Label::new(form.submit_button.text)).with_tag(submit_tag),
-                )));
-                let reset_tag = tags.button[*next_button];
-                *next_button += 1;
-                column = column.with_fixed(NewWidget::new(MasonryButton::new(
-                    NewWidget::new(Label::new(form.reset_button.text)).with_tag(reset_tag),
-                )));
                 for child in &form.children {
                     column = column.with_fixed(child.into_masonry_widget_with_native_tags(
                         tags,
@@ -201,6 +191,18 @@ impl Object {
                         next_clock,
                     ));
                 }
+                let mut buttons = Flex::row();
+                let submit_tag = tags.button[*next_button];
+                *next_button += 1;
+                buttons = buttons.with_fixed(NewWidget::new(MasonryButton::new(
+                    NewWidget::new(Label::new(form.submit_button.text)).with_tag(submit_tag),
+                )));
+                let reset_tag = tags.button[*next_button];
+                *next_button += 1;
+                buttons = buttons.with_fixed(NewWidget::new(MasonryButton::new(
+                    NewWidget::new(Label::new(form.reset_button.text)).with_tag(reset_tag),
+                )));
+                column = column.with_fixed(NewWidget::new(buttons));
             }
             Object::Element(Element::Switch(switch_)) => {
                 if let Some(child) = switch_.children.get(

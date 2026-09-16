@@ -1,7 +1,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::core::NewWidget;
 #[cfg(not(target_arch = "wasm32"))]
-use masonry::widgets::Flex;
+use masonry::widgets::{Button as MasonryButton, Flex};
 
 use crate::elements::{Button, Element};
 use crate::object::Object;
@@ -87,6 +87,14 @@ impl Form {
         for child in &self.children {
             column = column.with_fixed(child.into_masonry_widget());
         }
+        let mut buttons = Flex::row();
+        buttons = buttons.with_fixed(NewWidget::new(MasonryButton::with_text(
+            self.submit_button.text,
+        )));
+        buttons = buttons.with_fixed(NewWidget::new(MasonryButton::with_text(
+            self.reset_button.text,
+        )));
+        column = column.with_fixed(NewWidget::new(buttons));
         NewWidget::new(column)
     }
 
