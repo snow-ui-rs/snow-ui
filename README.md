@@ -14,7 +14,7 @@
 **Current status:** It works, initially.
 
 <div align="center">
-<img width="400" height="776" alt="image" src="https://github.com/user-attachments/assets/809ca575-14ca-488f-8bec-4982acabda83" />
+    <img width="354" height="794" alt="screenshot" src="https://github.com/user-attachments/assets/3d4cb671-7529-4ec6-9405-fdd7475c2963" />
 </div>
 
 ## Philosophy
