@@ -105,11 +105,12 @@ where
 // Pulled in by the old-day convenient prelude and `register_handler!` macro flow.
 pub use inventory;
 
-static CLICK_HANDLERS: std::sync::OnceLock<
-    std::sync::Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>>,
-> = std::sync::OnceLock::new();
+type ClickHandlerList = Vec<Box<dyn Fn() + Send + Sync + 'static>>;
 
-fn get_click_handlers() -> &'static std::sync::Mutex<Vec<Box<dyn Fn() + Send + Sync + 'static>>> {
+static CLICK_HANDLERS: std::sync::OnceLock<std::sync::Mutex<ClickHandlerList>> =
+    std::sync::OnceLock::new();
+
+fn get_click_handlers() -> &'static std::sync::Mutex<ClickHandlerList> {
     CLICK_HANDLERS.get_or_init(|| std::sync::Mutex::new(Vec::new()))
 }
 
@@ -303,7 +304,7 @@ fn run_masonry_window(world: World) {
             let rebuilt = self
                 .world
                 .root
-                .into_masonry_widget_with_native_tags(
+                .build_masonry_widget_with_native_tags(
                     &self.native_tags,
                     &mut next_text,
                     &mut next_button,
@@ -400,7 +401,7 @@ fn run_masonry_window(world: World) {
                                 let mut local_reset = 0;
                                 let mut local_form = 0;
                                 if let Some(rebuilt) = form
-                                    .into_masonry_form_contents_with_native_tags(
+                                    .build_masonry_form_contents_with_native_tags(
                                         &local_tags,
                                         &mut local_text,
                                         &mut local_button,
@@ -487,7 +488,7 @@ fn run_masonry_window(world: World) {
     let mut next_form = 0;
     let main_widget = world
         .root
-        .into_masonry_widget_with_native_tags(
+        .build_masonry_widget_with_native_tags(
             &native_tags,
             &mut next_text,
             &mut next_button,

@@ -6,6 +6,11 @@ use std::sync::mpsc::{self, Sender};
 
 type ErasedMessage = std::sync::Arc<dyn std::any::Any + Send + Sync>;
 type HandlerFuture = Pin<Box<dyn Future<Output = ()> + 'static>>;
+type ErasedHandlerList = Vec<Box<dyn ErasedHandler>>;
+type HandlerRegistry = std::collections::HashMap<std::any::TypeId, ErasedHandlerList>;
+type SharedHandlerRegistry = std::sync::Arc<std::sync::Mutex<HandlerRegistry>>;
+type MessageSender = futures::channel::mpsc::UnboundedSender<ErasedMessage>;
+type SubscriberRegistry = std::collections::HashMap<std::any::TypeId, Vec<MessageSender>>;
 
 #[cfg(not(target_arch = "wasm32"))]
 struct QueuedMessage {
@@ -14,12 +19,7 @@ struct QueuedMessage {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn run_event_worker(
-    receiver: mpsc::Receiver<QueuedMessage>,
-    handlers: std::sync::Arc<
-        std::sync::Mutex<std::collections::HashMap<std::any::TypeId, Vec<Box<dyn ErasedHandler>>>>,
-    >,
-) {
+fn run_event_worker(receiver: mpsc::Receiver<QueuedMessage>, handlers: SharedHandlerRegistry) {
     std::thread::Builder::new()
         .name("snow-ui-event-worker".to_string())
         .spawn(move || {
@@ -43,20 +43,9 @@ fn run_event_worker(
 /// An async-capable event bus used by examples to send and subscribe to typed messages.
 /// This implementation is thread-safe using `Arc<Mutex>`.
 pub struct EventBus {
-    inner: std::sync::Mutex<
-        std::collections::HashMap<
-            std::any::TypeId,
-            Vec<
-                futures::channel::mpsc::UnboundedSender<
-                    std::sync::Arc<dyn std::any::Any + Send + Sync>,
-                >,
-            >,
-        >,
-    >,
+    inner: std::sync::Mutex<SubscriberRegistry>,
     // Registered handlers keyed by message TypeId
-    handlers: std::sync::Arc<
-        std::sync::Mutex<std::collections::HashMap<std::any::TypeId, Vec<Box<dyn ErasedHandler>>>>,
-    >,
+    handlers: SharedHandlerRegistry,
     #[cfg(not(target_arch = "wasm32"))]
     queue: Sender<QueuedMessage>,
 }
@@ -169,22 +158,31 @@ impl EventBus {
     }
 }
 
+impl Default for EventBus {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Receiver wrapper that yields a notification when a message of type `T` is received.
 pub struct EventBusReceiver<T> {
-    rx: futures::channel::mpsc::UnboundedReceiver<std::sync::Arc<dyn std::any::Any + Send + Sync>>,
+    rx: futures::channel::mpsc::UnboundedReceiver<ErasedMessage>,
     _marker: std::marker::PhantomData<T>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EventBusRecvError;
+
 impl<T: Message + Send + Sync> EventBusReceiver<T> {
     /// Wait for the next message of type `T`.
-    /// Returns `Ok(())` when a message arrives, or `Err(())` if the sender side closed.
-    pub async fn recv(&mut self) -> Result<(), ()> {
+    /// Returns `Ok(())` when a message arrives, or `Err(EventBusRecvError)` if the sender closed.
+    pub async fn recv(&mut self) -> Result<(), EventBusRecvError> {
         use futures::StreamExt;
-        while let Some(arc) = self.rx.next().await {
-            let _ = arc;
-            return Ok(());
+        if self.rx.next().await.is_some() {
+            Ok(())
+        } else {
+            Err(EventBusRecvError)
         }
-        Err(())
     }
 }
 
@@ -208,11 +206,13 @@ where
     H: MessageHandler<T> + 'static + Send + Sync,
     T: Message + 'static + Send + Sync,
 {
+    #[allow(clippy::await_holding_lock)]
     fn handle_any(&self, msg: ErasedMessage) -> HandlerFuture {
         let handler = self.h.clone();
         Box::pin(async move {
             if let Some(message) = msg.downcast_ref::<T>() {
                 let mut context = MessageContext::default();
+                // Handler state is mutable and must stay serialized while its async callback runs.
                 let mut handler = handler
                     .lock()
                     .unwrap_or_else(|poisoned| poisoned.into_inner());

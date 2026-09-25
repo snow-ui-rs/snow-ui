@@ -6,7 +6,7 @@ use masonry::widgets::Flex;
 use crate::elements::Element;
 use crate::object::Object;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Card {
     pub children: Vec<Object>,
 }
@@ -19,12 +19,6 @@ impl Card {
             column = column.with_fixed(child.into_masonry_widget());
         }
         NewWidget::new(column)
-    }
-}
-
-impl Default for Card {
-    fn default() -> Self {
-        Self { children: vec![] }
     }
 }
 

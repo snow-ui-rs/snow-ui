@@ -196,12 +196,14 @@ fn gen_into_object(
             let visible_fields = n
                 .named
                 .iter()
-                .filter_map(|field| is_visible_ty(&field.ty).then(|| field.ident.as_ref().unwrap()))
+                .filter(|field| is_visible_ty(&field.ty))
+                .map(|field| field.ident.as_ref().unwrap())
                 .collect::<Vec<_>>();
             let timer_fields = n
                 .named
                 .iter()
-                .filter_map(|field| is_timer_ty(&field.ty).then(|| field.ident.as_ref().unwrap()))
+                .filter(|field| is_timer_ty(&field.ty))
+                .map(|field| field.ident.as_ref().unwrap())
                 .collect::<Vec<_>>();
             let registrations = if message_paths.is_empty() {
                 quote! {
@@ -237,9 +239,8 @@ fn gen_into_object(
                 syn::Fields::Named(fields) => fields
                     .named
                     .iter()
-                    .filter_map(|field| {
-                        is_timer_ty(&field.ty).then(|| field.ident.as_ref().unwrap())
-                    })
+                    .filter(|field| is_timer_ty(&field.ty))
+                    .map(|field| field.ident.as_ref().unwrap())
                     .collect::<Vec<_>>(),
                 _ => Vec::new(),
             };
@@ -364,6 +365,7 @@ fn gen_single_field_into_object(
             #struct_item
             #default_impl
             impl ::snow_ui::IntoObject for #name {
+                #[allow(clippy::await_holding_lock)]
                 fn into_object(self) -> ::snow_ui::Object {
                     if ::snow_ui::has_registered_handlers::<#name>() {
                         let rc = ::std::sync::Arc::new(::std::sync::Mutex::new(self));

@@ -373,7 +373,7 @@ impl SnowNode {
         }
     }
 
-    pub fn find_button_mut<'a>(&'a mut self, target_id: u64) -> Option<&'a mut SnowNode> {
+    pub fn find_button_mut(&mut self, target_id: u64) -> Option<&mut SnowNode> {
         match self {
             SnowNode::Button { id, .. } if *id == target_id => Some(self),
             SnowNode::Button { .. } => None,
@@ -393,19 +393,15 @@ impl SnowNode {
 
     pub fn set_text_by_id(&mut self, target_id: u64, text: impl Into<String>) {
         let value = text.into();
-        if let Some(button) = self.find_button_mut(target_id) {
-            if let SnowNode::Button { text: current, .. } = button {
-                *current = value.clone();
-            }
+        if let Some(SnowNode::Button { text: current, .. }) = self.find_button_mut(target_id) {
+            *current = value.clone();
         }
-        if let Some(target) = self.find_text_mut(target_id) {
-            if let SnowNode::Text { text: current, .. } = target {
-                *current = value;
-            }
+        if let Some(SnowNode::Text { text: current, .. }) = self.find_text_mut(target_id) {
+            *current = value;
         }
     }
 
-    fn find_text_mut<'a>(&'a mut self, target_id: u64) -> Option<&'a mut SnowNode> {
+    fn find_text_mut(&mut self, target_id: u64) -> Option<&mut SnowNode> {
         match self {
             SnowNode::Text { id, .. } if *id == target_id => Some(self),
             SnowNode::Text { .. } => None,
@@ -431,17 +427,13 @@ impl SnowNode {
         let value = text.into();
         let mut updated = false;
 
-        if let Some(button) = self.find_button_mut(target_id) {
-            if let SnowNode::Button { text: current, .. } = button {
-                *current = value.clone();
-                updated = true;
-            }
+        if let Some(SnowNode::Button { text: current, .. }) = self.find_button_mut(target_id) {
+            *current = value.clone();
+            updated = true;
         }
-        if let Some(target) = self.find_text_mut(target_id) {
-            if let SnowNode::Text { text: current, .. } = target {
-                *current = value;
-                updated = true;
-            }
+        if let Some(SnowNode::Text { text: current, .. }) = self.find_text_mut(target_id) {
+            *current = value;
+            updated = true;
         }
 
         updated
@@ -555,10 +547,8 @@ impl SnowWorld {
             SnowNode::Row { children }
             | SnowNode::Column { children }
             | SnowNode::Box { children, .. } => {
-                let mut current = next_id;
-                for child in children {
+                for (current, child) in (next_id..).zip(children) {
                     self.collect_button_ids(child, ids, current);
-                    current += 1;
                 }
             }
             SnowNode::Text { .. } => {}
@@ -708,7 +698,7 @@ impl SnowRuntime {
     pub fn world(&self) -> &SnowWorld {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            return self.adapter.world();
+            self.adapter.world()
         }
         #[cfg(target_arch = "wasm32")]
         {
@@ -757,6 +747,12 @@ impl SnowRuntime {
         message: &SnowMessage,
     ) -> masonry::core::NewWidget<masonry::widgets::Flex> {
         self.step(message)
+    }
+}
+
+impl Default for SnowRuntime {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1219,6 +1215,12 @@ pub mod masonry_backend {
             }
         }
     }
+
+    impl Default for MasonryAdapter {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1660,7 +1662,7 @@ mod tests {
         instance.update_text(2, "after");
 
         let world = instance.into_world();
-        let button: crate::object::Object = world.root.clone().into();
+        let button = world.root.clone();
         let _ = button;
 
         assert!(matches!(

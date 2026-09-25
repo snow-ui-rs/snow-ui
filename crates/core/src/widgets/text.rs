@@ -6,7 +6,7 @@ use masonry::widgets::{Flex, Label};
 use crate::elements::Element;
 use crate::state::State;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Text {
     pub text: &'static str,
     pub state: Option<std::sync::Arc<dyn Fn() -> String + Send + Sync + 'static>>,
@@ -18,15 +18,6 @@ impl std::fmt::Debug for Text {
             .field("text", &self.text)
             .field("state", &self.state.as_ref().map(|_| "<bound>"))
             .finish()
-    }
-}
-
-impl Default for Text {
-    fn default() -> Self {
-        Self {
-            text: "",
-            state: None,
-        }
     }
 }
 

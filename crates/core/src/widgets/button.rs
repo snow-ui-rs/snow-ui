@@ -6,15 +6,9 @@ use masonry::widgets::{Button as MasonryButton, Flex};
 use crate::elements::Element;
 use crate::object::Object;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Button {
     pub text: &'static str,
-}
-
-impl Default for Button {
-    fn default() -> Self {
-        Self { text: "" }
-    }
 }
 
 impl Button {

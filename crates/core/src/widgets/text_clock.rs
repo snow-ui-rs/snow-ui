@@ -5,15 +5,9 @@ use masonry::widgets::{Flex, Label};
 
 use crate::elements::Element;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TextClock {
     pub format: &'static str,
-}
-
-impl Default for TextClock {
-    fn default() -> Self {
-        Self { format: "" }
-    }
 }
 
 impl TextClock {

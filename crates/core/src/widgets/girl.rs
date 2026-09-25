@@ -9,57 +9,37 @@ pub struct Girl {
     pub every_morning: Vec<GirlActions>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum HairColor {
     Black,
+    #[default]
     Brown,
     Blonde,
     Red,
 }
 
-impl Default for HairColor {
-    fn default() -> Self {
-        Self::Brown
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum SkinColor {
     Yellow,
+    #[default]
     Light,
     Dark,
 }
 
-impl Default for SkinColor {
-    fn default() -> Self {
-        Self::Light
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum BodyType {
     Slim,
+    #[default]
     Average,
     Curvy,
 }
 
-impl Default for BodyType {
-    fn default() -> Self {
-        Self::Average
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum Appearance {
     Beautiful,
+    #[default]
     Cute,
     Plain,
-}
-
-impl Default for Appearance {
-    fn default() -> Self {
-        Self::Cute
-    }
 }
 
 #[derive(Debug, Clone, Copy)]

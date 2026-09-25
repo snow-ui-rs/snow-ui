@@ -45,7 +45,11 @@ pub(crate) fn expand(input: proc_macro2::TokenStream) -> proc_macro2::TokenStrea
             }
 
             quote! {
-                ::snow_ui_macros::__list_item!(#expr).into()
+                {
+                    #[allow(clippy::needless_update)]
+                    let __snow_ui_object = ::snow_ui_macros::__list_item!(#expr).into();
+                    __snow_ui_object
+                }
             }
         }
         Err(_) => {

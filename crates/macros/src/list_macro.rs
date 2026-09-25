@@ -38,8 +38,16 @@ pub(crate) fn list(input: proc_macro2::TokenStream) -> proc_macro2::TokenStream 
             let path = &es.path;
             let is_form = is_form_path(path);
             let fields_tokens = process_struct_fields(&es.fields, is_form);
-            out_exprs
-                .push(quote! { #path { #(#fields_tokens),* , .. ::snow_ui::prelude::default() } });
+            out_exprs.push(quote! {
+                {
+                    #[allow(clippy::needless_update)]
+                    let __snow_ui_list_item = #path {
+                        #(#fields_tokens),*,
+                        .. ::snow_ui::prelude::default()
+                    };
+                    __snow_ui_list_item
+                }
+            });
         } else if let syn::Expr::Struct(es) = &mut e {
             out_exprs.push(quote! { #es });
         } else {

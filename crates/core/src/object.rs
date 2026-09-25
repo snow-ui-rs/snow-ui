@@ -303,7 +303,7 @@ impl Object {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) fn into_masonry_form_contents_with_native_tags(
+    pub(crate) fn build_masonry_form_contents_with_native_tags(
         &self,
         tags: &NativeTags,
         next_text: &mut usize,
@@ -317,7 +317,7 @@ impl Object {
         };
         let mut column = Flex::column();
         for child in &form.children {
-            column = column.with_fixed(child.into_masonry_widget_with_native_tags(
+            column = column.with_fixed(child.build_masonry_widget_with_native_tags(
                 tags,
                 next_text,
                 next_button,
@@ -344,7 +344,7 @@ impl Object {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) fn into_masonry_widget_with_native_tags(
+    pub(crate) fn build_masonry_widget_with_native_tags(
         &self,
         tags: &NativeTags,
         next_text: &mut usize,
@@ -357,7 +357,7 @@ impl Object {
         match self {
             Object::Element(Element::Board(board)) => {
                 for child in &board.children {
-                    column = column.with_fixed(child.into_masonry_widget_with_native_tags(
+                    column = column.with_fixed(child.build_masonry_widget_with_native_tags(
                         tags,
                         next_text,
                         next_button,
@@ -369,7 +369,7 @@ impl Object {
             }
             Object::Element(Element::Card(card)) => {
                 for child in &card.children {
-                    column = column.with_fixed(child.into_masonry_widget_with_native_tags(
+                    column = column.with_fixed(child.build_masonry_widget_with_native_tags(
                         tags,
                         next_text,
                         next_button,
@@ -382,20 +382,21 @@ impl Object {
             Object::Element(Element::Row(row)) => {
                 let mut horizontal = Flex::row();
                 for child in &row.children {
-                    horizontal = horizontal.with_fixed(child.into_masonry_widget_with_native_tags(
-                        tags,
-                        next_text,
-                        next_button,
-                        next_clock,
-                        next_reset,
-                        next_form,
-                    ));
+                    horizontal =
+                        horizontal.with_fixed(child.build_masonry_widget_with_native_tags(
+                            tags,
+                            next_text,
+                            next_button,
+                            next_clock,
+                            next_reset,
+                            next_form,
+                        ));
                 }
                 return NewWidget::new(horizontal);
             }
             Object::Element(Element::Form(form)) => {
                 for child in &form.children {
-                    column = column.with_fixed(child.into_masonry_widget_with_native_tags(
+                    column = column.with_fixed(child.build_masonry_widget_with_native_tags(
                         tags,
                         next_text,
                         next_button,
@@ -429,7 +430,7 @@ impl Object {
                         .active_index()
                         .min(switch_.children.len().saturating_sub(1)),
                 ) {
-                    column = column.with_fixed(child.into_masonry_widget_with_native_tags(
+                    column = column.with_fixed(child.build_masonry_widget_with_native_tags(
                         tags,
                         next_text,
                         next_button,
