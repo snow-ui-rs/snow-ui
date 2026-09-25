@@ -2,7 +2,7 @@ use std::cell::RefCell;
 
 use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
-use web_sys::{Document, Element, Event};
+use web_sys::{Document, Element, Event, HtmlInputElement};
 
 use crate::elements::Element as SnowElement;
 use crate::object::{Object, World};
@@ -44,6 +44,10 @@ fn render_world(world: &World) {
     let root = document
         .get_element_by_id("snow-root")
         .expect("Snow UI requires an element with id=\"snow-root\"");
+    let input_values = find_inputs(&root)
+        .into_iter()
+        .map(|input| input.value())
+        .collect::<Vec<_>>();
 
     while let Some(child) = root.first_child() {
         root.remove_child(&child)
@@ -52,6 +56,19 @@ fn render_world(world: &World) {
     let mut button_index = 0;
     root.append_child(&render_object(&document, &world.root, &mut button_index))
         .expect("failed to mount Snow UI root");
+    for (input, value) in find_inputs(&root).into_iter().zip(input_values) {
+        input.set_value(&value);
+    }
+}
+
+fn find_inputs(root: &Element) -> Vec<HtmlInputElement> {
+    let inputs = root
+        .query_selector_all("input")
+        .expect("failed to find Snow UI inputs");
+    (0..inputs.length())
+        .filter_map(|index| inputs.item(index))
+        .filter_map(|node| node.dyn_into::<HtmlInputElement>().ok())
+        .collect()
 }
 
 fn render_object(document: &Document, object: &Object, button_index: &mut usize) -> Element {
