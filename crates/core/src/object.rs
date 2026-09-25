@@ -343,6 +343,7 @@ impl Object {
         Some(NewWidget::new(column.with_fixed(NewWidget::new(buttons))))
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn into_masonry_widget_with_native_tags(
         &self,
         tags: &NativeTags,

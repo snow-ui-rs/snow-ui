@@ -130,7 +130,49 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
             button_element
         }
         SnowElement::Form(form) => {
-            render_group(document, "form", &form.children, false, button_index)
+            let form_element = render_group(document, "form", &form.children, false, button_index);
+            let buttons = document
+                .create_element("div")
+                .expect("failed to create Snow UI form buttons");
+            buttons
+                .set_attribute(
+                    "style",
+                    "display:flex;flex-direction:row;gap:0.5rem;margin-top:0.5rem;",
+                )
+                .expect("failed to style Snow UI form buttons");
+
+            let submit = element_with_text(document, "button", form.submit_button.text);
+            submit
+                .set_attribute("type", "button")
+                .expect("failed to set Snow UI submit button type");
+            let submit_handler = form.submit_handler.clone();
+            let submit_form = form.clone();
+            let submit_callback = Closure::<dyn FnMut(Event)>::new(move |_| {
+                let submit_handler = submit_handler.clone();
+                let submit_form = submit_form.clone();
+                crate::run_async(async move {
+                    let _ = submit_handler.call_box(&submit_form).await;
+                });
+            });
+            submit
+                .add_event_listener_with_callback("click", submit_callback.as_ref().unchecked_ref())
+                .expect("failed to register Snow UI submit handler");
+            submit_callback.forget();
+            buttons
+                .append_child(&submit)
+                .expect("failed to append Snow UI submit button");
+
+            let reset = element_with_text(document, "button", form.reset_button.text);
+            reset
+                .set_attribute("type", "reset")
+                .expect("failed to set Snow UI reset button type");
+            buttons
+                .append_child(&reset)
+                .expect("failed to append Snow UI reset button");
+            form_element
+                .append_child(&buttons)
+                .expect("failed to append Snow UI form buttons");
+            form_element
         }
         SnowElement::TextInput(input) => {
             let wrapper = document
