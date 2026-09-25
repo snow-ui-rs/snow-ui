@@ -38,6 +38,7 @@ fn world() -> World {
             ],
             ..Default::default()
         }),
+        ..Default::default()
     }
 }
 

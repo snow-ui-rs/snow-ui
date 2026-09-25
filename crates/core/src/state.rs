@@ -7,9 +7,17 @@ use crate::object::Object;
 // component instances and background tasks/handlers.
 // ============================================================================
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct State<T> {
     inner: std::sync::Arc<std::sync::Mutex<T>>,
+}
+
+impl<T> Clone for State<T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
 }
 
 impl<T> State<T> {

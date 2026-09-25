@@ -743,6 +743,7 @@ impl Object {
 #[derive(Debug, Clone)]
 pub struct World {
     pub root: Object,
+    pub data: crate::data::Data,
 }
 
 impl Object {
@@ -871,6 +872,7 @@ impl Default for World {
     fn default() -> Self {
         Self {
             root: Object::from(Element::from(Board::default())),
+            data: crate::data::Data::default(),
         }
     }
 }

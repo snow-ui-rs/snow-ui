@@ -3,6 +3,7 @@
 // All implementation details are now split into separate modules for maintainability.
 
 pub mod backend;
+pub mod data;
 pub mod elements;
 pub mod event_bus;
 pub mod handler;
@@ -30,6 +31,7 @@ pub use crate::backend::{
     SnowAction, SnowApp, SnowComponent, SnowComponentInstance, SnowMessage, SnowNode, SnowRuntime,
     SnowState, SnowUpdate, SnowView, SnowWorld,
 };
+pub use crate::data::{Data, DataTypeMismatch};
 pub use crate::elements::{
     Appearance, BodyType, Button, Element, Form, Girl, GirlActions, HairColor, IntervalTimer,
     SkinColor, SubmitHandler, Switch, Text, TextClock, TextInput,
@@ -197,12 +199,13 @@ macro_rules! actions {
 
 pub mod prelude {
     pub use super::{
-        Appearance, Board, BodyType, Button, Card, ClickHandler, Form, Girl, GirlActions, HAlign,
-        HairColor, HandlerRegistryEntry, InnerMovement, InnerTicker, IntervalTimer, IntoObject,
-        Message, MessageContext, MessageHandler, MessageReceiver, Object, Row, ServerApi,
-        SkinColor, State, Switch, Text, TextClock, TextInput, UpdateContext, VAlign,
-        VIEWPORT_HEIGHT, VIEWPORT_WIDTH, World, event_bus, has_registered_handlers,
-        register_click_handler, register_handlers_for_instance, run_async, trigger_clicks,
+        Appearance, Board, BodyType, Button, Card, ClickHandler, Data, DataTypeMismatch, Form,
+        Girl, GirlActions, HAlign, HairColor, HandlerRegistryEntry, InnerMovement, InnerTicker,
+        IntervalTimer, IntoObject, Message, MessageContext, MessageHandler, MessageReceiver,
+        Object, Row, ServerApi, SkinColor, State, Switch, Text, TextClock, TextInput,
+        UpdateContext, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, World, event_bus,
+        has_registered_handlers, register_click_handler, register_handlers_for_instance, run_async,
+        trigger_clicks,
     };
 
     pub use crate::time::Duration;
@@ -558,7 +561,10 @@ pub fn launch_world(world: World) {
 
 /// Launch a concrete `Object` as the app root.
 pub fn launch_object(object: Object) {
-    launch_world(World { root: object });
+    launch_world(World {
+        root: object,
+        data: Data::default(),
+    });
 }
 
 /// Launch a Snow component tree as the app root.
@@ -568,5 +574,8 @@ pub fn launch_component(component: SnowComponent) {
 
 /// Launch a Snow node tree as the app root.
 pub fn launch_root(root: SnowNode) {
-    launch_world(World { root: root.into() });
+    launch_world(World {
+        root: root.into(),
+        data: Data::default(),
+    });
 }

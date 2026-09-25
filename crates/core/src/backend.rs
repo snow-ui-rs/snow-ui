@@ -88,6 +88,7 @@ impl SnowComponentInstance {
     pub fn into_world(self) -> World {
         World {
             root: self.into_object(),
+            data: crate::data::Data::default(),
         }
     }
 }
@@ -190,6 +191,7 @@ impl SnowComponent {
     pub fn into_world(self) -> World {
         World {
             root: self.into_object(),
+            data: crate::data::Data::default(),
         }
     }
 }
@@ -314,6 +316,7 @@ impl From<SnowWorld> for World {
     fn from(world: SnowWorld) -> Self {
         Self {
             root: world.root.into(),
+            data: crate::data::Data::default(),
         }
     }
 }
@@ -1677,6 +1680,7 @@ mod tests {
             root: crate::object::Object::Element(crate::elements::Element::Button(
                 crate::elements::Button { text: "before" },
             )),
+            data: crate::data::Data::default(),
         };
 
         world.apply_message(&super::SnowMessage::ButtonClicked {
@@ -1717,6 +1721,7 @@ mod tests {
                     )],
                 },
             )),
+            data: crate::data::Data::default(),
         };
 
         let app = super::SnowApp::from_world(world.clone());
