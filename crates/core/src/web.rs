@@ -9,23 +9,42 @@ use crate::object::{Object, World};
 
 thread_local! {
     static RENDER_REFRESH: RefCell<Option<Box<dyn Fn()>>> = RefCell::new(None);
+    static CLOCK_REFRESH: RefCell<Option<Box<dyn Fn()>>> = RefCell::new(None);
     static CLOCK_REFRESH_STARTED: RefCell<bool> = const { RefCell::new(false) };
+    static RENDERED_SWITCH_INDICES: RefCell<Vec<usize>> = const { RefCell::new(Vec::new()) };
 }
 
 pub fn launch_world(world: World) {
     let world_for_refresh = world.clone();
     RENDER_REFRESH.with(|refresh| {
-        *refresh.borrow_mut() = Some(Box::new(move || render_world(&world_for_refresh)));
+        *refresh.borrow_mut() = Some(Box::new(move || refresh_world(&world_for_refresh)));
     });
-    CLOCK_REFRESH_STARTED.with(|started| {
-        if !*started.borrow() {
-            *started.borrow_mut() = true;
-            crate::runtime::interval(std::time::Duration::from_secs(1), || {
-                request_render_refresh();
-            });
-        }
-    });
+    configure_clock_refresh(&world);
     render_world(&world);
+    let mut switch_indices = Vec::new();
+    world.root.switch_active_indices(&mut switch_indices);
+    RENDERED_SWITCH_INDICES.with(|rendered| *rendered.borrow_mut() = switch_indices);
+}
+
+fn configure_clock_refresh(world: &World) {
+    let mut clocks = Vec::new();
+    collect_web_clock_values(&world.root, &mut clocks);
+    if !clocks.is_empty() {
+        let world_for_clock = world.clone();
+        CLOCK_REFRESH.with(|refresh| {
+            *refresh.borrow_mut() = Some(Box::new(move || refresh_clocks(&world_for_clock)));
+        });
+        CLOCK_REFRESH_STARTED.with(|started| {
+            if !*started.borrow() {
+                *started.borrow_mut() = true;
+                crate::runtime::interval(std::time::Duration::from_secs(1), || {
+                    request_clock_refresh();
+                });
+            }
+        });
+    } else {
+        CLOCK_REFRESH.with(|refresh| *refresh.borrow_mut() = None);
+    }
 }
 
 pub(crate) fn request_render_refresh() {
@@ -34,6 +53,160 @@ pub(crate) fn request_render_refresh() {
             render();
         }
     });
+}
+
+fn request_clock_refresh() {
+    CLOCK_REFRESH.with(|refresh| {
+        if let Some(update) = refresh.borrow().as_ref() {
+            update();
+        }
+    });
+}
+
+fn refresh_clocks(world: &World) {
+    let window = web_sys::window().expect("Snow UI requires a browser window");
+    let document = window
+        .document()
+        .expect("Snow UI requires a browser document");
+    let Some(root) = document.get_element_by_id("snow-root") else {
+        return;
+    };
+    let mut values = Vec::new();
+    collect_web_clock_values(&world.root, &mut values);
+    let clocks = root
+        .query_selector_all("[data-snow-clock]")
+        .expect("failed to find Snow UI clocks");
+    for (index, value) in values.iter().enumerate() {
+        if let Some(clock) = clocks
+            .item(index as u32)
+            .and_then(|node| node.dyn_into::<Element>().ok())
+        {
+            clock.set_text_content(Some(value));
+        }
+    }
+}
+
+fn refresh_world(world: &World) {
+    let mut switch_indices = Vec::new();
+    world.root.switch_active_indices(&mut switch_indices);
+    let structure_changed = RENDERED_SWITCH_INDICES.with(|rendered| {
+        let mut rendered = rendered.borrow_mut();
+        if *rendered == switch_indices {
+            false
+        } else {
+            *rendered = switch_indices;
+            true
+        }
+    });
+    if structure_changed {
+        configure_clock_refresh(world);
+        render_world(world);
+    } else {
+        refresh_text_nodes(world);
+    }
+}
+
+fn refresh_text_nodes(world: &World) {
+    let window = web_sys::window().expect("Snow UI requires a browser window");
+    let document = window
+        .document()
+        .expect("Snow UI requires a browser document");
+    let Some(root) = document.get_element_by_id("snow-root") else {
+        return;
+    };
+    let mut values = Vec::new();
+    collect_web_text_values(&world.root, &mut values);
+    let text_nodes = root
+        .query_selector_all("[data-snow-text]")
+        .expect("failed to find Snow UI text nodes");
+    for (index, value) in values.iter().enumerate() {
+        if let Some(node) = text_nodes
+            .item(index as u32)
+            .and_then(|node| node.dyn_into::<Element>().ok())
+        {
+            node.set_text_content(Some(value));
+        }
+    }
+}
+
+fn collect_web_text_values(object: &Object, values: &mut Vec<String>) {
+    let Object::Element(element) = object;
+    match element {
+        SnowElement::Text(text) => values.push(text.visible_text()),
+        SnowElement::Board(board) => {
+            for child in &board.children {
+                collect_web_text_values(child, values);
+            }
+        }
+        SnowElement::Card(card) => {
+            for child in &card.children {
+                collect_web_text_values(child, values);
+            }
+        }
+        SnowElement::Row(row) => {
+            for child in &row.children {
+                collect_web_text_values(child, values);
+            }
+        }
+        SnowElement::Form(form) => {
+            for child in &form.children {
+                collect_web_text_values(child, values);
+            }
+        }
+        SnowElement::Switch(switch_) => {
+            if let Some(child) = switch_.children.get(
+                switch_
+                    .active_index()
+                    .min(switch_.children.len().saturating_sub(1)),
+            ) {
+                collect_web_text_values(child, values);
+            }
+        }
+        SnowElement::TextClock(_)
+        | SnowElement::Button(_)
+        | SnowElement::TextInput(_)
+        | SnowElement::Girl(_) => {}
+    }
+}
+
+fn collect_web_clock_values(object: &Object, values: &mut Vec<String>) {
+    let Object::Element(element) = object;
+    match element {
+        SnowElement::TextClock(clock) => values.push(clock.visible_text()),
+        SnowElement::Board(board) => {
+            for child in &board.children {
+                collect_web_clock_values(child, values);
+            }
+        }
+        SnowElement::Card(card) => {
+            for child in &card.children {
+                collect_web_clock_values(child, values);
+            }
+        }
+        SnowElement::Row(row) => {
+            for child in &row.children {
+                collect_web_clock_values(child, values);
+            }
+        }
+        SnowElement::Form(form) => {
+            for child in &form.children {
+                collect_web_clock_values(child, values);
+            }
+        }
+        SnowElement::Switch(switch_) => {
+            if let Some(child) = switch_.children.get(
+                switch_
+                    .active_index()
+                    .min(switch_.children.len().saturating_sub(1)),
+            ) {
+                collect_web_clock_values(child, values);
+            }
+        }
+        SnowElement::Text(_)
+        | SnowElement::Button(_)
+        | SnowElement::TextInput(_)
+        | SnowElement::Girl(_) => {}
+    }
 }
 
 fn render_world(world: &World) {
@@ -131,8 +304,20 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
             render_group(document, "div", &card.children, false, button_index)
         }
         SnowElement::Row(row) => render_group(document, "div", &row.children, true, button_index),
-        SnowElement::Text(text) => element_with_text(document, "span", &text.visible_text()),
-        SnowElement::TextClock(clock) => element_with_text(document, "span", &clock.visible_text()),
+        SnowElement::Text(text) => {
+            let element = element_with_text(document, "span", &text.visible_text());
+            element
+                .set_attribute("data-snow-text", "")
+                .expect("failed to tag Snow UI text");
+            element
+        }
+        SnowElement::TextClock(clock) => {
+            let element = element_with_text(document, "span", &clock.visible_text());
+            element
+                .set_attribute("data-snow-clock", "")
+                .expect("failed to tag Snow UI clock");
+            element
+        }
         SnowElement::Button(button) => {
             let button_element = element_with_text(document, "button", button.text);
             let current_index = *button_index;
