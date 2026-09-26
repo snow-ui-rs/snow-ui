@@ -348,7 +348,8 @@ impl Object {
             );
             column = add_masonry_child(column, child, widget);
         }
-        let mut buttons = Flex::row();
+        let mut buttons =
+            Flex::row().main_axis_alignment(masonry::properties::types::MainAxisAlignment::Center);
         let submit_tag = tags.button[*next_button];
         *next_button += 1;
         buttons = buttons.with_fixed(NewWidget::new(MasonryButton::new(
@@ -362,8 +363,9 @@ impl Object {
             ))))
             .with_tag(reset_tag),
         );
+        let buttons = NewWidget::new(buttons).with_props(Dimensions::width(Dim::Stretch));
         Some(
-            NewWidget::new(column.with_fixed(NewWidget::new(buttons)))
+            NewWidget::new(column.with_fixed(buttons))
                 .with_props(Dimensions::width(Dim::MaxContent)),
         )
     }
@@ -434,7 +436,8 @@ impl Object {
                     );
                     column = add_masonry_child(column, child, widget);
                 }
-                let mut buttons = Flex::row();
+                let mut buttons = Flex::row()
+                    .main_axis_alignment(masonry::properties::types::MainAxisAlignment::Center);
                 let submit_tag = tags.button[*next_button];
                 *next_button += 1;
                 buttons = buttons.with_fixed(NewWidget::new(MasonryButton::new(
@@ -450,7 +453,9 @@ impl Object {
                 );
                 let form_tag = tags.form[*next_form];
                 *next_form += 1;
-                column = column.with_fixed(NewWidget::new(buttons));
+                column = column.with_fixed(
+                    NewWidget::new(buttons).with_props(Dimensions::width(Dim::Stretch)),
+                );
                 return NewWidget::new(column)
                     .with_props(Dimensions::width(Dim::MaxContent))
                     .with_tag(form_tag);

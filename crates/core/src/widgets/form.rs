@@ -5,6 +5,8 @@ use masonry::layout::Dim;
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::properties::Dimensions;
 #[cfg(not(target_arch = "wasm32"))]
+use masonry::properties::types::MainAxisAlignment;
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::widgets::{Button as MasonryButton, Flex};
 
 use crate::elements::{Button, Element};
@@ -95,14 +97,15 @@ impl Form {
         for child in &self.children {
             column = crate::object::add_masonry_child(column, child, child.into_masonry_widget());
         }
-        let mut buttons = Flex::row();
+        let mut buttons = Flex::row().main_axis_alignment(MainAxisAlignment::Center);
         buttons = buttons.with_fixed(NewWidget::new(MasonryButton::with_text(
             self.submit_button.text,
         )));
         buttons = buttons.with_fixed(NewWidget::new(MasonryButton::with_text(
             self.reset_button.text,
         )));
-        column = column.with_fixed(NewWidget::new(buttons));
+        column =
+            column.with_fixed(NewWidget::new(buttons).with_props(Dimensions::width(Dim::Stretch)));
         NewWidget::new(column).with_props(Dimensions::width(Dim::MaxContent))
     }
 
