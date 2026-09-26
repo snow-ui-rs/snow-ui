@@ -21,7 +21,7 @@ impl Board {
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         for child in &self.children {
-            column = column.with_fixed(child.into_masonry_widget());
+            column = crate::object::add_masonry_child(column, child, child.into_masonry_widget());
         }
         NewWidget::new(column)
     }

@@ -1,6 +1,10 @@
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::core::NewWidget;
 #[cfg(not(target_arch = "wasm32"))]
+use masonry::layout::Dim;
+#[cfg(not(target_arch = "wasm32"))]
+use masonry::properties::Dimensions;
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::widgets::Flex;
 
 use crate::elements::Element;
@@ -16,9 +20,9 @@ impl Card {
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut column = Flex::column();
         for child in &self.children {
-            column = column.with_fixed(child.into_masonry_widget());
+            column = crate::object::add_masonry_child(column, child, child.into_masonry_widget());
         }
-        NewWidget::new(column)
+        NewWidget::new(column).with_props(Dimensions::width(Dim::MaxContent))
     }
 }
 

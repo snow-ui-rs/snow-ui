@@ -56,7 +56,7 @@ impl Switch {
             self.active_index()
                 .min(self.children.len().saturating_sub(1)),
         ) {
-            column = column.with_fixed(child.into_masonry_widget());
+            column = crate::object::add_masonry_child(column, child, child.into_masonry_widget());
         }
         NewWidget::new(column)
     }

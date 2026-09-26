@@ -1,9 +1,13 @@
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::core::{NewWidget, WidgetTag};
 #[cfg(not(target_arch = "wasm32"))]
-use masonry::layout::Length;
+use masonry::layout::{Dim, Length};
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::peniko::{ImageAlphaType, ImageData, ImageFormat};
+#[cfg(not(target_arch = "wasm32"))]
+use masonry::properties::Dimensions;
+#[cfg(not(target_arch = "wasm32"))]
+use masonry::properties::types::CrossAxisAlignment;
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::widgets::{
     Button as MasonryButton, Flex, Image, Label, SizedBox, TextInput as MasonryTextInput,
@@ -13,6 +17,15 @@ use crate::elements::{Element, Text, TextClock};
 use crate::layout::{Board, Card, Row};
 use crate::traits::IntoObject;
 use crate::widgets::Girl;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) fn add_masonry_child(container: Flex, child: &Object, widget: NewWidget<Flex>) -> Flex {
+    if matches!(child, Object::Element(Element::Card(_))) {
+        container.with(widget, CrossAxisAlignment::Start)
+    } else {
+        container.with_fixed(widget)
+    }
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 fn sum_tag_counts(
@@ -317,14 +330,15 @@ impl Object {
         };
         let mut column = Flex::column();
         for child in &form.children {
-            column = column.with_fixed(child.build_masonry_widget_with_native_tags(
+            let widget = child.build_masonry_widget_with_native_tags(
                 tags,
                 next_text,
                 next_button,
                 next_clock,
                 next_reset,
                 next_form,
-            ));
+            );
+            column = add_masonry_child(column, child, widget);
         }
         let mut buttons = Flex::row();
         let submit_tag = tags.button[*next_button];
@@ -357,27 +371,30 @@ impl Object {
         match self {
             Object::Element(Element::Board(board)) => {
                 for child in &board.children {
-                    column = column.with_fixed(child.build_masonry_widget_with_native_tags(
+                    let widget = child.build_masonry_widget_with_native_tags(
                         tags,
                         next_text,
                         next_button,
                         next_clock,
                         next_reset,
                         next_form,
-                    ));
+                    );
+                    column = add_masonry_child(column, child, widget);
                 }
             }
             Object::Element(Element::Card(card)) => {
                 for child in &card.children {
-                    column = column.with_fixed(child.build_masonry_widget_with_native_tags(
+                    let widget = child.build_masonry_widget_with_native_tags(
                         tags,
                         next_text,
                         next_button,
                         next_clock,
                         next_reset,
                         next_form,
-                    ));
+                    );
+                    column = add_masonry_child(column, child, widget);
                 }
+                return NewWidget::new(column).with_props(Dimensions::width(Dim::MaxContent));
             }
             Object::Element(Element::Row(row)) => {
                 let mut horizontal = Flex::row();
@@ -396,14 +413,15 @@ impl Object {
             }
             Object::Element(Element::Form(form)) => {
                 for child in &form.children {
-                    column = column.with_fixed(child.build_masonry_widget_with_native_tags(
+                    let widget = child.build_masonry_widget_with_native_tags(
                         tags,
                         next_text,
                         next_button,
                         next_clock,
                         next_reset,
                         next_form,
-                    ));
+                    );
+                    column = add_masonry_child(column, child, widget);
                 }
                 let mut buttons = Flex::row();
                 let submit_tag = tags.button[*next_button];
@@ -430,14 +448,15 @@ impl Object {
                         .active_index()
                         .min(switch_.children.len().saturating_sub(1)),
                 ) {
-                    column = column.with_fixed(child.build_masonry_widget_with_native_tags(
+                    let widget = child.build_masonry_widget_with_native_tags(
                         tags,
                         next_text,
                         next_button,
                         next_clock,
                         next_reset,
                         next_form,
-                    ));
+                    );
+                    column = add_masonry_child(column, child, widget);
                 }
             }
             Object::Element(Element::Text(text)) => {
@@ -598,15 +617,16 @@ impl Object {
         match self {
             Object::Element(Element::Board(board)) => {
                 for child in &board.children {
-                    column = column
-                        .with_fixed(child.into_masonry_widget_with_clock_tags(tags, next_tag));
+                    let widget = child.into_masonry_widget_with_clock_tags(tags, next_tag);
+                    column = add_masonry_child(column, child, widget);
                 }
             }
             Object::Element(Element::Card(card)) => {
                 for child in &card.children {
-                    column = column
-                        .with_fixed(child.into_masonry_widget_with_clock_tags(tags, next_tag));
+                    let widget = child.into_masonry_widget_with_clock_tags(tags, next_tag);
+                    column = add_masonry_child(column, child, widget);
                 }
+                return NewWidget::new(column).with_props(Dimensions::width(Dim::MaxContent));
             }
             Object::Element(Element::Row(row)) => {
                 let mut horizontal = Flex::row();
@@ -618,8 +638,8 @@ impl Object {
             }
             Object::Element(Element::Form(form)) => {
                 for child in &form.children {
-                    column = column
-                        .with_fixed(child.into_masonry_widget_with_clock_tags(tags, next_tag));
+                    let widget = child.into_masonry_widget_with_clock_tags(tags, next_tag);
+                    column = add_masonry_child(column, child, widget);
                 }
             }
             Object::Element(Element::Switch(switch_)) => {
@@ -628,8 +648,8 @@ impl Object {
                         .active_index()
                         .min(switch_.children.len().saturating_sub(1)),
                 ) {
-                    column = column
-                        .with_fixed(child.into_masonry_widget_with_clock_tags(tags, next_tag));
+                    let widget = child.into_masonry_widget_with_clock_tags(tags, next_tag);
+                    column = add_masonry_child(column, child, widget);
                 }
             }
             Object::Element(Element::TextClock(clock)) => {
