@@ -112,12 +112,14 @@ impl SnowComponent {
                     .into_iter()
                     .map(SnowComponent::into_object)
                     .collect(),
+                ..Row::default()
             }),
             SnowComponent::Column { children } => Object::from(Row {
                 children: children
                     .into_iter()
                     .map(SnowComponent::into_object)
                     .collect(),
+                ..Row::default()
             }),
             SnowComponent::Box {
                 width: _,
@@ -244,9 +246,11 @@ impl From<SnowNode> for Object {
             }
             SnowNode::Row { children } => Object::from(Row {
                 children: children.into_iter().map(Object::from).collect(),
+                ..Row::default()
             }),
             SnowNode::Column { children } => Object::from(Row {
                 children: children.into_iter().map(Object::from).collect(),
+                ..Row::default()
             }),
             SnowNode::Box {
                 width: _,
@@ -1719,6 +1723,7 @@ mod tests {
                     children: vec![crate::object::Object::Element(
                         crate::elements::Element::Button(crate::elements::Button { text: "hello" }),
                     )],
+                    ..crate::layout::Row::default()
                 },
             )),
             data: crate::data::Data::default(),

@@ -26,8 +26,10 @@ fn login_board() -> Object {
                 submit_handler: login,
                 submit_button: Button { text: "Login" },
                 reset_button: Button { text: "Reset" },
+                h_align: HAlign::Center,
                 children: list![
                     Row {
+                        h_align: HAlign::Center,
                         children: list![TextInput {
                             label: "User name: ",
                             name: "username",
@@ -35,6 +37,7 @@ fn login_board() -> Object {
                         },],
                     },
                     Row {
+                        h_align: HAlign::Center,
                         children: list![TextInput {
                             label: "Password: ",
                             name: "password",
@@ -57,6 +60,7 @@ fn main_board() -> Object {
     obj!(MainBoard {
         board: Board {
             children: list![Card {
+                h_align: HAlign::Center,
                 children: list![Text {
                     text: "Welcome to the main board!",
                 },],

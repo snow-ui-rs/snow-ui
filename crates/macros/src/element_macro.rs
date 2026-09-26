@@ -228,6 +228,7 @@ fn gen_into_object(
                         #(value.#timer_fields.start();)*
                         ::snow_ui::Object::from(::snow_ui::Element::Row(::snow_ui::Row {
                             children: vec![#(::snow_ui::Object::from(value.#visible_fields.clone())),*],
+                            ..::std::default::Default::default()
                         }))
                     }
                 }

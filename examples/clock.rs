@@ -10,13 +10,16 @@ pub fn world() -> World {
             h_align: HAlign::Center,
             v_align: VAlign::Middle,
             children: list![Card {
+                h_align: HAlign::Center,
                 children: list![
                     Row {
+                        h_align: HAlign::Center,
                         children: list![Text {
                             text: "Clock Example ⏰",
                         },],
                     },
                     Row {
+                        h_align: HAlign::Center,
                         children: list![TextClock { format: "%H:%M:%S" },],
                     },
                 ],

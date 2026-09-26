@@ -1,11 +1,16 @@
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::core::NewWidget;
 #[cfg(not(target_arch = "wasm32"))]
+use masonry::layout::Dim;
+#[cfg(not(target_arch = "wasm32"))]
+use masonry::properties::Dimensions;
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::widgets::{Button as MasonryButton, Flex};
 
 use crate::elements::{Button, Element};
 use crate::object::Object;
 use crate::traits::IntoObject;
+use crate::types::HAlign;
 
 trait SubmitReturn {
     fn into_anyhow(self) -> anyhow::Result<()>;
@@ -54,6 +59,7 @@ pub struct Form {
     pub submit_handler: std::sync::Arc<dyn SubmitHandler + Send + Sync>,
     pub submit_button: Button,
     pub reset_button: Button,
+    pub h_align: HAlign,
     pub children: Vec<Object>,
 }
 
@@ -63,6 +69,7 @@ impl Default for Form {
             submit_handler: std::sync::Arc::new(|_form: &Form| Box::pin(async move {})),
             submit_button: Button::default(),
             reset_button: Button::default(),
+            h_align: HAlign::Left,
             children: vec![],
         }
     }
@@ -75,6 +82,7 @@ impl std::fmt::Debug for Form {
             .field("submit_handler", &"<handler>")
             .field("submit_button", &self.submit_button)
             .field("reset_button", &self.reset_button)
+            .field("h_align", &self.h_align)
             .field("children", &self.children)
             .finish()
     }
@@ -95,7 +103,7 @@ impl Form {
             self.reset_button.text,
         )));
         column = column.with_fixed(NewWidget::new(buttons));
-        NewWidget::new(column)
+        NewWidget::new(column).with_props(Dimensions::width(Dim::MaxContent))
     }
 
     pub fn to_json(&self) -> anyhow::Result<String> {

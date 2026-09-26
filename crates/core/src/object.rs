@@ -16,15 +16,23 @@ use masonry::widgets::{
 use crate::elements::{Element, Text, TextClock};
 use crate::layout::{Board, Card, Row};
 use crate::traits::IntoObject;
+use crate::types::HAlign;
 use crate::widgets::Girl;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn add_masonry_child(container: Flex, child: &Object, widget: NewWidget<Flex>) -> Flex {
-    if matches!(child, Object::Element(Element::Card(_))) {
-        container.with(widget, CrossAxisAlignment::Start)
-    } else {
-        container.with_fixed(widget)
-    }
+    let h_align = match child {
+        Object::Element(Element::Card(card)) => card.h_align,
+        Object::Element(Element::Form(form)) => form.h_align,
+        Object::Element(Element::Row(row)) => row.h_align,
+        _ => return container.with_fixed(widget),
+    };
+    let alignment = match h_align {
+        HAlign::Left => CrossAxisAlignment::Start,
+        HAlign::Center => CrossAxisAlignment::Center,
+        HAlign::Right => CrossAxisAlignment::End,
+    };
+    container.with(widget, alignment)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -354,7 +362,10 @@ impl Object {
             ))))
             .with_tag(reset_tag),
         );
-        Some(NewWidget::new(column.with_fixed(NewWidget::new(buttons))))
+        Some(
+            NewWidget::new(column.with_fixed(NewWidget::new(buttons)))
+                .with_props(Dimensions::width(Dim::MaxContent)),
+        )
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -409,7 +420,7 @@ impl Object {
                             next_form,
                         ));
                 }
-                return NewWidget::new(horizontal);
+                return NewWidget::new(horizontal).with_props(Dimensions::width(Dim::MaxContent));
             }
             Object::Element(Element::Form(form)) => {
                 for child in &form.children {
@@ -440,7 +451,9 @@ impl Object {
                 let form_tag = tags.form[*next_form];
                 *next_form += 1;
                 column = column.with_fixed(NewWidget::new(buttons));
-                return NewWidget::new(column).with_tag(form_tag);
+                return NewWidget::new(column)
+                    .with_props(Dimensions::width(Dim::MaxContent))
+                    .with_tag(form_tag);
             }
             Object::Element(Element::Switch(switch_)) => {
                 if let Some(child) = switch_.children.get(
@@ -634,13 +647,14 @@ impl Object {
                     horizontal = horizontal
                         .with_fixed(child.into_masonry_widget_with_clock_tags(tags, next_tag));
                 }
-                return NewWidget::new(horizontal);
+                return NewWidget::new(horizontal).with_props(Dimensions::width(Dim::MaxContent));
             }
             Object::Element(Element::Form(form)) => {
                 for child in &form.children {
                     let widget = child.into_masonry_widget_with_clock_tags(tags, next_tag);
                     column = add_masonry_child(column, child, widget);
                 }
+                return NewWidget::new(column).with_props(Dimensions::width(Dim::MaxContent));
             }
             Object::Element(Element::Switch(switch_)) => {
                 if let Some(child) = switch_.children.get(

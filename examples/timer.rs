@@ -34,13 +34,16 @@ pub fn world() -> World {
     World {
         root: obj!(Board {
             children: list![Card {
+                h_align: HAlign::Center,
                 children: list![
                     Row {
+                        h_align: HAlign::Center,
                         children: list![Text {
                             text: "Timer Example ⏱️",
                         },],
                     },
                     Row {
+                        h_align: HAlign::Center,
                         children: list![simple_text_timer()],
                     },
                 ],
