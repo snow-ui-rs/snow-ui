@@ -12,6 +12,9 @@ keywords = { workspace = true }
 license = { workspace = true }
 categories = { workspace = true }
 
+[package.metadata.docs.rs]
+all-features = true
+
 [dependencies]
 anyhow = { workspace = true }
 snow-ui-macros = { workspace = true }
@@ -57,10 +60,6 @@ path = "../../examples/timer.rs"
 [[example]]
 name = "click"
 path = "../../examples/click.rs"
-
-[[example]]
-name = "masonry_button"
-path = "../../examples/masonry_button.rs"
 
 [[example]]
 name = "login"
