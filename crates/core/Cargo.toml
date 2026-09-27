@@ -24,8 +24,8 @@ inventory = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
-masonry = { git = "https://github.com/linebender/xilem.git", branch = "main" }
-masonry_winit = { git = "https://github.com/linebender/xilem.git", branch = "main" }
+masonry = { package = "clia_masonry", version = "0.4.0" }
+masonry_winit = { package = "clia_masonry_winit", version = "0.4.0" }
 image = { version = "0.25", default-features = false, features = ["png"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
