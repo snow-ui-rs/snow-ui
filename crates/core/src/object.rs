@@ -536,7 +536,7 @@ impl Object {
                 };
                 let image = NewWidget::new(Image::new(image_data).with_alt_text("Girl"));
                 let image =
-                    SizedBox::new(image).size(Length::const_px(200.0), Length::const_px(300.0));
+                    SizedBox::new(image).size(Length::const_px(300.0), Length::const_px(450.0));
                 let mut column = Flex::column();
                 column = column.with_fixed(NewWidget::new(image));
                 NewWidget::new(column)
