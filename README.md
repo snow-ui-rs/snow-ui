@@ -37,21 +37,23 @@ struct LovelyGirl {
     girl: Girl,
 }
 
-fn lovely_girl() -> Object {
-    obj!(LovelyGirl {
-        girl: Girl {
-            hair_color: HairColor::Black,
-            skin_color: SkinColor::Yellow,
-            body_type: BodyType::Slim,
-            appearance: Appearance::Beautiful,
-            every_morning: actions![GirlActions::SayHi, GirlActions::PrepareBreakfast,],
-        },
-    })
+impl LovelyGirl {
+    pub fn obj() -> Object {
+        obj!(LovelyGirl {
+            girl: Girl {
+                hair_color: HairColor::Black,
+                skin_color: SkinColor::Yellow,
+                body_type: BodyType::Slim,
+                appearance: Appearance::Beautiful,
+                every_morning: actions![GirlActions::SayHi, GirlActions::PrepareBreakfast,],
+            },
+        })
+    }
 }
 
 pub fn world() -> World {
     World {
-        root: lovely_girl(),
+        root: LovelyGirl::obj(),
         ..default()
     }
 }
@@ -132,13 +134,15 @@ register_handler!(
     }
 );
 
-fn simple_text_timer() -> Object {
-    let seconds = State::new(0);
-    obj!(SimpleTextTimer {
-        seconds: seconds.clone(),
-        timer: IntervalTimer::from_interval(Duration::from_secs(1)),
-        text: Text::from_state(&seconds),
-    })
+impl SimpleTextTimer {
+    pub fn obj() -> Object {
+        let seconds = State::new(0);
+        obj!(SimpleTextTimer {
+            seconds: seconds.clone(),
+            timer: IntervalTimer::from_interval(Duration::from_secs(1)),
+            text: Text::from_state(&seconds),
+        })
+    }
 }
 
 pub fn world() -> World {
@@ -152,7 +156,7 @@ pub fn world() -> World {
                         },],
                     },
                     Row {
-                        children: list![simple_text_timer()],
+                        children: list![SimpleTextTimer::obj()],
                     },
                 ],
             },],
@@ -193,12 +197,14 @@ impl ClickHandler for IncreaseButton {
     }
 }
 
-fn increase_button() -> Object {
-    obj!(IncreaseButton {
-        button: Button {
-            text: "Increase Count",
-        },
-    })
+impl IncreaseButton {
+    pub fn obj() -> Object {
+        obj!(IncreaseButton {
+            button: Button {
+                text: "Increase Count",
+            },
+        })
+    }
 }
 
 #[element]
@@ -215,12 +221,14 @@ register_handler!(
     }
 );
 
-fn simple_text() -> Object {
-    let count = State::new(0);
-    obj!(SimpleText {
-        count: count.clone(),
-        text: Text::from_state(&count),
-    })
+impl SimpleText {
+    pub fn obj() -> Object {
+        let count = State::new(0);
+        obj!(SimpleText {
+            count: count.clone(),
+            text: Text::from_state(&count),
+        })
+    }
 }
 
 pub fn world() -> World {
@@ -229,10 +237,10 @@ pub fn world() -> World {
             children: list![Card {
                 children: list![
                     Row {
-                        children: list![increase_button(),],
+                        children: list![IncreaseButton::obj(),],
                     },
                     Row {
-                        children: list![simple_text(),],
+                        children: list![SimpleText::obj(),],
                     },
                 ],
             },],
@@ -273,33 +281,35 @@ async fn login(form: &Form) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn login_board() -> Object {
-    obj!(LoginBoard {
-        board: Board {
-            children: list![Form {
-                submit_handler: login,
-                submit_button: Button { text: "Login" },
-                reset_button: Button { text: "Reset" },
-                children: list![
-                    Row {
-                        children: list![TextInput {
-                            label: "User name: ",
-                            name: "username",
-                            max_len: 20,
-                        },],
-                    },
-                    Row {
-                        children: list![TextInput {
-                            label: "Password: ",
-                            name: "password",
-                            r#type: "password",
-                            max_len: 20,
-                        },],
-                    },
-                ],
-            },],
-        }
-    })
+impl LoginBoard {
+    pub fn obj() -> Object {
+        obj!(LoginBoard {
+            board: Board {
+                children: list![Form {
+                    submit_handler: login,
+                    submit_button: Button { text: "Login" },
+                    reset_button: Button { text: "Reset" },
+                    children: list![
+                        Row {
+                            children: list![TextInput {
+                                label: "User name: ",
+                                name: "username",
+                                max_len: 20,
+                            },],
+                        },
+                        Row {
+                            children: list![TextInput {
+                                label: "Password: ",
+                                name: "password",
+                                r#type: "password",
+                                max_len: 20,
+                            },],
+                        },
+                    ],
+                },],
+            }
+        })
+    }
 }
 
 #[element]
@@ -307,16 +317,18 @@ struct MainBoard {
     board: Board,
 }
 
-fn main_board() -> Object {
-    obj!(MainBoard {
-        board: Board {
-            children: list![Card {
-                children: list![Text {
-                    text: "Welcome to the main board!",
+impl MainBoard {
+    pub fn obj() -> Object {
+        obj!(MainBoard {
+            board: Board {
+                children: list![Card {
+                    children: list![Text {
+                        text: "Welcome to the main board!",
+                    },],
                 },],
-            },],
-        }
-    })
+            }
+        })
+    }
 }
 
 #[element]
@@ -332,17 +344,19 @@ register_handler!(
     }
 );
 
-fn my_switch() -> Object {
-    obj!(MySwitch {
-        switch: Switch {
-            children: list![login_board(), main_board(),],
-        }
-    })
+impl MySwitch {
+    pub fn obj() -> Object {
+        obj!(MySwitch {
+            switch: Switch {
+                children: list![LoginBoard::obj(), MainBoard::obj(),],
+            }
+        })
+    }
 }
 
 pub fn world() -> World {
     World {
-        root: my_switch(),
+        root: MySwitch::obj(),
         ..default()
     }
 }

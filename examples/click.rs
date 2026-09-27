@@ -16,12 +16,14 @@ impl ClickHandler for IncreaseButton {
     }
 }
 
-fn increase_button() -> Object {
-    obj!(IncreaseButton {
-        button: Button {
-            text: "Increase Count",
-        },
-    })
+impl IncreaseButton {
+    pub fn obj() -> Object {
+        obj!(IncreaseButton {
+            button: Button {
+                text: "Increase Count",
+            },
+        })
+    }
 }
 
 #[element]
@@ -38,12 +40,14 @@ register_handler!(
     }
 );
 
-fn simple_text() -> Object {
-    let count = State::new(0);
-    obj!(SimpleText {
-        count: count.clone(),
-        text: Text::from_state(&count),
-    })
+impl SimpleText {
+    pub fn obj() -> Object {
+        let count = State::new(0);
+        obj!(SimpleText {
+            count: count.clone(),
+            text: Text::from_state(&count),
+        })
+    }
 }
 
 pub fn world() -> World {
@@ -54,11 +58,11 @@ pub fn world() -> World {
                 children: list![
                     Row {
                         h_align: HAlign::Center,
-                        children: list![increase_button(),],
+                        children: list![IncreaseButton::obj(),],
                     },
                     Row {
                         h_align: HAlign::Center,
-                        children: list![simple_text(),],
+                        children: list![SimpleText::obj(),],
                     },
                 ],
             },],
