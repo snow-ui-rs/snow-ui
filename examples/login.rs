@@ -19,36 +19,38 @@ async fn login(form: &Form) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn login_board() -> Object {
-    obj!(LoginBoard {
-        board: Board {
-            children: list![Form {
-                submit_handler: login,
-                submit_button: Button { text: "Login" },
-                reset_button: Button { text: "Reset" },
-                h_align: HAlign::Center,
-                children: list![
-                    Row {
-                        h_align: HAlign::Center,
-                        children: list![TextInput {
-                            label: "User name: ",
-                            name: "username",
-                            max_len: 20,
-                        },],
-                    },
-                    Row {
-                        h_align: HAlign::Center,
-                        children: list![TextInput {
-                            label: "Password: ",
-                            name: "password",
-                            r#type: "password",
-                            max_len: 20,
-                        },],
-                    },
-                ],
-            },],
-        }
-    })
+impl LoginBoard {
+    pub fn obj() -> Object {
+        obj!(LoginBoard {
+            board: Board {
+                children: list![Form {
+                    submit_handler: login,
+                    submit_button: Button { text: "Login" },
+                    reset_button: Button { text: "Reset" },
+                    h_align: HAlign::Center,
+                    children: list![
+                        Row {
+                            h_align: HAlign::Center,
+                            children: list![TextInput {
+                                label: "User name: ",
+                                name: "username",
+                                max_len: 20,
+                            },],
+                        },
+                        Row {
+                            h_align: HAlign::Center,
+                            children: list![TextInput {
+                                label: "Password: ",
+                                name: "password",
+                                r#type: "password",
+                                max_len: 20,
+                            },],
+                        },
+                    ],
+                },],
+            }
+        })
+    }
 }
 
 #[element]
@@ -56,17 +58,19 @@ struct MainBoard {
     board: Board,
 }
 
-fn main_board() -> Object {
-    obj!(MainBoard {
-        board: Board {
-            children: list![Card {
-                h_align: HAlign::Center,
-                children: list![Text {
-                    text: "Welcome to the main board!",
+impl MainBoard {
+    pub fn obj() -> Object {
+        obj!(MainBoard {
+            board: Board {
+                children: list![Card {
+                    h_align: HAlign::Center,
+                    children: list![Text {
+                        text: "Welcome to the main board!",
+                    },],
                 },],
-            },],
-        }
-    })
+            }
+        })
+    }
 }
 
 #[element]
@@ -82,17 +86,19 @@ register_handler!(
     }
 );
 
-fn my_switch() -> Object {
-    obj!(MySwitch {
-        switch: Switch {
-            children: list![login_board(), main_board(),],
-        }
-    })
+impl MySwitch {
+    pub fn obj() -> Object {
+        obj!(MySwitch {
+            switch: Switch {
+                children: list![LoginBoard::obj(), MainBoard::obj(),],
+            }
+        })
+    }
 }
 
 pub fn world() -> World {
     World {
-        root: my_switch(),
+        root: MySwitch::obj(),
         ..default()
     }
 }

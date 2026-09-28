@@ -523,7 +523,7 @@ impl Object {
             Object::Element(Element::Card(card)) => card.into_masonry_widget(),
             Object::Element(Element::Row(row)) => row.into_masonry_widget(),
             Object::Element(Element::Girl(_girl)) => {
-                let rgba = image::load_from_memory(include_bytes!("../../../assets/girl.png"))
+                let rgba = image::load_from_memory(include_bytes!("../assets/girl.png"))
                     .expect("failed to decode Girl image")
                     .to_rgba8();
                 let (width, height) = rgba.dimensions();
@@ -536,7 +536,7 @@ impl Object {
                 };
                 let image = NewWidget::new(Image::new(image_data).with_alt_text("Girl"));
                 let image =
-                    SizedBox::new(image).size(Length::const_px(200.0), Length::const_px(300.0));
+                    SizedBox::new(image).size(Length::const_px(300.0), Length::const_px(450.0));
                 let mut column = Flex::column();
                 column = column.with_fixed(NewWidget::new(image));
                 NewWidget::new(column)

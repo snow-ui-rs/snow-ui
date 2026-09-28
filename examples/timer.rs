@@ -21,13 +21,15 @@ register_handler!(
     }
 );
 
-fn simple_text_timer() -> Object {
-    let seconds = State::new(0);
-    obj!(SimpleTextTimer {
-        seconds: seconds.clone(),
-        timer: IntervalTimer::from_interval(Duration::from_secs(1)),
-        text: Text::from_state(&seconds),
-    })
+impl SimpleTextTimer {
+    pub fn obj() -> Object {
+        let seconds = State::new(0);
+        obj!(SimpleTextTimer {
+            seconds: seconds.clone(),
+            timer: IntervalTimer::from_interval(Duration::from_secs(1)),
+            text: Text::from_state(&seconds),
+        })
+    }
 }
 
 pub fn world() -> World {
@@ -44,7 +46,7 @@ pub fn world() -> World {
                     },
                     Row {
                         h_align: HAlign::Center,
-                        children: list![simple_text_timer()],
+                        children: list![SimpleTextTimer::obj()],
                     },
                 ],
             },],
