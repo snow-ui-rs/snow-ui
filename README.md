@@ -380,3 +380,5 @@ clia.cc
 ## Articles
 
 [Snow UI’s First Release: Write Your UI Once in Rust, Run It on Desktop, Mobile, and Web](https://medium.com/@clia_68451/snow-uis-first-release-write-your-ui-once-in-rust-run-it-on-desktop-mobile-and-web-e9c02d2e685c)
+
+[Snow UI 0.0.1 发布了：用 Rust 写一次 UI，桌面、移动、Web 全跑？](https://mp.weixin.qq.com/s/j_S86xwFvwdox5zjDS1wwA)
