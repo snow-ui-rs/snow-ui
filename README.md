@@ -11,7 +11,7 @@
 [![Docs passing](https://github.com/snow-ui-rs/snow-ui/actions/workflows/docs.yml/badge.svg?branch=main)](https://github.com/snow-ui-rs/snow-ui/actions/workflows/docs.yml)
 -->
 
-**Current status:** It works, initially.
+**Current status:** It works, initially, on desktop and web.
 
 <div align="center">
     <img width="354" height="794" alt="screenshot" src="https://github.com/user-attachments/assets/3d4cb671-7529-4ec6-9405-fdd7475c2963" />
