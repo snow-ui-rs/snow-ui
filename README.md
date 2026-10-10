@@ -17,6 +17,12 @@
     <img width="354" height="794" alt="screenshot" src="https://github.com/user-attachments/assets/3d4cb671-7529-4ec6-9405-fdd7475c2963" />
 </div>
 
+
+
+https://github.com/user-attachments/assets/0fdb5bc8-b2de-40e8-bf66-45d266b9a9ee
+
+
+
 ## Philosophy
 
 The UI is a projection of a virtual world onto the screen.
