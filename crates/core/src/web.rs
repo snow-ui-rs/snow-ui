@@ -320,11 +320,13 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
         }
         SnowElement::Button(button) => {
             let button_element = element_with_text(document, "button", button.text);
-            let current_index = *button_index;
+            button_element
+                .set_attribute("data-snow-widget-id", &button.id.get().to_string())
+                .expect("failed to set Snow UI button identity");
+            let widget_id = button.id;
             *button_index += 1;
-            let callback = Closure::<dyn FnMut(Event)>::new(move |_| {
-                crate::trigger_click_handler(current_index)
-            });
+            let callback =
+                Closure::<dyn FnMut(Event)>::new(move |_| crate::trigger_click_handler(widget_id));
             button_element
                 .add_event_listener_with_callback("click", callback.as_ref().unchecked_ref())
                 .expect("failed to register Snow UI button handler");
@@ -345,16 +347,17 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
 
             let submit = element_with_text(document, "button", form.submit_button.text);
             submit
+                .set_attribute(
+                    "data-snow-widget-id",
+                    &form.submit_button.id.get().to_string(),
+                )
+                .expect("failed to set Snow UI submit identity");
+            submit
                 .set_attribute("type", "button")
                 .expect("failed to set Snow UI submit button type");
-            let submit_handler = form.submit_handler.clone();
-            let submit_form = form.clone();
+            let submit_id = form.submit_button.id;
             let submit_callback = Closure::<dyn FnMut(Event)>::new(move |_| {
-                let submit_handler = submit_handler.clone();
-                let submit_form = submit_form.clone();
-                crate::run_async(async move {
-                    let _ = submit_handler.call_box(&submit_form).await;
-                });
+                crate::trigger_click_handler(submit_id);
             });
             submit
                 .add_event_listener_with_callback("click", submit_callback.as_ref().unchecked_ref())
@@ -365,6 +368,12 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
                 .expect("failed to append Snow UI submit button");
 
             let reset = element_with_text(document, "button", form.reset_button.text);
+            reset
+                .set_attribute(
+                    "data-snow-widget-id",
+                    &form.reset_button.id.get().to_string(),
+                )
+                .expect("failed to set Snow UI reset identity");
             reset
                 .set_attribute("type", "reset")
                 .expect("failed to set Snow UI reset button type");

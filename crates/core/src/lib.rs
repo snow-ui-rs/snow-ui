@@ -48,7 +48,7 @@ pub use crate::traits::{
     ClickHandler, InnerMovement, InnerTicker, IntoObject, Message, MessageContext, MessageHandler,
     MessageReceiver, UpdateContext,
 };
-pub use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
+pub use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, WidgetId};
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug)]
@@ -107,41 +107,41 @@ where
 // Pulled in by the old-day convenient prelude and `register_handler!` macro flow.
 pub use inventory;
 
-type ClickHandlerList = Vec<Box<dyn Fn() + Send + Sync + 'static>>;
+type ClickHandlerList =
+    std::collections::HashMap<WidgetId, std::sync::Arc<dyn Fn() + Send + Sync + 'static>>;
 
 static CLICK_HANDLERS: std::sync::OnceLock<std::sync::Mutex<ClickHandlerList>> =
     std::sync::OnceLock::new();
 
 fn get_click_handlers() -> &'static std::sync::Mutex<ClickHandlerList> {
-    CLICK_HANDLERS.get_or_init(|| std::sync::Mutex::new(Vec::new()))
+    CLICK_HANDLERS.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
 }
 
-pub fn register_click_handler<F>(handler: F)
+pub fn register_click_handler<F>(id: WidgetId, handler: F)
 where
     F: Fn() + Send + Sync + 'static,
 {
-    eprintln!("[snow-ui] register_click_handler: registered one click callback");
-    get_click_handlers().lock().unwrap().push(Box::new(handler));
+    get_click_handlers()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(id, std::sync::Arc::new(handler));
 }
 
+/// Dispatch the click callback associated with exactly one control identity.
+pub fn trigger_click_handler(id: WidgetId) {
+    let handler = get_click_handlers()
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(&id)
+        .cloned();
+    if let Some(handler) = handler {
+        handler();
+    }
+}
+
+#[deprecated(note = "use trigger_click_handler with the clicked control's WidgetId")]
 pub fn trigger_clicks() {
-    let handlers = get_click_handlers().lock().unwrap();
-    eprintln!(
-        "[snow-ui] trigger_clicks: {} handler(s) to run",
-        handlers.len()
-    );
-    for handler in handlers.iter() {
-        eprintln!("[snow-ui] trigger_clicks: invoking a click handler");
-        handler();
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-pub(crate) fn trigger_click_handler(index: usize) {
-    let handlers = get_click_handlers().lock().unwrap();
-    if let Some(handler) = handlers.get(index) {
-        handler();
-    }
+    // Deliberately no-op: there is no safe target to dispatch without an ID.
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -203,9 +203,9 @@ pub mod prelude {
         Girl, GirlActions, HAlign, HairColor, HandlerRegistryEntry, InnerMovement, InnerTicker,
         IntervalTimer, IntoObject, Message, MessageContext, MessageHandler, MessageReceiver,
         Object, Row, ServerApi, SkinColor, State, Switch, Text, TextClock, TextInput,
-        UpdateContext, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, World, event_bus,
+        UpdateContext, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, WidgetId, World, event_bus,
         has_registered_handlers, register_click_handler, register_handlers_for_instance, run_async,
-        trigger_clicks,
+        trigger_click_handler,
     };
 
     pub use crate::time::Duration;
@@ -282,12 +282,18 @@ fn run_masonry_window(world: World) {
 
         fn refresh_root(&mut self, window_id: WindowId, ctx: &mut DriverCtx<'_>) {
             let (text_count, button_count, clock_count) = self.world.root.native_tag_counts();
+            let mut click_ids = Vec::new();
+            self.world.root.native_interactive_ids(&mut click_ids);
             self.native_tags = crate::object::NativeTags {
                 text: (0..text_count)
                     .map(|_| WidgetTag::<Label>::unique())
                     .collect(),
                 button: (0..button_count)
                     .map(|_| WidgetTag::<Label>::unique())
+                    .collect(),
+                click: click_ids
+                    .into_iter()
+                    .map(|id| (WidgetTag::<masonry::widgets::Button>::unique(), id))
                     .collect(),
                 clock: (0..clock_count)
                     .map(|_| WidgetTag::<Label>::unique())
@@ -301,6 +307,7 @@ fn run_masonry_window(world: World) {
             };
             let mut next_text = 0;
             let mut next_button = 0;
+            let mut next_click = 0;
             let mut next_clock = 0;
             let mut next_reset = 0;
             let mut next_form = 0;
@@ -311,6 +318,7 @@ fn run_masonry_window(world: World) {
                     &self.native_tags,
                     &mut next_text,
                     &mut next_button,
+                    &mut next_click,
                     &mut next_clock,
                     &mut next_reset,
                     &mut next_form,
@@ -367,17 +375,24 @@ fn run_masonry_window(world: World) {
                             let mut target = form_index;
                             let mut next_text = 0;
                             let mut next_button = 0;
+                            let mut next_click = 0;
                             let mut next_clock = 0;
                             let mut next_reset = 0;
                             let offsets = self.world.root.native_form_tag_offsets(
                                 &mut target,
                                 &mut next_text,
                                 &mut next_button,
+                                &mut next_click,
                                 &mut next_clock,
                                 &mut next_reset,
                             );
-                            if let Some((text_offset, button_offset, clock_offset, reset_offset)) =
-                                offsets
+                            if let Some((
+                                text_offset,
+                                button_offset,
+                                click_offset,
+                                clock_offset,
+                                reset_offset,
+                            )) = offsets
                             {
                                 let (text_count, button_count, clock_count) =
                                     form.native_tag_counts();
@@ -388,6 +403,18 @@ fn run_masonry_window(world: World) {
                                     button: (0..button_count)
                                         .map(|_| WidgetTag::<Label>::unique())
                                         .collect(),
+                                    click: {
+                                        let mut ids = Vec::new();
+                                        form.native_interactive_ids(&mut ids);
+                                        ids.into_iter()
+                                            .map(|id| {
+                                                (
+                                                    WidgetTag::<masonry::widgets::Button>::unique(),
+                                                    id,
+                                                )
+                                            })
+                                            .collect()
+                                    },
                                     clock: (0..clock_count)
                                         .map(|_| WidgetTag::<Label>::unique())
                                         .collect(),
@@ -400,6 +427,7 @@ fn run_masonry_window(world: World) {
                                 };
                                 let mut local_text = 0;
                                 let mut local_button = 0;
+                                let mut local_click = 0;
                                 let mut local_clock = 0;
                                 let mut local_reset = 0;
                                 let mut local_form = 0;
@@ -408,6 +436,7 @@ fn run_masonry_window(world: World) {
                                         &local_tags,
                                         &mut local_text,
                                         &mut local_button,
+                                        &mut local_click,
                                         &mut local_clock,
                                         &mut local_reset,
                                         &mut local_form,
@@ -428,6 +457,9 @@ fn run_masonry_window(world: World) {
                                     self.native_tags.button
                                         [button_offset..button_offset + button_count]
                                         .clone_from_slice(&local_tags.button);
+                                    self.native_tags.click
+                                        [click_offset..click_offset + local_tags.click.len()]
+                                        .clone_from_slice(&local_tags.click);
                                     self.native_tags.clock
                                         [clock_offset..clock_offset + clock_count]
                                         .clone_from_slice(&local_tags.clock);
@@ -439,7 +471,13 @@ fn run_masonry_window(world: World) {
                         }
                     }
                 } else {
-                    crate::trigger_clicks();
+                    if let Some((_, id)) = self.native_tags.click.iter().find(|(tag, _)| {
+                        ctx.render_root(window_id)
+                            .get_widget_with_tag(*tag)
+                            .is_some_and(|widget| widget.id() == widget_id)
+                    }) {
+                        crate::trigger_click_handler(*id);
+                    }
                 }
             }
         }
@@ -467,12 +505,18 @@ fn run_masonry_window(world: World) {
     }
 
     let (text_count, button_count, clock_count) = world.root.native_tag_counts();
+    let mut click_ids = Vec::new();
+    world.root.native_interactive_ids(&mut click_ids);
     let native_tags = crate::object::NativeTags {
         text: (0..text_count)
             .map(|_| WidgetTag::<Label>::unique())
             .collect(),
         button: (0..button_count)
             .map(|_| WidgetTag::<Label>::unique())
+            .collect(),
+        click: click_ids
+            .into_iter()
+            .map(|id| (WidgetTag::<masonry::widgets::Button>::unique(), id))
             .collect(),
         clock: (0..clock_count)
             .map(|_| WidgetTag::<Label>::unique())
@@ -486,6 +530,7 @@ fn run_masonry_window(world: World) {
     };
     let mut next_text = 0;
     let mut next_button = 0;
+    let mut next_click = 0;
     let mut next_clock = 0;
     let mut next_reset = 0;
     let mut next_form = 0;
@@ -495,6 +540,7 @@ fn run_masonry_window(world: World) {
             &native_tags,
             &mut next_text,
             &mut next_button,
+            &mut next_click,
             &mut next_clock,
             &mut next_reset,
             &mut next_form,

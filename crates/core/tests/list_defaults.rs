@@ -12,8 +12,8 @@ fn textinput_has_label_and_form_is_available() {
 
     let _: Vec<Object> = list![Form {
         submit_handler: handler,
-        submit_button: Button { text: "Login" },
-        reset_button: Button { text: "Reset" },
+        submit_button: Button::new("Login"),
+        reset_button: Button::new("Reset"),
         children: list![TextInput {
             label: "User:",
             name: "u",
@@ -43,8 +43,8 @@ fn form_accepts_async_submit_handler() {
 
     let _: Vec<Object> = list![Form {
         submit_handler: ahandler,
-        submit_button: Button { text: "OK" },
-        reset_button: Button { text: "Reset" },
+        submit_button: Button::new("OK"),
+        reset_button: Button::new("Reset"),
         children: vec![],
     }];
 }

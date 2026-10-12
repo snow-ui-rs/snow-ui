@@ -105,7 +105,7 @@ impl SnowComponent {
             }
             SnowComponent::Button { text, .. } => {
                 let leaked: &'static str = Box::leak(text.into_boxed_str());
-                Object::from(Button { text: leaked })
+                Object::from(Button::new(leaked))
             }
             SnowComponent::Row { children } => Object::from(Row {
                 children: children
@@ -242,7 +242,7 @@ impl From<SnowNode> for Object {
             }
             SnowNode::Button { text, .. } => {
                 let leaked: &'static str = Box::leak(text.into_boxed_str());
-                Object::from(Button { text: leaked })
+                Object::from(Button::new(leaked))
             }
             SnowNode::Row { children } => Object::from(Row {
                 children: children.into_iter().map(Object::from).collect(),
@@ -1682,7 +1682,7 @@ mod tests {
     fn library_world_applies_runtime_message_to_button_text() {
         let mut world = crate::object::World {
             root: crate::object::Object::Element(crate::elements::Element::Button(
-                crate::elements::Button { text: "before" },
+                crate::elements::Button::new("before"),
             )),
             data: crate::data::Data::default(),
         };
@@ -1721,7 +1721,7 @@ mod tests {
             root: crate::object::Object::Element(crate::elements::Element::Row(
                 crate::layout::Row {
                     children: vec![crate::object::Object::Element(
-                        crate::elements::Element::Button(crate::elements::Button { text: "hello" }),
+                        crate::elements::Element::Button(crate::elements::Button::new("hello")),
                     )],
                     ..crate::layout::Row::default()
                 },

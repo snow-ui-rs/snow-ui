@@ -329,7 +329,8 @@ fn gen_single_field_into_object(
         quote! {
             let rc = ::std::sync::Arc::new(::std::sync::Mutex::new(self));
             let click_rc = rc.clone();
-            ::snow_ui::register_click_handler(move || {
+            let button = rc.lock().unwrap().#accessor.clone();
+            ::snow_ui::register_click_handler(button.id, move || {
                 let handler = click_rc.clone();
                 #[cfg(not(target_arch = "wasm32"))]
                 let join_handle = std::thread::spawn(move || {
@@ -346,7 +347,6 @@ fn gen_single_field_into_object(
                     <#name as ::snow_ui::ClickHandler>::on_click(&mut *target).await;
                 });
             });
-            let button = rc.lock().unwrap().#accessor.clone();
             button.into()
         }
     } else {

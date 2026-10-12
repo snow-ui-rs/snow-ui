@@ -16,7 +16,10 @@ use masonry::widgets::{
 use crate::elements::{Element, Text, TextClock};
 use crate::layout::{Board, Card, Row};
 use crate::traits::IntoObject;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::types::HAlign;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::types::WidgetId;
 use crate::widgets::Girl;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -54,6 +57,7 @@ pub enum Object {
 pub(crate) struct NativeTags {
     pub text: Vec<WidgetTag<Label>>,
     pub button: Vec<WidgetTag<Label>>,
+    pub click: Vec<(WidgetTag<MasonryButton>, WidgetId)>,
     pub clock: Vec<WidgetTag<Label>>,
     pub reset: Vec<WidgetTag<MasonryButton>>,
     pub form: Vec<WidgetTag<Flex>>,
@@ -109,6 +113,82 @@ impl Object {
                 (usize::from(!input.label.is_empty()), 0, 0)
             }
             Object::Element(Element::Girl(_)) => (0, 0, 0),
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn native_interactive_count(&self) -> usize {
+        match self {
+            Object::Element(Element::Button(_)) => 1,
+            Object::Element(Element::Form(form)) => {
+                1 + form
+                    .children
+                    .iter()
+                    .map(Object::native_interactive_count)
+                    .sum::<usize>()
+            }
+            Object::Element(Element::Board(board)) => board
+                .children
+                .iter()
+                .map(Object::native_interactive_count)
+                .sum(),
+            Object::Element(Element::Card(card)) => card
+                .children
+                .iter()
+                .map(Object::native_interactive_count)
+                .sum(),
+            Object::Element(Element::Row(row)) => row
+                .children
+                .iter()
+                .map(Object::native_interactive_count)
+                .sum(),
+            Object::Element(Element::Switch(switch_)) => switch_
+                .children
+                .get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                )
+                .map_or(0, Object::native_interactive_count),
+            _ => 0,
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn native_interactive_ids(&self, ids: &mut Vec<WidgetId>) {
+        match self {
+            Object::Element(Element::Button(button)) => ids.push(button.id),
+            Object::Element(Element::Form(form)) => {
+                for child in &form.children {
+                    child.native_interactive_ids(ids);
+                }
+                ids.push(form.submit_button.id);
+            }
+            Object::Element(Element::Board(board)) => {
+                for child in &board.children {
+                    child.native_interactive_ids(ids);
+                }
+            }
+            Object::Element(Element::Card(card)) => {
+                for child in &card.children {
+                    child.native_interactive_ids(ids);
+                }
+            }
+            Object::Element(Element::Row(row)) => {
+                for child in &row.children {
+                    child.native_interactive_ids(ids);
+                }
+            }
+            Object::Element(Element::Switch(switch_)) => {
+                if let Some(child) = switch_.children.get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                ) {
+                    child.native_interactive_ids(ids);
+                }
+            }
+            _ => {}
         }
     }
 
@@ -220,15 +300,16 @@ impl Object {
         target: &mut usize,
         text: &mut usize,
         button: &mut usize,
+        click: &mut usize,
         clock: &mut usize,
         reset: &mut usize,
-    ) -> Option<(usize, usize, usize, usize)> {
+    ) -> Option<(usize, usize, usize, usize, usize)> {
         match self {
             Object::Element(Element::Form(form)) => {
-                let starts = (*text, *button, *clock, *reset);
+                let starts = (*text, *button, *click, *clock, *reset);
                 for child in &form.children {
                     if let Some(found) =
-                        child.native_form_tag_offsets(target, text, button, clock, reset)
+                        child.native_form_tag_offsets(target, text, button, click, clock, reset)
                     {
                         return Some(found);
                     }
@@ -238,18 +319,19 @@ impl Object {
                 } else {
                     *target -= 1;
                     *button += 2;
+                    *click += 1;
                     *reset += 1;
                     None
                 }
             }
             Object::Element(Element::Board(board)) => board.children.iter().find_map(|child| {
-                child.native_form_tag_offsets(target, text, button, clock, reset)
+                child.native_form_tag_offsets(target, text, button, click, clock, reset)
             }),
             Object::Element(Element::Card(card)) => card.children.iter().find_map(|child| {
-                child.native_form_tag_offsets(target, text, button, clock, reset)
+                child.native_form_tag_offsets(target, text, button, click, clock, reset)
             }),
             Object::Element(Element::Row(row)) => row.children.iter().find_map(|child| {
-                child.native_form_tag_offsets(target, text, button, clock, reset)
+                child.native_form_tag_offsets(target, text, button, click, clock, reset)
             }),
             Object::Element(Element::Switch(switch_)) => switch_
                 .children
@@ -259,12 +341,13 @@ impl Object {
                         .min(switch_.children.len().saturating_sub(1)),
                 )
                 .and_then(|child| {
-                    child.native_form_tag_offsets(target, text, button, clock, reset)
+                    child.native_form_tag_offsets(target, text, button, click, clock, reset)
                 }),
             _ => {
                 let (text_count, button_count, clock_count) = self.native_tag_counts();
                 *text += text_count;
                 *button += button_count;
+                *click += self.native_interactive_count();
                 *clock += clock_count;
                 *reset += self.native_reset_count();
                 None
@@ -329,6 +412,7 @@ impl Object {
         tags: &NativeTags,
         next_text: &mut usize,
         next_button: &mut usize,
+        next_click: &mut usize,
         next_clock: &mut usize,
         next_reset: &mut usize,
         next_form: &mut usize,
@@ -342,6 +426,7 @@ impl Object {
                 tags,
                 next_text,
                 next_button,
+                next_click,
                 next_clock,
                 next_reset,
                 next_form,
@@ -352,9 +437,14 @@ impl Object {
             Flex::row().main_axis_alignment(masonry::properties::types::MainAxisAlignment::Center);
         let submit_tag = tags.button[*next_button];
         *next_button += 1;
-        buttons = buttons.with_fixed(NewWidget::new(MasonryButton::new(
-            NewWidget::new(Label::new(form.submit_button.text)).with_tag(submit_tag),
-        )));
+        let (click_tag, _) = tags.click[*next_click];
+        *next_click += 1;
+        buttons = buttons.with_fixed(
+            NewWidget::new(MasonryButton::new(
+                NewWidget::new(Label::new(form.submit_button.text)).with_tag(submit_tag),
+            ))
+            .with_tag(click_tag),
+        );
         let reset_tag = tags.reset[*next_reset];
         *next_reset += 1;
         buttons = buttons.with_fixed(
@@ -376,6 +466,7 @@ impl Object {
         tags: &NativeTags,
         next_text: &mut usize,
         next_button: &mut usize,
+        next_click: &mut usize,
         next_clock: &mut usize,
         next_reset: &mut usize,
         next_form: &mut usize,
@@ -388,6 +479,7 @@ impl Object {
                         tags,
                         next_text,
                         next_button,
+                        next_click,
                         next_clock,
                         next_reset,
                         next_form,
@@ -401,6 +493,7 @@ impl Object {
                         tags,
                         next_text,
                         next_button,
+                        next_click,
                         next_clock,
                         next_reset,
                         next_form,
@@ -417,6 +510,7 @@ impl Object {
                             tags,
                             next_text,
                             next_button,
+                            next_click,
                             next_clock,
                             next_reset,
                             next_form,
@@ -430,6 +524,7 @@ impl Object {
                         tags,
                         next_text,
                         next_button,
+                        next_click,
                         next_clock,
                         next_reset,
                         next_form,
@@ -440,9 +535,14 @@ impl Object {
                     .main_axis_alignment(masonry::properties::types::MainAxisAlignment::Center);
                 let submit_tag = tags.button[*next_button];
                 *next_button += 1;
-                buttons = buttons.with_fixed(NewWidget::new(MasonryButton::new(
-                    NewWidget::new(Label::new(form.submit_button.text)).with_tag(submit_tag),
-                )));
+                let (click_tag, _) = tags.click[*next_click];
+                *next_click += 1;
+                buttons = buttons.with_fixed(
+                    NewWidget::new(MasonryButton::new(
+                        NewWidget::new(Label::new(form.submit_button.text)).with_tag(submit_tag),
+                    ))
+                    .with_tag(click_tag),
+                );
                 let reset_tag = tags.reset[*next_reset];
                 *next_reset += 1;
                 buttons = buttons.with_fixed(
@@ -470,6 +570,7 @@ impl Object {
                         tags,
                         next_text,
                         next_button,
+                        next_click,
                         next_clock,
                         next_reset,
                         next_form,
@@ -487,8 +588,11 @@ impl Object {
             Object::Element(Element::Button(button)) => {
                 let tag = tags.button[*next_button];
                 *next_button += 1;
+                let (click_tag, _) = tags.click[*next_click];
+                *next_click += 1;
                 let label = NewWidget::new(Label::new(button.text)).with_tag(tag);
-                column = column.with_fixed(NewWidget::new(MasonryButton::new(label)));
+                column = column
+                    .with_fixed(NewWidget::new(MasonryButton::new(label)).with_tag(click_tag));
             }
             Object::Element(Element::TextClock(clock)) => {
                 let tag = tags.clock[*next_clock];

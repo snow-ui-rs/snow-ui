@@ -5,13 +5,31 @@ use masonry::widgets::{Button as MasonryButton, Flex};
 
 use crate::elements::Element;
 use crate::object::Object;
+use crate::types::WidgetId;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Button {
     pub text: &'static str,
+    pub id: WidgetId,
+}
+
+impl Default for Button {
+    fn default() -> Self {
+        Self {
+            text: "",
+            id: WidgetId::new(),
+        }
+    }
 }
 
 impl Button {
+    pub fn new(text: &'static str) -> Self {
+        Self {
+            text,
+            ..Self::default()
+        }
+    }
+
     pub fn set_text(&mut self, text: impl Into<String>) {
         self.text = Box::leak(text.into().into_boxed_str());
     }
