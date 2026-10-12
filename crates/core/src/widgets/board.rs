@@ -5,10 +5,11 @@ use masonry::widgets::Flex;
 
 use crate::elements::Element;
 use crate::object::Object;
-use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH};
+use crate::types::{HAlign, Size, VAlign, VIEWPORT_HEIGHT, VIEWPORT_WIDTH, WidgetId};
 
 #[derive(Debug, Clone)]
 pub struct Board {
+    pub id: WidgetId,
     pub width: Size,
     pub height: Size,
     pub h_align: HAlign,
@@ -30,6 +31,7 @@ impl Board {
 impl Default for Board {
     fn default() -> Self {
         Self {
+            id: WidgetId::new(),
             width: VIEWPORT_WIDTH,
             height: VIEWPORT_HEIGHT,
             h_align: HAlign::Center,

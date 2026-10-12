@@ -126,6 +126,7 @@ impl SnowComponent {
                 height: _,
                 children,
             } => Object::from(Board {
+                id: crate::types::WidgetId::new(),
                 width: crate::types::Size::ViewportWidth,
                 height: crate::types::Size::ViewportHeight,
                 h_align: crate::types::HAlign::Center,
@@ -257,6 +258,7 @@ impl From<SnowNode> for Object {
                 height: _,
                 children,
             } => Object::from(Board {
+                id: crate::types::WidgetId::new(),
                 width: crate::types::Size::ViewportWidth,
                 height: crate::types::Size::ViewportHeight,
                 h_align: crate::types::HAlign::Center,

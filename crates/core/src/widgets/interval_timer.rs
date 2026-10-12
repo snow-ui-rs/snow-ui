@@ -1,9 +1,11 @@
 use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::object::Object;
+use crate::types::WidgetId;
 
 #[derive(Debug, Clone)]
 pub struct IntervalTimer<E> {
+    pub id: WidgetId,
     pub interval: std::time::Duration,
     started: Arc<AtomicBool>,
     _marker: std::marker::PhantomData<E>,
@@ -12,6 +14,7 @@ pub struct IntervalTimer<E> {
 impl<E> IntervalTimer<E> {
     pub fn from_interval(interval: std::time::Duration) -> Self {
         Self {
+            id: WidgetId::new(),
             interval,
             started: Arc::new(AtomicBool::new(false)),
             _marker: std::marker::PhantomData,
@@ -40,9 +43,9 @@ where
 
 impl<E> crate::traits::IntoObject for IntervalTimer<E> {
     fn into_object(self) -> Object {
-        Object::from(crate::elements::Element::from(
-            crate::widgets::Text::default(),
-        ))
+        let mut text = crate::widgets::Text::default();
+        text.id = self.id;
+        Object::from(crate::elements::Element::from(text))
     }
 }
 

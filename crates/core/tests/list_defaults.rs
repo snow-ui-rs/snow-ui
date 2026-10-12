@@ -28,6 +28,7 @@ fn switch_switch_to_changes_active_index() {
     let mut s = Switch {
         children: list![Text { text: "a" }, Text { text: "b" }],
         active: 0,
+        ..Switch::default()
     };
     assert_eq!(s.active_index(), 0);
     s.switch_to(1);

@@ -9,10 +9,11 @@ use masonry::widgets::Flex;
 
 use crate::elements::Element;
 use crate::object::Object;
-use crate::types::HAlign;
+use crate::types::{HAlign, WidgetId};
 
 #[derive(Debug, Clone)]
 pub struct Card {
+    pub id: WidgetId,
     pub h_align: HAlign,
     pub children: Vec<Object>,
 }
@@ -20,6 +21,7 @@ pub struct Card {
 impl Default for Card {
     fn default() -> Self {
         Self {
+            id: WidgetId::new(),
             h_align: HAlign::Left,
             children: vec![],
         }

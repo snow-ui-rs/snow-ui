@@ -5,11 +5,23 @@ use masonry::widgets::Flex;
 
 use crate::elements::Element;
 use crate::object::Object;
+use crate::types::WidgetId;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Switch {
+    pub id: WidgetId,
     pub children: Vec<Object>,
     pub active: usize,
+}
+
+impl Default for Switch {
+    fn default() -> Self {
+        Self {
+            id: WidgetId::new(),
+            children: Vec::new(),
+            active: 0,
+        }
+    }
 }
 
 fn shared_active_states() -> &'static std::sync::Mutex<std::collections::HashMap<u64, usize>> {
@@ -94,6 +106,7 @@ mod tests {
                 }),
             ],
             active: 0,
+            ..Switch::default()
         };
         let clone = switch.clone();
 

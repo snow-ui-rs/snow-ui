@@ -12,7 +12,7 @@ use masonry::widgets::{Button as MasonryButton, Flex};
 use crate::elements::{Button, Element};
 use crate::object::Object;
 use crate::traits::IntoObject;
-use crate::types::HAlign;
+use crate::types::{HAlign, WidgetId};
 
 trait SubmitReturn {
     fn into_anyhow(self) -> anyhow::Result<()>;
@@ -58,6 +58,7 @@ where
 
 #[derive(Clone)]
 pub struct Form {
+    pub id: WidgetId,
     pub submit_handler: std::sync::Arc<dyn SubmitHandler + Send + Sync>,
     pub submit_button: Button,
     pub reset_button: Button,
@@ -68,6 +69,7 @@ pub struct Form {
 impl Default for Form {
     fn default() -> Self {
         Self {
+            id: WidgetId::new(),
             submit_handler: std::sync::Arc::new(|_form: &Form| Box::pin(async move {})),
             submit_button: Button::default(),
             reset_button: Button::default(),
@@ -82,6 +84,7 @@ impl std::fmt::Debug for Form {
         formatter
             .debug_struct("Form")
             .field("submit_handler", &"<handler>")
+            .field("id", &self.id)
             .field("submit_button", &self.submit_button)
             .field("reset_button", &self.reset_button)
             .field("h_align", &self.h_align)

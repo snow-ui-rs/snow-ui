@@ -4,10 +4,21 @@ use masonry::core::NewWidget;
 use masonry::widgets::{Flex, Label};
 
 use crate::elements::Element;
+use crate::types::WidgetId;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct TextClock {
+    pub id: WidgetId,
     pub format: &'static str,
+}
+
+impl Default for TextClock {
+    fn default() -> Self {
+        Self {
+            id: WidgetId::new(),
+            format: "",
+        }
+    }
 }
 
 impl TextClock {

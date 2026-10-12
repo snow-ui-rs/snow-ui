@@ -7,9 +7,11 @@ use masonry::widgets::{Flex, Label, SizedBox, TextInput as MasonryTextInput};
 
 use crate::elements::Element;
 use crate::object::Object;
+use crate::types::WidgetId;
 
 #[derive(Debug, Clone)]
 pub struct TextInput {
+    pub id: WidgetId,
     pub label: &'static str,
     pub name: &'static str,
     pub r#type: &'static str,
@@ -19,6 +21,7 @@ pub struct TextInput {
 impl Default for TextInput {
     fn default() -> Self {
         Self {
+            id: WidgetId::new(),
             label: "",
             name: "",
             r#type: "text",

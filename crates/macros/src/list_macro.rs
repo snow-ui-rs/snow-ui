@@ -3,19 +3,15 @@
 use quote::quote;
 use syn::parse::Parser;
 
-use crate::utils::{is_form_path, process_struct_fields, rebuild_struct_with_defaults};
+use crate::utils::add_defaults_to_expr;
 
 /// Logic for `__list_item!` — process a single expression, appending defaults to
 /// struct literals that omit `..rest`.
 pub(crate) fn list_item(input: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
     match syn::parse2::<syn::Expr>(input) {
-        Ok(mut e) => {
-            if let syn::Expr::Struct(es) = &mut e
-                && es.rest.is_none()
-            {
-                return rebuild_struct_with_defaults(es);
-            }
-            quote!(#e)
+        Ok(mut expr) => {
+            add_defaults_to_expr(&mut expr);
+            quote!(#expr)
         }
         Err(e) => e.to_compile_error(),
     }
@@ -31,28 +27,11 @@ pub(crate) fn list(input: proc_macro2::TokenStream) -> proc_macro2::TokenStream 
     };
 
     let mut out_exprs: Vec<proc_macro2::TokenStream> = Vec::new();
-    for mut e in exprs.into_iter() {
-        if let syn::Expr::Struct(es) = &mut e
-            && es.rest.is_none()
-        {
-            let path = &es.path;
-            let is_form = is_form_path(path);
-            let fields_tokens = process_struct_fields(&es.fields, is_form);
-            out_exprs.push(quote! {
-                {
-                    #[allow(clippy::needless_update)]
-                    let __snow_ui_list_item = #path {
-                        #(#fields_tokens),*,
-                        .. ::snow_ui::prelude::default()
-                    };
-                    __snow_ui_list_item
-                }
-            });
-        } else if let syn::Expr::Struct(es) = &mut e {
-            out_exprs.push(quote! { #es });
-        } else {
-            out_exprs.push(quote! { #e });
-        }
+    for mut expr in exprs {
+        // Struct defaults allocate stable WidgetIds, including for nested struct
+        // literals handled by the shared recursive expression walker.
+        add_defaults_to_expr(&mut expr);
+        out_exprs.push(quote! { #expr });
     }
 
     quote! {

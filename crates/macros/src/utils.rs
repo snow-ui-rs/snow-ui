@@ -2,52 +2,12 @@
 
 use quote::quote;
 
-/// Given a struct-expression's fields iterator and whether the struct is a `Form`,
-/// process fields and return token streams. For `Form` structs, bare function paths
-/// assigned to `submit_handler` are wrapped with `Arc::new(...)` so they match the
-/// expected `dyn SubmitHandler` type.
-pub(crate) fn process_struct_fields(
-    fields: &syn::punctuated::Punctuated<syn::FieldValue, syn::token::Comma>,
-    is_form: bool,
-) -> Vec<proc_macro2::TokenStream> {
-    let mut tokens = Vec::new();
-    for f in fields.iter() {
-        if is_form
-            && let syn::Member::Named(ident) = &f.member
-            && ident == "submit_handler"
-            && let syn::Expr::Path(_) = &f.expr
-        {
-            let expr = &f.expr;
-            tokens.push(quote! {
-                submit_handler: std::sync::Arc::new(
-                    |form: &::snow_ui::Form| Box::pin({
-                        let __owned = form.clone();
-                        async move { (#expr)(&__owned).await }
-                    })
-                )
-            });
-            continue;
-        }
-        tokens.push(quote! { #f });
-    }
-    tokens
-}
-
 /// Returns `true` if `path`'s last segment is `"Form"`.
 pub(crate) fn is_form_path(path: &syn::Path) -> bool {
     path.segments
         .last()
         .map(|s| s.ident == "Form")
         .unwrap_or(false)
-}
-
-/// Rebuild a struct-expression with `.. ::snow_ui::prelude::default()` appended,
-/// processing Form submit_handler fields along the way.
-pub(crate) fn rebuild_struct_with_defaults(es: &syn::ExprStruct) -> proc_macro2::TokenStream {
-    let path = &es.path;
-    let is_form = is_form_path(path);
-    let fields_tokens = process_struct_fields(&es.fields, is_form);
-    quote! { #path { #(#fields_tokens),* , .. ::snow_ui::prelude::default() } }
 }
 
 /// Recursively walk an expression tree and add `.. ::snow_ui::prelude::default()`

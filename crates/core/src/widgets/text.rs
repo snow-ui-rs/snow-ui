@@ -5,16 +5,29 @@ use masonry::widgets::{Flex, Label};
 
 use crate::elements::Element;
 use crate::state::State;
+use crate::types::WidgetId;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Text {
+    pub id: WidgetId,
     pub text: &'static str,
     pub state: Option<std::sync::Arc<dyn Fn() -> String + Send + Sync + 'static>>,
+}
+
+impl Default for Text {
+    fn default() -> Self {
+        Self {
+            id: WidgetId::new(),
+            text: "",
+            state: None,
+        }
+    }
 }
 
 impl std::fmt::Debug for Text {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Text")
+            .field("id", &self.id)
             .field("text", &self.text)
             .field("state", &self.state.as_ref().map(|_| "<bound>"))
             .finish()
@@ -28,6 +41,7 @@ impl Text {
     {
         let live_state = state.clone();
         Self {
+            id: WidgetId::new(),
             text: "",
             state: Some(std::sync::Arc::new(move || live_state.get().to_string())),
         }

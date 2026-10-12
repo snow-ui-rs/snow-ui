@@ -17,6 +17,24 @@ pub enum Element {
     Girl(Girl),
 }
 
+impl Element {
+    /// Return the stable identity assigned to this rendered widget.
+    pub fn id(&self) -> crate::types::WidgetId {
+        match self {
+            Self::Board(widget) => widget.id,
+            Self::Card(widget) => widget.id,
+            Self::Row(widget) => widget.id,
+            Self::Text(widget) => widget.id,
+            Self::TextClock(widget) => widget.id,
+            Self::Button(widget) => widget.id,
+            Self::Form(widget) => widget.id,
+            Self::TextInput(widget) => widget.id,
+            Self::Switch(widget) => widget.id,
+            Self::Girl(widget) => widget.id,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Text;

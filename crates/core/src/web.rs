@@ -298,17 +298,26 @@ fn render_group(
 fn render_element(document: &Document, element: &SnowElement, button_index: &mut usize) -> Element {
     match element {
         SnowElement::Board(board) => {
-            render_group(document, "div", &board.children, false, button_index)
+            let node = render_group(document, "div", &board.children, false, button_index);
+            set_widget_id(&node, board.id);
+            node
         }
         SnowElement::Card(card) => {
-            render_group(document, "div", &card.children, false, button_index)
+            let node = render_group(document, "div", &card.children, false, button_index);
+            set_widget_id(&node, card.id);
+            node
         }
-        SnowElement::Row(row) => render_group(document, "div", &row.children, true, button_index),
+        SnowElement::Row(row) => {
+            let node = render_group(document, "div", &row.children, true, button_index);
+            set_widget_id(&node, row.id);
+            node
+        }
         SnowElement::Text(text) => {
             let element = element_with_text(document, "span", &text.visible_text());
             element
                 .set_attribute("data-snow-text", "")
                 .expect("failed to tag Snow UI text");
+            set_widget_id(&element, text.id);
             element
         }
         SnowElement::TextClock(clock) => {
@@ -316,13 +325,12 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
             element
                 .set_attribute("data-snow-clock", "")
                 .expect("failed to tag Snow UI clock");
+            set_widget_id(&element, clock.id);
             element
         }
         SnowElement::Button(button) => {
             let button_element = element_with_text(document, "button", button.text);
-            button_element
-                .set_attribute("data-snow-widget-id", &button.id.get().to_string())
-                .expect("failed to set Snow UI button identity");
+            set_widget_id(&button_element, button.id);
             let widget_id = button.id;
             *button_index += 1;
             let callback =
@@ -335,6 +343,7 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
         }
         SnowElement::Form(form) => {
             let form_element = render_group(document, "form", &form.children, false, button_index);
+            set_widget_id(&form_element, form.id);
             let buttons = document
                 .create_element("div")
                 .expect("failed to create Snow UI form buttons");
@@ -346,12 +355,7 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
                 .expect("failed to style Snow UI form buttons");
 
             let submit = element_with_text(document, "button", form.submit_button.text);
-            submit
-                .set_attribute(
-                    "data-snow-widget-id",
-                    &form.submit_button.id.get().to_string(),
-                )
-                .expect("failed to set Snow UI submit identity");
+            set_widget_id(&submit, form.submit_button.id);
             submit
                 .set_attribute("type", "button")
                 .expect("failed to set Snow UI submit button type");
@@ -368,12 +372,7 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
                 .expect("failed to append Snow UI submit button");
 
             let reset = element_with_text(document, "button", form.reset_button.text);
-            reset
-                .set_attribute(
-                    "data-snow-widget-id",
-                    &form.reset_button.id.get().to_string(),
-                )
-                .expect("failed to set Snow UI reset identity");
+            set_widget_id(&reset, form.reset_button.id);
             reset
                 .set_attribute("type", "reset")
                 .expect("failed to set Snow UI reset button type");
@@ -389,6 +388,7 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
             let wrapper = document
                 .create_element("label")
                 .expect("failed to create Snow UI input label");
+            set_widget_id(&wrapper, input.id);
             if !input.label.is_empty() {
                 wrapper.set_text_content(Some(input.label));
             }
@@ -411,17 +411,34 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
                 .expect("failed to append Snow UI input");
             wrapper
         }
-        SnowElement::Switch(switch_) => switch_
-            .children
-            .get(
+        SnowElement::Switch(switch_) => {
+            let wrapper = document
+                .create_element("div")
+                .expect("failed to create Snow UI switch");
+            set_widget_id(&wrapper, switch_.id);
+            if let Some(child) = switch_.children.get(
                 switch_
                     .active_index()
                     .min(switch_.children.len().saturating_sub(1)),
-            )
-            .map(|child| render_object(document, child, button_index))
-            .unwrap_or_else(|| element_with_text(document, "div", "")),
-        SnowElement::Girl(_) => render_girl(document),
+            ) {
+                wrapper
+                    .append_child(&render_object(document, child, button_index))
+                    .expect("failed to append Snow UI switch child");
+            }
+            wrapper
+        }
+        SnowElement::Girl(girl) => {
+            let node = render_girl(document);
+            set_widget_id(&node, girl.id);
+            node
+        }
     }
+}
+
+fn set_widget_id(element: &Element, id: crate::types::WidgetId) {
+    element
+        .set_attribute("data-snow-widget-id", &id.get().to_string())
+        .expect("failed to set Snow UI widget identity");
 }
 
 fn element_with_text(document: &Document, tag: &str, text: &str) -> Element {
