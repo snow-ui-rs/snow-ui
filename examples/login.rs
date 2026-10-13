@@ -25,8 +25,8 @@ impl LoginBoard {
             board: Board {
                 children: list![Form {
                     submit_handler: login,
-                    submit_button: Button::new("Login"),
-                    reset_button: Button::new("Reset"),
+                    submit_button: Button { text: "Login" },
+                    reset_button: Button { text: "Reset" },
                     h_align: HAlign::Center,
                     children: list![
                         Row {
