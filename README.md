@@ -27,6 +27,8 @@ https://github.com/user-attachments/assets/0fdb5bc8-b2de-40e8-bf66-45d266b9a9ee
 
 The UI is a projection of a virtual world onto the screen.
 
+## Pure Rust
+
 Snow UI's UI DSL is written in pure Rust, using Rust syntax and macros rather than a separate markup language. This keeps it IDE-friendly, with Rust tooling support for features such as autocompletion, navigation, and diagnostics.
 
 ## Target platforms
