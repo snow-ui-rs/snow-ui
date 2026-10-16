@@ -16,6 +16,10 @@ pub struct TextInput {
     pub name: &'static str,
     pub r#type: &'static str,
     pub max_len: u32,
+    /// Shared live value updated by each backend as the user types.
+    pub value: crate::state::State<String>,
+    /// Value restored when the containing form is reset.
+    pub initial_value: String,
 }
 
 impl Default for TextInput {
@@ -26,11 +30,20 @@ impl Default for TextInput {
             name: "",
             r#type: "text",
             max_len: 0,
+            value: crate::state::State::default(),
+            initial_value: String::new(),
         }
     }
 }
 
 impl TextInput {
+    pub fn with_value(mut self, value: impl Into<String>) -> Self {
+        let value = value.into();
+        self.value.set(value.clone());
+        self.initial_value = value;
+        self
+    }
+
     #[cfg(not(target_arch = "wasm32"))]
     pub fn into_masonry_widget(&self) -> NewWidget<Flex> {
         let mut row = Flex::row();

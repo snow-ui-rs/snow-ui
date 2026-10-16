@@ -112,49 +112,110 @@ impl Form {
         NewWidget::new(column).with_props(Dimensions::width(Dim::MaxContent))
     }
 
-    pub fn to_json(&self) -> anyhow::Result<String> {
-        let escape = |value: &str| value.replace('\\', "\\\\").replace('"', "\\\"");
+    fn collect_fields<'a>(obj: &'a Object, output: &mut Vec<&'a crate::widgets::TextInput>) {
+        match obj {
+            Object::Element(Element::TextInput(input)) => {
+                output.push(input);
+            }
+            Object::Element(Element::Board(board)) => {
+                for child in &board.children {
+                    Self::collect_fields(child, output);
+                }
+            }
+            Object::Element(Element::Row(row)) => {
+                for child in &row.children {
+                    Self::collect_fields(child, output);
+                }
+            }
+            Object::Element(Element::Card(card)) => {
+                for child in &card.children {
+                    Self::collect_fields(child, output);
+                }
+            }
+            Object::Element(Element::Switch(switch_)) => {
+                if let Some(child) = switch_.children.get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                ) {
+                    Self::collect_fields(child, output);
+                }
+            }
+            _ => {}
+        }
+    }
 
-        fn walk(obj: &Object, output: &mut Vec<String>, escape: &dyn Fn(&str) -> String) {
+    /// Return field names and their current user-entered values, preserving field order.
+    pub fn values(&self) -> Vec<(String, String)> {
+        let mut fields = Vec::new();
+        for child in &self.children {
+            Self::collect_fields(child, &mut fields);
+        }
+        fields
+            .into_iter()
+            .map(|field| (field.name.to_owned(), field.value.get()))
+            .collect()
+    }
+
+    /// Serialize form metadata and the current values as valid JSON.
+    pub fn to_json(&self) -> anyhow::Result<String> {
+        let mut fields = Vec::new();
+        for child in &self.children {
+            Self::collect_fields(child, &mut fields);
+        }
+        let fields = fields
+            .into_iter()
+            .map(|field| {
+                serde_json::json!({
+                    "name": field.name,
+                    "label": field.label,
+                    "type": field.r#type,
+                    "max_len": field.max_len,
+                    "value": field.value.get(),
+                })
+            })
+            .collect::<Vec<_>>();
+        Ok(serde_json::json!({ "fields": fields }).to_string())
+    }
+
+    /// Restore all fields in this form to their configured initial values.
+    pub fn reset_values(&self) {
+        fn reset(obj: &Object) {
             match obj {
                 Object::Element(Element::TextInput(input)) => {
-                    output.push(format!(
-                        r#"{{"name":"{}","label":"{}","type":"{}","max_len":{}}}"#,
-                        escape(input.name),
-                        escape(input.label),
-                        escape(input.r#type),
-                        input.max_len
-                    ));
+                    input.value.set(input.initial_value.clone());
                 }
                 Object::Element(Element::Board(board)) => {
                     for child in &board.children {
-                        walk(child, output, escape);
+                        reset(child);
                     }
                 }
                 Object::Element(Element::Row(row)) => {
                     for child in &row.children {
-                        walk(child, output, escape);
+                        reset(child);
                     }
                 }
                 Object::Element(Element::Card(card)) => {
                     for child in &card.children {
-                        walk(child, output, escape);
+                        reset(child);
                     }
                 }
                 Object::Element(Element::Switch(switch_)) => {
-                    for child in &switch_.children {
-                        walk(child, output, escape);
+                    if let Some(child) = switch_.children.get(
+                        switch_
+                            .active_index()
+                            .min(switch_.children.len().saturating_sub(1)),
+                    ) {
+                        reset(child);
                     }
                 }
                 _ => {}
             }
         }
 
-        let mut fields = Vec::new();
         for child in &self.children {
-            walk(child, &mut fields, &escape);
+            reset(child);
         }
-        Ok(format!(r#"{{"fields":[{}]}}"#, fields.join(",")))
     }
 }
 
@@ -185,6 +246,9 @@ impl IntoObject for Form {
                 let _ = submit_handler.call_box(&submit_form).await;
             });
         });
+        let reset_id = self.reset_button.id;
+        let reset_form = self.clone();
+        crate::register_click_handler(reset_id, move || reset_form.reset_values());
         Object::from(Element::from(self))
     }
 }

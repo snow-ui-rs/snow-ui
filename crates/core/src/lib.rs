@@ -225,8 +225,8 @@ pub mod prelude {
 fn run_masonry_window(world: World) {
     use masonry::core::{CollectionWidget, ErasedAction, WidgetId, WidgetTag};
     use masonry::dpi::LogicalSize;
-    use masonry::widgets::Flex;
     use masonry::widgets::{ButtonPress, Label};
+    use masonry::widgets::{Flex, TextAction, TextArea};
     use masonry_winit::app::{AppDriver, DriverCtx, EventLoop, NewWindow, WindowId};
     use masonry_winit::winit::window::Window;
 
@@ -284,6 +284,8 @@ fn run_masonry_window(world: World) {
             let (text_count, button_count, clock_count) = self.world.root.native_tag_counts();
             let mut click_ids = Vec::new();
             self.world.root.native_interactive_ids(&mut click_ids);
+            let mut input_states = Vec::new();
+            self.world.root.native_input_states(&mut input_states);
             self.native_tags = crate::object::NativeTags {
                 text: (0..text_count)
                     .map(|_| WidgetTag::<Label>::unique())
@@ -294,6 +296,10 @@ fn run_masonry_window(world: World) {
                 click: click_ids
                     .into_iter()
                     .map(|id| (WidgetTag::<masonry::widgets::Button>::unique(), id))
+                    .collect(),
+                input: input_states
+                    .into_iter()
+                    .map(|state| (WidgetTag::<TextArea<true>>::unique(), state))
                     .collect(),
                 clock: (0..clock_count)
                     .map(|_| WidgetTag::<Label>::unique())
@@ -308,6 +314,7 @@ fn run_masonry_window(world: World) {
             let mut next_text = 0;
             let mut next_button = 0;
             let mut next_click = 0;
+            let mut next_input = 0;
             let mut next_clock = 0;
             let mut next_reset = 0;
             let mut next_form = 0;
@@ -319,6 +326,7 @@ fn run_masonry_window(world: World) {
                     &mut next_text,
                     &mut next_button,
                     &mut next_click,
+                    &mut next_input,
                     &mut next_clock,
                     &mut next_reset,
                     &mut next_form,
@@ -348,6 +356,19 @@ fn run_masonry_window(world: World) {
         ) {
             debug_assert_eq!(window_id, self.window_id, "unknown window");
 
+            if let Some(TextAction::Changed(value) | TextAction::Entered(value)) =
+                action.downcast_ref::<TextAction>()
+            {
+                if let Some((_, state)) = self.native_tags.input.iter().find(|(tag, _)| {
+                    ctx.render_root(window_id)
+                        .get_widget_with_tag(*tag)
+                        .is_some_and(|widget| widget.id() == widget_id)
+                }) {
+                    state.set(value.clone());
+                }
+                return;
+            }
+
             if action.is::<ButtonPress>() {
                 let is_reset = self.native_tags.reset.iter().any(|tag| {
                     ctx.render_root(window_id)
@@ -372,10 +393,14 @@ fn run_masonry_window(world: World) {
                         if let Some(form) =
                             self.world.root.native_form_at_reset_index(&mut reset_index)
                         {
+                            if let Object::Element(Element::Form(form_widget)) = &form {
+                                crate::trigger_click_handler(form_widget.reset_button.id);
+                            }
                             let mut target = form_index;
                             let mut next_text = 0;
                             let mut next_button = 0;
                             let mut next_click = 0;
+                            let mut next_input = 0;
                             let mut next_clock = 0;
                             let mut next_reset = 0;
                             let offsets = self.world.root.native_form_tag_offsets(
@@ -383,6 +408,7 @@ fn run_masonry_window(world: World) {
                                 &mut next_text,
                                 &mut next_button,
                                 &mut next_click,
+                                &mut next_input,
                                 &mut next_clock,
                                 &mut next_reset,
                             );
@@ -390,6 +416,7 @@ fn run_masonry_window(world: World) {
                                 text_offset,
                                 button_offset,
                                 click_offset,
+                                input_offset,
                                 clock_offset,
                                 reset_offset,
                             )) = offsets
@@ -415,6 +442,16 @@ fn run_masonry_window(world: World) {
                                             })
                                             .collect()
                                     },
+                                    input: {
+                                        let mut states = Vec::new();
+                                        form.native_input_states(&mut states);
+                                        states
+                                            .into_iter()
+                                            .map(|state| {
+                                                (WidgetTag::<TextArea<true>>::unique(), state)
+                                            })
+                                            .collect()
+                                    },
                                     clock: (0..clock_count)
                                         .map(|_| WidgetTag::<Label>::unique())
                                         .collect(),
@@ -428,6 +465,7 @@ fn run_masonry_window(world: World) {
                                 let mut local_text = 0;
                                 let mut local_button = 0;
                                 let mut local_click = 0;
+                                let mut local_input = 0;
                                 let mut local_clock = 0;
                                 let mut local_reset = 0;
                                 let mut local_form = 0;
@@ -437,6 +475,7 @@ fn run_masonry_window(world: World) {
                                         &mut local_text,
                                         &mut local_button,
                                         &mut local_click,
+                                        &mut local_input,
                                         &mut local_clock,
                                         &mut local_reset,
                                         &mut local_form,
@@ -460,6 +499,9 @@ fn run_masonry_window(world: World) {
                                     self.native_tags.click
                                         [click_offset..click_offset + local_tags.click.len()]
                                         .clone_from_slice(&local_tags.click);
+                                    self.native_tags.input
+                                        [input_offset..input_offset + local_tags.input.len()]
+                                        .clone_from_slice(&local_tags.input);
                                     self.native_tags.clock
                                         [clock_offset..clock_offset + clock_count]
                                         .clone_from_slice(&local_tags.clock);
@@ -507,6 +549,8 @@ fn run_masonry_window(world: World) {
     let (text_count, button_count, clock_count) = world.root.native_tag_counts();
     let mut click_ids = Vec::new();
     world.root.native_interactive_ids(&mut click_ids);
+    let mut input_states = Vec::new();
+    world.root.native_input_states(&mut input_states);
     let native_tags = crate::object::NativeTags {
         text: (0..text_count)
             .map(|_| WidgetTag::<Label>::unique())
@@ -517,6 +561,10 @@ fn run_masonry_window(world: World) {
         click: click_ids
             .into_iter()
             .map(|id| (WidgetTag::<masonry::widgets::Button>::unique(), id))
+            .collect(),
+        input: input_states
+            .into_iter()
+            .map(|state| (WidgetTag::<TextArea<true>>::unique(), state))
             .collect(),
         clock: (0..clock_count)
             .map(|_| WidgetTag::<Label>::unique())
@@ -531,6 +579,7 @@ fn run_masonry_window(world: World) {
     let mut next_text = 0;
     let mut next_button = 0;
     let mut next_click = 0;
+    let mut next_input = 0;
     let mut next_clock = 0;
     let mut next_reset = 0;
     let mut next_form = 0;
@@ -541,6 +590,7 @@ fn run_masonry_window(world: World) {
             &mut next_text,
             &mut next_button,
             &mut next_click,
+            &mut next_input,
             &mut next_clock,
             &mut next_reset,
             &mut next_form,

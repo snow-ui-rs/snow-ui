@@ -1,3 +1,11 @@
+use crate::elements::{Element, Text, TextClock};
+use crate::layout::{Board, Card, Row};
+use crate::traits::IntoObject;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::types::HAlign;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::types::WidgetId;
+use crate::widgets::Girl;
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::core::{NewWidget, WidgetTag};
 #[cfg(not(target_arch = "wasm32"))]
@@ -9,19 +17,11 @@ use masonry::properties::Dimensions;
 #[cfg(not(target_arch = "wasm32"))]
 use masonry::properties::types::CrossAxisAlignment;
 #[cfg(not(target_arch = "wasm32"))]
+use masonry::widgets::TextArea;
+#[cfg(not(target_arch = "wasm32"))]
 use masonry::widgets::{
     Button as MasonryButton, Flex, Image, Label, SizedBox, TextInput as MasonryTextInput,
 };
-
-use crate::elements::{Element, Text, TextClock};
-use crate::layout::{Board, Card, Row};
-use crate::traits::IntoObject;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::types::HAlign;
-#[cfg(not(target_arch = "wasm32"))]
-use crate::types::WidgetId;
-use crate::widgets::Girl;
-
 #[cfg(not(target_arch = "wasm32"))]
 pub(crate) fn add_masonry_child(container: Flex, child: &Object, widget: NewWidget<Flex>) -> Flex {
     let h_align = match child {
@@ -58,6 +58,7 @@ pub(crate) struct NativeTags {
     pub text: Vec<WidgetTag<Label>>,
     pub button: Vec<WidgetTag<Label>>,
     pub click: Vec<(WidgetTag<MasonryButton>, WidgetId)>,
+    pub input: Vec<(WidgetTag<TextArea<true>>, crate::state::State<String>)>,
     pub clock: Vec<WidgetTag<Label>>,
     pub reset: Vec<WidgetTag<MasonryButton>>,
     pub form: Vec<WidgetTag<Flex>>,
@@ -151,6 +152,71 @@ impl Object {
                 )
                 .map_or(0, Object::native_interactive_count),
             _ => 0,
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn native_input_count(&self) -> usize {
+        match self {
+            Object::Element(Element::TextInput(_)) => 1,
+            Object::Element(Element::Form(form)) => {
+                form.children.iter().map(Object::native_input_count).sum()
+            }
+            Object::Element(Element::Board(board)) => {
+                board.children.iter().map(Object::native_input_count).sum()
+            }
+            Object::Element(Element::Card(card)) => {
+                card.children.iter().map(Object::native_input_count).sum()
+            }
+            Object::Element(Element::Row(row)) => {
+                row.children.iter().map(Object::native_input_count).sum()
+            }
+            Object::Element(Element::Switch(switch_)) => switch_
+                .children
+                .get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                )
+                .map_or(0, Object::native_input_count),
+            _ => 0,
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn native_input_states(&self, states: &mut Vec<crate::state::State<String>>) {
+        match self {
+            Object::Element(Element::TextInput(input)) => states.push(input.value.clone()),
+            Object::Element(Element::Form(form)) => {
+                for child in &form.children {
+                    child.native_input_states(states);
+                }
+            }
+            Object::Element(Element::Board(board)) => {
+                for child in &board.children {
+                    child.native_input_states(states);
+                }
+            }
+            Object::Element(Element::Card(card)) => {
+                for child in &card.children {
+                    child.native_input_states(states);
+                }
+            }
+            Object::Element(Element::Row(row)) => {
+                for child in &row.children {
+                    child.native_input_states(states);
+                }
+            }
+            Object::Element(Element::Switch(switch_)) => {
+                if let Some(child) = switch_.children.get(
+                    switch_
+                        .active_index()
+                        .min(switch_.children.len().saturating_sub(1)),
+                ) {
+                    child.native_input_states(states);
+                }
+            }
+            _ => {}
         }
     }
 
@@ -301,15 +367,16 @@ impl Object {
         text: &mut usize,
         button: &mut usize,
         click: &mut usize,
+        input: &mut usize,
         clock: &mut usize,
         reset: &mut usize,
-    ) -> Option<(usize, usize, usize, usize, usize)> {
+    ) -> Option<(usize, usize, usize, usize, usize, usize)> {
         match self {
             Object::Element(Element::Form(form)) => {
-                let starts = (*text, *button, *click, *clock, *reset);
+                let starts = (*text, *button, *click, *input, *clock, *reset);
                 for child in &form.children {
-                    if let Some(found) =
-                        child.native_form_tag_offsets(target, text, button, click, clock, reset)
+                    if let Some(found) = child
+                        .native_form_tag_offsets(target, text, button, click, input, clock, reset)
                     {
                         return Some(found);
                     }
@@ -325,13 +392,13 @@ impl Object {
                 }
             }
             Object::Element(Element::Board(board)) => board.children.iter().find_map(|child| {
-                child.native_form_tag_offsets(target, text, button, click, clock, reset)
+                child.native_form_tag_offsets(target, text, button, click, input, clock, reset)
             }),
             Object::Element(Element::Card(card)) => card.children.iter().find_map(|child| {
-                child.native_form_tag_offsets(target, text, button, click, clock, reset)
+                child.native_form_tag_offsets(target, text, button, click, input, clock, reset)
             }),
             Object::Element(Element::Row(row)) => row.children.iter().find_map(|child| {
-                child.native_form_tag_offsets(target, text, button, click, clock, reset)
+                child.native_form_tag_offsets(target, text, button, click, input, clock, reset)
             }),
             Object::Element(Element::Switch(switch_)) => switch_
                 .children
@@ -341,13 +408,14 @@ impl Object {
                         .min(switch_.children.len().saturating_sub(1)),
                 )
                 .and_then(|child| {
-                    child.native_form_tag_offsets(target, text, button, click, clock, reset)
+                    child.native_form_tag_offsets(target, text, button, click, input, clock, reset)
                 }),
             _ => {
                 let (text_count, button_count, clock_count) = self.native_tag_counts();
                 *text += text_count;
                 *button += button_count;
                 *click += self.native_interactive_count();
+                *input += self.native_input_count();
                 *clock += clock_count;
                 *reset += self.native_reset_count();
                 None
@@ -413,6 +481,7 @@ impl Object {
         next_text: &mut usize,
         next_button: &mut usize,
         next_click: &mut usize,
+        next_input: &mut usize,
         next_clock: &mut usize,
         next_reset: &mut usize,
         next_form: &mut usize,
@@ -427,6 +496,7 @@ impl Object {
                 next_text,
                 next_button,
                 next_click,
+                next_input,
                 next_clock,
                 next_reset,
                 next_form,
@@ -467,6 +537,7 @@ impl Object {
         next_text: &mut usize,
         next_button: &mut usize,
         next_click: &mut usize,
+        next_input: &mut usize,
         next_clock: &mut usize,
         next_reset: &mut usize,
         next_form: &mut usize,
@@ -480,6 +551,7 @@ impl Object {
                         next_text,
                         next_button,
                         next_click,
+                        next_input,
                         next_clock,
                         next_reset,
                         next_form,
@@ -494,6 +566,7 @@ impl Object {
                         next_text,
                         next_button,
                         next_click,
+                        next_input,
                         next_clock,
                         next_reset,
                         next_form,
@@ -511,6 +584,7 @@ impl Object {
                             next_text,
                             next_button,
                             next_click,
+                            next_input,
                             next_clock,
                             next_reset,
                             next_form,
@@ -525,6 +599,7 @@ impl Object {
                         next_text,
                         next_button,
                         next_click,
+                        next_input,
                         next_clock,
                         next_reset,
                         next_form,
@@ -571,6 +646,7 @@ impl Object {
                         next_text,
                         next_button,
                         next_click,
+                        next_input,
                         next_clock,
                         next_reset,
                         next_form,
@@ -609,10 +685,18 @@ impl Object {
                     *next_text += 1;
                     row = row.with_fixed(NewWidget::new(Label::new(input.label)).with_tag(tag));
                 }
-                let input_width = input.name.chars().count() as f64 * 12.0 + 24.0;
-                let input = MasonryTextInput::new("").with_placeholder(input.name);
+                let input_tag = tags.input[*next_input].0;
+                *next_input += 1;
+                let current_value = input.value.get();
+                let placeholder = input.name;
+                let area =
+                    NewWidget::new(TextArea::new_editable(&current_value)).with_tag(input_tag);
+                let masonry_input =
+                    MasonryTextInput::from_text_area(area).with_placeholder(placeholder);
+                let input_width = placeholder.chars().count() as f64 * 12.0 + 24.0;
                 row = row.with_fixed(NewWidget::new(
-                    SizedBox::new(NewWidget::new(input)).width(Length::const_px(input_width)),
+                    SizedBox::new(NewWidget::new(masonry_input))
+                        .width(Length::const_px(input_width)),
                 ));
                 column = column.with_fixed(NewWidget::new(row));
             }

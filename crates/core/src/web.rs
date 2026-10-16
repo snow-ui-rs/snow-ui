@@ -217,11 +217,6 @@ fn render_world(world: &World) {
     let root = document
         .get_element_by_id("snow-root")
         .expect("Snow UI requires an element with id=\"snow-root\"");
-    let input_values = find_inputs(&root)
-        .into_iter()
-        .map(|input| input.value())
-        .collect::<Vec<_>>();
-
     while let Some(child) = root.first_child() {
         root.remove_child(&child)
             .expect("failed to clear snow-root");
@@ -229,19 +224,6 @@ fn render_world(world: &World) {
     let mut button_index = 0;
     root.append_child(&render_object(&document, &world.root, &mut button_index))
         .expect("failed to mount Snow UI root");
-    for (input, value) in find_inputs(&root).into_iter().zip(input_values) {
-        input.set_value(&value);
-    }
-}
-
-fn find_inputs(root: &Element) -> Vec<HtmlInputElement> {
-    let inputs = root
-        .query_selector_all("input")
-        .expect("failed to find Snow UI inputs");
-    (0..inputs.length())
-        .filter_map(|index| inputs.item(index))
-        .filter_map(|node| node.dyn_into::<HtmlInputElement>().ok())
-        .collect()
 }
 
 fn render_object(document: &Document, object: &Object, button_index: &mut usize) -> Element {
@@ -376,6 +358,17 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
             reset
                 .set_attribute("type", "reset")
                 .expect("failed to set Snow UI reset button type");
+            reset
+                .set_attribute("value", form.reset_button.text)
+                .expect("failed to set Snow UI reset button value");
+            let reset_id = form.reset_button.id;
+            let reset_callback = Closure::<dyn FnMut(Event)>::new(move |_| {
+                crate::trigger_click_handler(reset_id);
+            });
+            reset
+                .add_event_listener_with_callback("click", reset_callback.as_ref().unchecked_ref())
+                .expect("failed to register Snow UI reset handler");
+            reset_callback.forget();
             buttons
                 .append_child(&reset)
                 .expect("failed to append Snow UI reset button");
@@ -399,6 +392,9 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
                 .set_attribute("name", input.name)
                 .expect("failed to set Snow UI input name");
             input_element
+                .set_attribute("data-snow-widget-id", &input.id.get().to_string())
+                .expect("failed to set Snow UI input identity");
+            input_element
                 .set_attribute("type", input.r#type)
                 .expect("failed to set Snow UI input type");
             if input.max_len > 0 {
@@ -406,6 +402,23 @@ fn render_element(document: &Document, element: &SnowElement, button_index: &mut
                     .set_attribute("maxlength", &input.max_len.to_string())
                     .expect("failed to set Snow UI input length");
             }
+            let current_value = input.value.get();
+            input_element
+                .set_attribute("value", &input.initial_value)
+                .expect("failed to set Snow UI initial input value");
+            let html_input: HtmlInputElement = input_element
+                .clone()
+                .dyn_into()
+                .expect("Snow UI input should be an HtmlInputElement");
+            html_input.set_value(&current_value);
+            let value_state = input.value.clone();
+            let input_callback = Closure::<dyn FnMut(Event)>::new(move |_| {
+                value_state.set(html_input.value());
+            });
+            input_element
+                .add_event_listener_with_callback("input", input_callback.as_ref().unchecked_ref())
+                .expect("failed to register Snow UI input handler");
+            input_callback.forget();
             wrapper
                 .append_child(&input_element)
                 .expect("failed to append Snow UI input");
