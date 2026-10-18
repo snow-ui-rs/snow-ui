@@ -35,6 +35,10 @@ Snow UI's UI DSL is written in pure Rust, using Rust syntax and macros rather th
 
 Windows, macOS, Linux, Android, iOS, Web
 
+## Web Implementation
+
+On Web, Snow UI currently renders to the browser's DOM rather than drawing its own UI. The `wasm32` renderer creates standard HTML elements and updates them as state changes. This is intentional: expected user interactions such as text input and editing, text selection, scrolling, and accessibility rely on the browser's DOM semantics and native controls. Recreating them in a custom drawing backend would mean rebuilding behavior users already expect from the browser. Desktop and mobile native targets continue to use Masonry.
+
 ## Example: A lovely girl
 
 A minimal example demonstrating a virtual world and a typical element with attributes and actions.
