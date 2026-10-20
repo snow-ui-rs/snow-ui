@@ -15,7 +15,9 @@ pub use layout::{LayoutNode, LayoutRect, LayoutTree, LayoutTreeError};
 pub use paint::{Color, FillRect, PaintFrame, PaintNode, PaintScene, Rect};
 pub use refresh::{RefreshBatch, RefreshHandle};
 pub use renderer::{RenderError, WgpuRenderer};
-pub use runtime::{NativeSurface, NativeSurfaceError, NativeUserEvent, RedrawProxy};
+pub use runtime::{
+    NativeRefreshHandle, NativeSurface, NativeSurfaceError, NativeUserEvent, RedrawProxy,
+};
 pub use taffy;
 pub use wgpu;
 pub use winit;

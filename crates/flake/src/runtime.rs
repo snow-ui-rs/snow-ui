@@ -1,4 +1,6 @@
+use std::collections::HashSet;
 use std::sync::Arc;
+use std::sync::{Mutex, MutexGuard};
 
 use winit::dpi::PhysicalSize;
 use winit::event_loop::{EventLoop, EventLoopClosed, EventLoopProxy};
@@ -15,18 +17,103 @@ pub enum NativeUserEvent {
 
 /// Thread-safe event-loop handle for requesting redraws from EventBus handlers.
 #[derive(Clone)]
-pub struct RedrawProxy(EventLoopProxy<NativeUserEvent>);
+pub struct RedrawProxy {
+    proxy: EventLoopProxy<NativeUserEvent>,
+    pending_windows: Arc<Mutex<HashSet<WindowId>>>,
+}
 
 impl RedrawProxy {
     pub fn new(event_loop: &EventLoop<NativeUserEvent>) -> Self {
-        Self(event_loop.create_proxy())
+        Self {
+            proxy: event_loop.create_proxy(),
+            pending_windows: Arc::new(Mutex::new(HashSet::new())),
+        }
     }
 
     pub fn request_redraw(
         &self,
         window_id: WindowId,
     ) -> Result<(), EventLoopClosed<NativeUserEvent>> {
-        self.0.send_event(NativeUserEvent::Redraw(window_id))
+        let should_send = self.lock_pending().insert(window_id);
+        if !should_send {
+            return Ok(());
+        }
+
+        if let Err(error) = self.proxy.send_event(NativeUserEvent::Redraw(window_id)) {
+            self.lock_pending().remove(&window_id);
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    /// Clear the coalescing marker after handling `NativeUserEvent::Redraw`.
+    pub fn redraw_dispatched(&self, window_id: WindowId) {
+        self.lock_pending().remove(&window_id);
+    }
+
+    fn lock_pending(&self) -> MutexGuard<'_, HashSet<WindowId>> {
+        self.pending_windows
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+}
+
+/// Cloneable invalidation handle for EventBus handlers and other worker threads.
+#[derive(Clone)]
+pub struct NativeRefreshHandle {
+    refresh: crate::RefreshHandle,
+    redraw: RedrawProxy,
+    window_id: WindowId,
+}
+
+impl NativeRefreshHandle {
+    pub fn new(redraw: RedrawProxy, window_id: WindowId) -> Self {
+        Self {
+            refresh: crate::RefreshHandle::default(),
+            redraw,
+            window_id,
+        }
+    }
+
+    pub fn invalidate_layout(
+        &self,
+        widget_id: crate::WidgetId,
+    ) -> Result<(), EventLoopClosed<NativeUserEvent>> {
+        self.refresh.invalidate_layout(widget_id);
+        self.wake()
+    }
+
+    pub fn invalidate_layout_path(
+        &self,
+        path: &[crate::WidgetId],
+    ) -> Result<(), EventLoopClosed<NativeUserEvent>> {
+        self.refresh.invalidate_layout_path(path);
+        self.wake()
+    }
+
+    pub fn invalidate_paint(
+        &self,
+        widget_id: crate::WidgetId,
+    ) -> Result<(), EventLoopClosed<NativeUserEvent>> {
+        self.refresh.invalidate_paint(widget_id);
+        self.wake()
+    }
+
+    pub fn invalidate_all(&self) -> Result<(), EventLoopClosed<NativeUserEvent>> {
+        self.refresh.invalidate_all();
+        self.wake()
+    }
+
+    pub fn take_pending(&self) -> crate::RefreshBatch {
+        self.refresh.take_pending()
+    }
+
+    pub fn window_id(&self) -> WindowId {
+        self.window_id
+    }
+
+    fn wake(&self) -> Result<(), EventLoopClosed<NativeUserEvent>> {
+        self.redraw.request_redraw(self.window_id)
     }
 }
 
