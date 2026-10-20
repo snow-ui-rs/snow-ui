@@ -200,6 +200,23 @@ impl WinitEventAdapter {
         }
     }
 
+    /// Translate and send a winit event through an application-provided sink.
+    ///
+    /// This lets Snow UI adapt native input to its EventBus without making this
+    /// crate depend on the core crate or its message types.
+    pub fn dispatch<S: NativeEventSink + ?Sized>(
+        &mut self,
+        event: &winit::event::WindowEvent,
+        sink: &S,
+    ) -> Result<usize, SendError<NativeEvent>> {
+        let translated = self.translate(event);
+        let count = translated.len();
+        for event in translated {
+            sink.send(event)?;
+        }
+        Ok(count)
+    }
+
     fn resize_event(&self) -> NativeEvent {
         NativeEvent::Resized {
             width: self.physical_size[0],
@@ -264,5 +281,17 @@ mod tests {
                 target: None,
             }]
         );
+    }
+
+    #[test]
+    fn winit_dispatch_forwards_translated_events_to_the_sink() {
+        let (sender, receiver) = native_event_channel();
+        let mut adapter = WinitEventAdapter::new(1.0, [100, 80]);
+        let count = adapter
+            .dispatch(&winit::event::WindowEvent::Focused(true), &sender)
+            .unwrap();
+
+        assert_eq!(count, 1);
+        assert_eq!(receiver.try_recv(), Ok(NativeEvent::FocusChanged(true)));
     }
 }
