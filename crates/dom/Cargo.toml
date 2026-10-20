@@ -1,0 +1,22 @@
+[package]
+name = "snow-ui-dom"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+description = "Browser DOM primitives for Snow UI"
+homepage = { workspace = true }
+repository = { workspace = true }
+readme = "README.md"
+keywords = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = [
+    "Window",
+    "Document",
+    "Element",
+    "Node",
+] }

@@ -1,0 +1,18 @@
+[package]
+name = "snow-ui-flake"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+rust-version = { workspace = true }
+description = "Snow UI native foundation built on Taffy, winit, and wgpu"
+homepage = { workspace = true }
+repository = { workspace = true }
+readme = "README.md"
+keywords = { workspace = true }
+license = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+taffy = { workspace = true }
+wgpu = { workspace = true }
+winit = { workspace = true }
