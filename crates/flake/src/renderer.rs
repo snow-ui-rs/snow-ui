@@ -27,6 +27,25 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 "#;
 
+const PRESENT_SHADER: &str = r#"
+@group(0) @binding(0) var source_texture: texture_2d<f32>;
+
+@vertex
+fn vs_main(@builtin(vertex_index) vertex_index: u32) -> @builtin(position) vec4<f32> {
+    let positions = array<vec2<f32>, 3>(
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>(3.0, -1.0),
+        vec2<f32>(-1.0, 3.0),
+    );
+    return vec4<f32>(positions[vertex_index], 0.0, 1.0);
+}
+
+@fragment
+fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
+    return textureLoad(source_texture, vec2<i32>(position.xy), 0);
+}
+"#;
+
 const VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 2] =
     wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x4];
 
@@ -46,6 +65,8 @@ struct RegionDraw {
 pub struct WgpuRenderer {
     pipeline: wgpu::RenderPipeline,
     background_pipeline: wgpu::RenderPipeline,
+    present_pipeline: wgpu::RenderPipeline,
+    present_bind_group_layout: wgpu::BindGroupLayout,
 }
 
 impl WgpuRenderer {
@@ -68,10 +89,61 @@ impl WgpuRenderer {
             "snow-ui-flake damage background pipeline",
             None,
         );
+        let present_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("snow-ui-flake present shader"),
+            source: wgpu::ShaderSource::Wgsl(PRESENT_SHADER.into()),
+        });
+        let present_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                label: Some("snow-ui-flake present bind group layout"),
+                entries: &[wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false,
+                    },
+                    count: None,
+                }],
+            });
+        let present_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("snow-ui-flake present pipeline layout"),
+                bind_group_layouts: &[&present_bind_group_layout],
+                immediate_size: 0,
+            });
+        let present_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("snow-ui-flake present pipeline"),
+            layout: Some(&present_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &present_shader,
+                entry_point: Some("vs_main"),
+                compilation_options: Default::default(),
+                buffers: &[],
+            },
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            fragment: Some(wgpu::FragmentState {
+                module: &present_shader,
+                entry_point: Some("fs_main"),
+                compilation_options: Default::default(),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            multiview_mask: None,
+            cache: None,
+        });
 
         Self {
             pipeline,
             background_pipeline,
+            present_pipeline,
+            present_bind_group_layout,
         }
     }
 
@@ -198,6 +270,49 @@ impl WgpuRenderer {
 
         drop(pass);
         Ok(encoder.finish())
+    }
+
+    /// Copy a persistent render texture to a newly acquired surface texture.
+    pub fn encode_present(
+        &self,
+        device: &wgpu::Device,
+        source: &wgpu::TextureView,
+        target: &wgpu::TextureView,
+        background: Color,
+    ) -> wgpu::CommandBuffer {
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            label: Some("snow-ui-flake present bind group"),
+            layout: &self.present_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: wgpu::BindingResource::TextureView(source),
+            }],
+        });
+        let color_attachments = [Some(wgpu::RenderPassColorAttachment {
+            view: target,
+            depth_slice: None,
+            resolve_target: None,
+            ops: wgpu::Operations {
+                load: wgpu::LoadOp::Clear(to_wgpu_color(background)),
+                store: wgpu::StoreOp::Store,
+            },
+        })];
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("snow-ui-flake present frame"),
+        });
+        let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("snow-ui-flake present pass"),
+            color_attachments: &color_attachments,
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+            multiview_mask: None,
+        });
+        pass.set_pipeline(&self.present_pipeline);
+        pass.set_bind_group(0, &bind_group, &[]);
+        pass.draw(0..3, 0..1);
+        drop(pass);
+        encoder.finish()
     }
 }
 

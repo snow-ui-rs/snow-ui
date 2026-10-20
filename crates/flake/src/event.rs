@@ -94,6 +94,121 @@ pub fn native_event_channel() -> (NativeEventSender, NativeEventReceiver) {
     (NativeEventSender(sender), NativeEventReceiver(receiver))
 }
 
+/// Converts winit window events into the platform-neutral native event stream.
+#[derive(Debug, Clone)]
+pub struct WinitEventAdapter {
+    scale_factor: f64,
+    physical_size: [u32; 2],
+    cursor_position: [f64; 2],
+}
+
+impl WinitEventAdapter {
+    pub fn new(scale_factor: f64, physical_size: [u32; 2]) -> Self {
+        Self {
+            scale_factor: scale_factor.max(f64::MIN_POSITIVE),
+            physical_size,
+            cursor_position: [0.0, 0.0],
+        }
+    }
+
+    pub fn scale_factor(&self) -> f64 {
+        self.scale_factor
+    }
+
+    /// Translate supported winit events. Unhandled events return an empty vector.
+    pub fn translate(&mut self, event: &winit::event::WindowEvent) -> Vec<NativeEvent> {
+        use winit::event::{ElementState, Ime, MouseButton, TouchPhase, WindowEvent};
+
+        match event {
+            WindowEvent::Resized(size) => {
+                self.physical_size = [size.width, size.height];
+                vec![self.resize_event()]
+            }
+            WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
+                self.scale_factor = scale_factor.max(f64::MIN_POSITIVE);
+                vec![self.resize_event()]
+            }
+            WindowEvent::Focused(focused) => vec![NativeEvent::FocusChanged(*focused)],
+            WindowEvent::CloseRequested => vec![NativeEvent::CloseRequested],
+            WindowEvent::CursorMoved { position, .. } => {
+                self.cursor_position = [
+                    position.x / self.scale_factor,
+                    position.y / self.scale_factor,
+                ];
+                vec![NativeEvent::PointerMoved {
+                    pointer_id: 0,
+                    x: self.cursor_position[0],
+                    y: self.cursor_position[1],
+                    target: None,
+                }]
+            }
+            WindowEvent::MouseInput { state, button, .. } => {
+                let button = match button {
+                    MouseButton::Left => PointerButton::Primary,
+                    MouseButton::Right => PointerButton::Secondary,
+                    MouseButton::Middle => PointerButton::Middle,
+                    MouseButton::Back => PointerButton::Other(4),
+                    MouseButton::Forward => PointerButton::Other(5),
+                    MouseButton::Other(value) => PointerButton::Other(*value),
+                };
+                vec![NativeEvent::PointerButton {
+                    pointer_id: 0,
+                    button,
+                    pressed: *state == ElementState::Pressed,
+                    x: self.cursor_position[0],
+                    y: self.cursor_position[1],
+                    target: None,
+                }]
+            }
+            WindowEvent::KeyboardInput { event, .. } => {
+                let mut translated = vec![NativeEvent::Key {
+                    key: format!("{:?}", event.logical_key),
+                    pressed: event.state == ElementState::Pressed,
+                    repeat: event.repeat,
+                }];
+                if event.state == ElementState::Pressed
+                    && let Some(text) = &event.text
+                {
+                    translated.push(NativeEvent::TextInput(text.to_string()));
+                }
+                translated
+            }
+            WindowEvent::Ime(Ime::Commit(text)) => vec![NativeEvent::TextInput(text.clone())],
+            WindowEvent::Touch(touch) => {
+                let x = touch.location.x / self.scale_factor;
+                let y = touch.location.y / self.scale_factor;
+                match touch.phase {
+                    TouchPhase::Moved => vec![NativeEvent::PointerMoved {
+                        pointer_id: touch.id,
+                        x,
+                        y,
+                        target: None,
+                    }],
+                    TouchPhase::Started | TouchPhase::Ended | TouchPhase::Cancelled => {
+                        vec![NativeEvent::PointerButton {
+                            pointer_id: touch.id,
+                            button: PointerButton::Primary,
+                            pressed: touch.phase == TouchPhase::Started,
+                            x,
+                            y,
+                            target: None,
+                        }]
+                    }
+                }
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    fn resize_event(&self) -> NativeEvent {
+        NativeEvent::Resized {
+            width: self.physical_size[0],
+            height: self.physical_size[1],
+            scale_factor: self.scale_factor,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -113,5 +228,41 @@ mod tests {
         sender.send(event.clone()).unwrap();
 
         assert_eq!(receiver.try_recv(), Ok(event));
+    }
+
+    #[test]
+    fn winit_resize_events_preserve_physical_size_and_scale_factor() {
+        let mut adapter = WinitEventAdapter::new(2.0, [100, 80]);
+        let translated = adapter.translate(&winit::event::WindowEvent::Resized(
+            winit::dpi::PhysicalSize::new(640, 480),
+        ));
+
+        assert_eq!(
+            translated,
+            vec![NativeEvent::Resized {
+                width: 640,
+                height: 480,
+                scale_factor: 2.0,
+            }]
+        );
+    }
+
+    #[test]
+    fn winit_cursor_coordinates_are_converted_to_logical_pixels() {
+        let mut adapter = WinitEventAdapter::new(2.0, [100, 80]);
+        let translated = adapter.translate(&winit::event::WindowEvent::CursorMoved {
+            device_id: winit::event::DeviceId::dummy(),
+            position: winit::dpi::PhysicalPosition::new(30.0, 50.0),
+        });
+
+        assert_eq!(
+            translated,
+            vec![NativeEvent::PointerMoved {
+                pointer_id: 0,
+                x: 15.0,
+                y: 25.0,
+                target: None,
+            }]
+        );
     }
 }
