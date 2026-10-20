@@ -17,3 +17,6 @@ bytemuck = { workspace = true }
 taffy = { workspace = true }
 wgpu = { workspace = true }
 winit = { workspace = true }
+
+[dev-dependencies]
+pollster = "0.4"
