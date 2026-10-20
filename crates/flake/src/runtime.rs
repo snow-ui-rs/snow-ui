@@ -7,7 +7,7 @@ use winit::event_loop::{EventLoop, EventLoopClosed, EventLoopProxy};
 use winit::window::Window;
 use winit::window::WindowId;
 
-use crate::{Color, PaintFrame, RenderError, WgpuRenderer};
+use crate::{Color, PaintFrame, RenderError, RenderViewport, WgpuRenderer};
 
 /// User event used to wake an application handler for a native redraw.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -184,7 +184,7 @@ impl NativeSurface {
             .get_default_config(&adapter, size.width, size.height)
             .ok_or(NativeSurfaceError::UnsupportedSurface)?;
         surface.configure(&device, &config);
-        let renderer = WgpuRenderer::new(&device, config.format);
+        let renderer = WgpuRenderer::new(&device, &queue, config.format);
         let (offscreen, offscreen_view) = create_offscreen(&device, &config);
 
         Ok(Self {
@@ -278,10 +278,13 @@ impl NativeSurface {
             .create_view(&wgpu::TextureViewDescriptor::default());
         let paint_commands = self.renderer.encode_frame(
             &self.device,
+            &self.queue,
             offscreen_view,
             frame,
-            viewport_size,
-            scale_factor,
+            RenderViewport {
+                physical_size: viewport_size,
+                scale_factor,
+            },
             background,
         )?;
         let present_commands =

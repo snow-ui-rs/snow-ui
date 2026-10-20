@@ -4,7 +4,7 @@ use snow_ui_flake::taffy::{AlignItems, Dimension, Display, JustifyContent, Size,
 use snow_ui_flake::{
     Color, LayoutNode, LayoutTree, NativeEvent, NativeEventReceiver, NativeEventSender,
     NativeRefreshHandle, NativeSurface, NativeUserEvent, PaintNode, PaintScene, PointerButton,
-    RedrawProxy, WinitEventAdapter, native_event_channel,
+    RedrawProxy, TextNode, WinitEventAdapter, native_event_channel,
 };
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, WindowEvent};
@@ -17,6 +17,7 @@ const BUTTON_ID: u64 = 2;
 const BACKGROUND: Color = Color::rgba(0.08, 0.10, 0.14, 1.0);
 const IDLE_COLOR: Color = Color::rgba(0.18, 0.65, 0.56, 1.0);
 const ACTIVE_COLOR: Color = Color::rgba(0.93, 0.48, 0.20, 1.0);
+const TEXT_COLOR: Color = Color::rgba(1.0, 1.0, 1.0, 1.0);
 
 struct MinimalApp {
     redraw_proxy: RedrawProxy,
@@ -137,6 +138,25 @@ impl MinimalApp {
                 IDLE_COLOR
             },
             z_index: 0,
+        });
+        self.paint_scene.upsert_text(TextNode {
+            id: button_id,
+            text: if self.active {
+                "Clicked!"
+            } else {
+                "Click to change color"
+            }
+            .to_owned(),
+            bounds: snow_ui_flake::Rect {
+                x: bounds.x + 16.0,
+                y: bounds.y + (bounds.height - 22.0) / 2.0,
+                width: (bounds.width - 32.0).max(0.0),
+                height: 22.0,
+            },
+            font_size: 16.0,
+            line_height: 22.0,
+            color: TEXT_COLOR,
+            z_index: 1,
         });
         let frame = self.paint_scene.take_frame(
             snow_ui_flake::Rect {

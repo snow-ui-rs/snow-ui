@@ -1,5 +1,9 @@
 use std::ops::Range;
 
+use glyphon::{
+    Attrs, Buffer as TextBuffer, Cache as TextCache, Family, FontSystem, Metrics, Resolution,
+    Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport as TextViewport,
+};
 use wgpu::util::DeviceExt;
 
 use crate::{Color, PaintFrame, Rect};
@@ -53,6 +57,13 @@ const VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 2] =
 pub enum RenderError {
     InvalidViewport,
     TooManyVertices,
+    TextPrepare,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RenderViewport {
+    pub physical_size: [u32; 2],
+    pub scale_factor: f32,
 }
 
 struct RegionDraw {
@@ -67,10 +78,16 @@ pub struct WgpuRenderer {
     background_pipeline: wgpu::RenderPipeline,
     present_pipeline: wgpu::RenderPipeline,
     present_bind_group_layout: wgpu::BindGroupLayout,
+    font_system: FontSystem,
+    swash_cache: SwashCache,
+    _text_cache: TextCache,
+    text_viewport: TextViewport,
+    text_atlas: TextAtlas,
+    text_renderer: TextRenderer,
 }
 
 impl WgpuRenderer {
-    pub fn new(device: &wgpu::Device, format: wgpu::TextureFormat) -> Self {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, format: wgpu::TextureFormat) -> Self {
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("snow-ui-flake rectangle shader"),
             source: wgpu::ShaderSource::Wgsl(SHADER.into()),
@@ -138,12 +155,29 @@ impl WgpuRenderer {
             multiview_mask: None,
             cache: None,
         });
+        let font_system = FontSystem::new();
+        let swash_cache = SwashCache::new();
+        let text_cache = TextCache::new(device);
+        let text_viewport = TextViewport::new(device, &text_cache);
+        let mut text_atlas = TextAtlas::new(device, queue, &text_cache, format);
+        let text_renderer = TextRenderer::new(
+            &mut text_atlas,
+            device,
+            wgpu::MultisampleState::default(),
+            None,
+        );
 
         Self {
             pipeline,
             background_pipeline,
             present_pipeline,
             present_bind_group_layout,
+            font_system,
+            swash_cache,
+            _text_cache: text_cache,
+            text_viewport,
+            text_atlas,
+            text_renderer,
         }
     }
 
@@ -152,20 +186,28 @@ impl WgpuRenderer {
     /// `viewport_size` is the target size in physical pixels. Paint coordinates
     /// are logical pixels and are scaled by `scale_factor` for scissor testing.
     pub fn encode_frame(
-        &self,
+        &mut self,
         device: &wgpu::Device,
+        queue: &wgpu::Queue,
         target: &wgpu::TextureView,
         frame: &PaintFrame,
-        viewport_size: [u32; 2],
-        scale_factor: f32,
+        render_viewport: RenderViewport,
         background: Color,
     ) -> Result<wgpu::CommandBuffer, RenderError> {
+        let viewport_size = render_viewport.physical_size;
+        let scale_factor = render_viewport.scale_factor;
         if viewport_size[0] == 0
             || viewport_size[1] == 0
             || !scale_factor.is_finite()
             || scale_factor <= 0.0
         {
             return Err(RenderError::InvalidViewport);
+        }
+        if !frame.full && frame.damage.is_empty() {
+            let encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("snow-ui-flake empty paint frame"),
+            });
+            return Ok(encoder.finish());
         }
 
         let viewport = Rect {
@@ -174,6 +216,69 @@ impl WgpuRenderer {
             width: viewport_size[0] as f32 / scale_factor,
             height: viewport_size[1] as f32 / scale_factor,
         };
+        self.text_viewport.update(
+            queue,
+            Resolution {
+                width: viewport_size[0],
+                height: viewport_size[1],
+            },
+        );
+        let text_buffers: Vec<_> = frame
+            .text
+            .iter()
+            .map(|node| {
+                let mut buffer = TextBuffer::new(
+                    &mut self.font_system,
+                    Metrics::new(node.font_size, node.line_height),
+                );
+                buffer.set_size(
+                    &mut self.font_system,
+                    Some(node.bounds.width.max(0.0)),
+                    Some(node.bounds.height.max(0.0)),
+                );
+                buffer.set_text(
+                    &mut self.font_system,
+                    &node.text,
+                    &Attrs::new().family(Family::SansSerif),
+                    Shaping::Advanced,
+                    None,
+                );
+                buffer.shape_until_scroll(&mut self.font_system, false);
+                buffer
+            })
+            .collect();
+        let text_areas: Vec<_> = frame
+            .text
+            .iter()
+            .zip(&text_buffers)
+            .map(|(node, buffer)| TextArea {
+                buffer,
+                left: node.bounds.x * scale_factor,
+                top: node.bounds.y * scale_factor,
+                scale: scale_factor,
+                bounds: TextBounds {
+                    left: (node.bounds.x * scale_factor).max(0.0) as i32,
+                    top: (node.bounds.y * scale_factor).max(0.0) as i32,
+                    right: ((node.bounds.x + node.bounds.width) * scale_factor)
+                        .min(viewport_size[0] as f32) as i32,
+                    bottom: ((node.bounds.y + node.bounds.height) * scale_factor)
+                        .min(viewport_size[1] as f32) as i32,
+                },
+                default_color: glyphon_color(node.color),
+                custom_glyphs: &[],
+            })
+            .collect();
+        self.text_renderer
+            .prepare(
+                device,
+                queue,
+                &mut self.font_system,
+                &mut self.text_atlas,
+                &self.text_viewport,
+                text_areas,
+                &mut self.swash_cache,
+            )
+            .map_err(|_| RenderError::TextPrepare)?;
         let full_damage = [viewport];
         let damage_regions = if frame.full {
             &full_damage[..]
@@ -247,16 +352,15 @@ impl WgpuRenderer {
             occlusion_query_set: None,
             multiview_mask: None,
         });
-        pass.set_pipeline(&self.pipeline);
-        if let Some(buffer) = &buffer {
-            pass.set_vertex_buffer(0, buffer.slice(..));
-            for region in &regions {
-                pass.set_scissor_rect(
-                    region.scissor[0],
-                    region.scissor[1],
-                    region.scissor[2],
-                    region.scissor[3],
-                );
+        for region in &regions {
+            pass.set_scissor_rect(
+                region.scissor[0],
+                region.scissor[1],
+                region.scissor[2],
+                region.scissor[3],
+            );
+            if let Some(buffer) = &buffer {
+                pass.set_vertex_buffer(0, buffer.slice(..));
                 if !region.background_vertices.is_empty() {
                     pass.set_pipeline(&self.background_pipeline);
                     pass.draw(region.background_vertices.clone(), 0..1);
@@ -266,6 +370,9 @@ impl WgpuRenderer {
                     pass.draw(region.content_vertices.clone(), 0..1);
                 }
             }
+            self.text_renderer
+                .render(&self.text_atlas, &self.text_viewport, &mut pass)
+                .map_err(|_| RenderError::TextPrepare)?;
         }
 
         drop(pass);
@@ -400,6 +507,15 @@ fn to_wgpu_color(color: Color) -> wgpu::Color {
         b: color.blue as f64,
         a: color.alpha as f64,
     }
+}
+
+fn glyphon_color(color: Color) -> glyphon::Color {
+    glyphon::Color::rgba(
+        (color.red.clamp(0.0, 1.0) * 255.0).round() as u8,
+        (color.green.clamp(0.0, 1.0) * 255.0).round() as u8,
+        (color.blue.clamp(0.0, 1.0) * 255.0).round() as u8,
+        (color.alpha.clamp(0.0, 1.0) * 255.0).round() as u8,
+    )
 }
 
 #[cfg(test)]
