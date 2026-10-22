@@ -1,12 +1,8 @@
-#[path = "minimal/button.rs"]
-mod button;
-
-use button::ExampleButton;
 use std::sync::Arc;
 
 use snow_ui_flake::taffy::{AlignItems, Dimension, Display, JustifyContent, Size, Style};
 use snow_ui_flake::{
-    Color, LayoutNode, LayoutTree, NativeEvent, NativeEventReceiver, NativeEventSender,
+    Button, Color, LayoutNode, LayoutTree, NativeEvent, NativeEventReceiver, NativeEventSender,
     NativeRefreshHandle, NativeSurface, NativeUserEvent, PaintScene, RedrawProxy,
     WinitEventAdapter, native_event_channel,
 };
@@ -29,12 +25,12 @@ struct MinimalApp {
     refresh: Option<NativeRefreshHandle>,
     layout: LayoutTree,
     paint_scene: PaintScene,
-    button: ExampleButton,
+    button: Button,
 }
 
 impl MinimalApp {
     fn new(event_loop: &EventLoop<NativeUserEvent>) -> Self {
-        let button = ExampleButton::new();
+        let button = Button::new(snow_ui_flake::WidgetId::from_raw(2));
         let root = LayoutNode::with_children(
             snow_ui_flake::WidgetId::from_raw(ROOT_ID),
             Style {
@@ -109,7 +105,7 @@ impl MinimalApp {
             return;
         };
         self.button.set_bounds(bounds);
-        self.button.paint(bounds, &mut self.paint_scene);
+        self.button.paint(&mut self.paint_scene);
         let frame = self.paint_scene.take_frame(
             snow_ui_flake::Rect {
                 x: 0.0,
