@@ -184,7 +184,7 @@ impl NativeSurface {
             .get_default_config(&adapter, size.width, size.height)
             .ok_or(NativeSurfaceError::UnsupportedSurface)?;
         surface.configure(&device, &config);
-        let renderer = WgpuRenderer::new(&device, &queue, config.format);
+        let renderer = WgpuRenderer::new(&device, config.format);
         let (offscreen, offscreen_view) = create_offscreen(&device, &config);
 
         Ok(Self {
