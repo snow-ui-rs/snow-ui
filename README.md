@@ -398,3 +398,5 @@ clia.cc
 [Snow UI 0.0.1 发布了：用 Rust 写一次 UI，桌面、移动、Web 全跑？](https://mp.weixin.qq.com/s/j_S86xwFvwdox5zjDS1wwA)
 
 [SnowUI首发：Rust界面写一次，六端跑Windows、macOS、Android](https://www.toutiao.com/article/7693131471225192994/)
+
+[Snow UI: un framework de interfaces en Rust que ve la UI como un mundo de objetos](https://programacion.net/articulo/snow-ui-un-framework-de-interfaces-en-rust-que-ve-la-ui-como-un-mundo-de-objetos_4446#google_vignette)
