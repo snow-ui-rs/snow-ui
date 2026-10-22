@@ -1,15 +1,9 @@
-use std::collections::{BTreeMap, VecDeque};
 use std::ops::Range;
 
-use glyphon::{
-    Attrs, Buffer as TextBuffer, Cache as TextCache, Family, FontSystem, Metrics, Resolution,
-    Shaping, SwashCache, TextArea, TextAtlas, TextBounds, TextRenderer, Viewport as TextViewport,
-};
 use wgpu::util::DeviceExt;
 
-use crate::{Color, PaintFrame, Rect, TextNode, WidgetId};
-
-const MAX_CACHED_TEXT_BUFFERS: usize = 128;
+use crate::text_render::TextRenderResources;
+use crate::{Color, PaintFrame, Rect};
 
 const SHADER: &str = r#"
 struct VertexOutput {
@@ -75,91 +69,6 @@ struct RegionDraw {
     content_vertices: Range<u32>,
 }
 
-struct TextResources {
-    font_system: FontSystem,
-    swash_cache: SwashCache,
-    _cache: TextCache,
-    viewport: TextViewport,
-    atlas: TextAtlas,
-    renderer: TextRenderer,
-    buffers: BTreeMap<WidgetId, CachedTextBuffer>,
-    buffer_order: VecDeque<WidgetId>,
-}
-
-struct CachedTextBuffer {
-    node: TextNode,
-    buffer: TextBuffer,
-}
-
-impl TextResources {
-    fn new(device: &wgpu::Device, queue: &wgpu::Queue, format: wgpu::TextureFormat) -> Self {
-        let font_system = FontSystem::new();
-        let swash_cache = SwashCache::new();
-        let cache = TextCache::new(device);
-        let viewport = TextViewport::new(device, &cache);
-        let mut atlas = TextAtlas::new(device, queue, &cache, format);
-        let renderer =
-            TextRenderer::new(&mut atlas, device, wgpu::MultisampleState::default(), None);
-
-        Self {
-            font_system,
-            swash_cache,
-            _cache: cache,
-            viewport,
-            atlas,
-            renderer,
-            buffers: BTreeMap::new(),
-            buffer_order: VecDeque::new(),
-        }
-    }
-
-    fn cache_buffer(&mut self, node: &TextNode) {
-        let needs_update = self
-            .buffers
-            .get(&node.id)
-            .is_none_or(|cached| cached.node != *node);
-        if needs_update {
-            let mut buffer = TextBuffer::new(
-                &mut self.font_system,
-                Metrics::new(node.font_size, node.line_height),
-            );
-            buffer.set_size(
-                &mut self.font_system,
-                Some(node.bounds.width.max(0.0)),
-                Some(node.bounds.height.max(0.0)),
-            );
-            buffer.set_text(
-                &mut self.font_system,
-                &node.text,
-                &Attrs::new().family(Family::SansSerif),
-                Shaping::Advanced,
-                None,
-            );
-            buffer.shape_until_scroll(&mut self.font_system, false);
-            self.buffers.insert(
-                node.id,
-                CachedTextBuffer {
-                    node: node.clone(),
-                    buffer,
-                },
-            );
-        }
-
-        if let Some(position) = self.buffer_order.iter().position(|id| *id == node.id) {
-            self.buffer_order.remove(position);
-        }
-        self.buffer_order.push_back(node.id);
-    }
-
-    fn trim_buffers(&mut self) {
-        while self.buffers.len() > MAX_CACHED_TEXT_BUFFERS {
-            if let Some(expired) = self.buffer_order.pop_front() {
-                self.buffers.remove(&expired);
-            }
-        }
-    }
-}
-
 /// Basic wgpu renderer for retained solid-rectangle paint frames.
 pub struct WgpuRenderer {
     format: wgpu::TextureFormat,
@@ -167,7 +76,7 @@ pub struct WgpuRenderer {
     background_pipeline: wgpu::RenderPipeline,
     present_pipeline: wgpu::RenderPipeline,
     present_bind_group_layout: wgpu::BindGroupLayout,
-    text: Option<TextResources>,
+    text: Option<TextRenderResources>,
 }
 
 impl WgpuRenderer {
@@ -286,50 +195,11 @@ impl WgpuRenderer {
         };
         if !frame.text.is_empty() {
             if self.text.is_none() {
-                self.text = Some(TextResources::new(device, queue, self.format));
+                self.text = Some(TextRenderResources::new(device, queue, self.format));
             }
             let text = self.text.as_mut().expect("text resources were initialized");
-            text.viewport.update(
-                queue,
-                Resolution {
-                    width: viewport_size[0],
-                    height: viewport_size[1],
-                },
-            );
-            for node in &frame.text {
-                text.cache_buffer(node);
-            }
-            let text_areas: Vec<_> = frame
-                .text
-                .iter()
-                .map(|node| TextArea {
-                    buffer: &text.buffers[&node.id].buffer,
-                    left: node.bounds.x * scale_factor,
-                    top: node.bounds.y * scale_factor,
-                    scale: scale_factor,
-                    bounds: TextBounds {
-                        left: (node.bounds.x * scale_factor).max(0.0) as i32,
-                        top: (node.bounds.y * scale_factor).max(0.0) as i32,
-                        right: ((node.bounds.x + node.bounds.width) * scale_factor)
-                            .min(viewport_size[0] as f32) as i32,
-                        bottom: ((node.bounds.y + node.bounds.height) * scale_factor)
-                            .min(viewport_size[1] as f32) as i32,
-                    },
-                    default_color: glyphon_color(node.color),
-                    custom_glyphs: &[],
-                })
-                .collect();
-            let prepare_result = text.renderer.prepare(
-                device,
-                queue,
-                &mut text.font_system,
-                &mut text.atlas,
-                &text.viewport,
-                text_areas,
-                &mut text.swash_cache,
-            );
-            text.trim_buffers();
-            prepare_result.map_err(|_| RenderError::TextPrepare)?;
+            text.prepare(device, queue, &frame.text, viewport_size, scale_factor)
+                .map_err(|_| RenderError::TextPrepare)?;
         }
         let full_damage = [viewport];
         let damage_regions = if frame.full {
@@ -424,8 +294,7 @@ impl WgpuRenderer {
             }
             if !frame.text.is_empty() {
                 let text = self.text.as_mut().expect("text resources were initialized");
-                text.renderer
-                    .render(&text.atlas, &text.viewport, &mut pass)
+                text.render(&mut pass)
                     .map_err(|_| RenderError::TextPrepare)?;
             }
         }
@@ -562,15 +431,6 @@ fn to_wgpu_color(color: Color) -> wgpu::Color {
         b: color.blue as f64,
         a: color.alpha as f64,
     }
-}
-
-fn glyphon_color(color: Color) -> glyphon::Color {
-    glyphon::Color::rgba(
-        (color.red.clamp(0.0, 1.0) * 255.0).round() as u8,
-        (color.green.clamp(0.0, 1.0) * 255.0).round() as u8,
-        (color.blue.clamp(0.0, 1.0) * 255.0).round() as u8,
-        (color.alpha.clamp(0.0, 1.0) * 255.0).round() as u8,
-    )
 }
 
 #[cfg(test)]

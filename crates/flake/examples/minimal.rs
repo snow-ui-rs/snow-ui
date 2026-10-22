@@ -1,10 +1,14 @@
+#[path = "minimal/button.rs"]
+mod button;
+
+use button::ExampleButton;
 use std::sync::Arc;
 
 use snow_ui_flake::taffy::{AlignItems, Dimension, Display, JustifyContent, Size, Style};
 use snow_ui_flake::{
     Color, LayoutNode, LayoutTree, NativeEvent, NativeEventReceiver, NativeEventSender,
-    NativeRefreshHandle, NativeSurface, NativeUserEvent, PaintNode, PaintScene, PointerButton,
-    RedrawProxy, TextNode, WinitEventAdapter, native_event_channel,
+    NativeRefreshHandle, NativeSurface, NativeUserEvent, PaintScene, RedrawProxy,
+    WinitEventAdapter, native_event_channel,
 };
 use winit::application::ApplicationHandler;
 use winit::event::{ElementState, WindowEvent};
@@ -13,11 +17,7 @@ use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowId};
 
 const ROOT_ID: u64 = 1;
-const BUTTON_ID: u64 = 2;
 const BACKGROUND: Color = Color::rgba(0.08, 0.10, 0.14, 1.0);
-const IDLE_COLOR: Color = Color::rgba(0.18, 0.65, 0.56, 1.0);
-const ACTIVE_COLOR: Color = Color::rgba(0.93, 0.48, 0.20, 1.0);
-const TEXT_COLOR: Color = Color::rgba(1.0, 1.0, 1.0, 1.0);
 
 struct MinimalApp {
     redraw_proxy: RedrawProxy,
@@ -29,12 +29,12 @@ struct MinimalApp {
     refresh: Option<NativeRefreshHandle>,
     layout: LayoutTree,
     paint_scene: PaintScene,
-    button_bounds: Option<snow_ui_flake::LayoutRect>,
-    active: bool,
+    button: ExampleButton,
 }
 
 impl MinimalApp {
     fn new(event_loop: &EventLoop<NativeUserEvent>) -> Self {
+        let button = ExampleButton::new();
         let root = LayoutNode::with_children(
             snow_ui_flake::WidgetId::from_raw(ROOT_ID),
             Style {
@@ -48,7 +48,7 @@ impl MinimalApp {
                 ..Style::default()
             },
             vec![LayoutNode::new(
-                snow_ui_flake::WidgetId::from_raw(BUTTON_ID),
+                button.id(),
                 Style {
                     size: Size {
                         width: Dimension::length(220.0),
@@ -69,29 +69,14 @@ impl MinimalApp {
             refresh: None,
             layout: LayoutTree::new(root).expect("valid minimal layout tree"),
             paint_scene: PaintScene::default(),
-            button_bounds: None,
-            active: false,
+            button,
         }
     }
 
     fn handle_native_event(&mut self, event: NativeEvent) {
-        if let NativeEvent::PointerButton {
-            button: PointerButton::Primary,
-            pressed: true,
-            x,
-            y,
-            ..
-        } = event
-            && self.button_bounds.is_some_and(|bounds| {
-                x >= f64::from(bounds.x)
-                    && x <= f64::from(bounds.x + bounds.width)
-                    && y >= f64::from(bounds.y)
-                    && y <= f64::from(bounds.y + bounds.height)
-            })
-        {
-            self.active = !self.active;
+        if self.button.handle_event(&event) {
             if let Some(refresh) = &self.refresh {
-                let _ = refresh.invalidate_paint(snow_ui_flake::WidgetId::from_raw(BUTTON_ID));
+                let _ = refresh.invalidate_paint(self.button.id());
             }
         }
     }
@@ -119,45 +104,12 @@ impl MinimalApp {
         {
             return;
         }
-        let button_id = snow_ui_flake::WidgetId::from_raw(BUTTON_ID);
+        let button_id = self.button.id();
         let Ok(bounds) = self.layout.layout(button_id) else {
             return;
         };
-        self.button_bounds = Some(bounds);
-        self.paint_scene.upsert(PaintNode {
-            id: button_id,
-            bounds: snow_ui_flake::Rect {
-                x: bounds.x,
-                y: bounds.y,
-                width: bounds.width,
-                height: bounds.height,
-            },
-            color: if self.active {
-                ACTIVE_COLOR
-            } else {
-                IDLE_COLOR
-            },
-            z_index: 0,
-        });
-        self.paint_scene.upsert_text(TextNode {
-            id: button_id,
-            text: if self.active {
-                "Clicked!"
-            } else {
-                "Click to change color"
-            }
-            .to_owned(),
-            bounds: snow_ui_flake::Rect {
-                x: bounds.x + 16.0,
-                y: bounds.y + (bounds.height - 22.0) / 2.0,
-                width: (bounds.width - 32.0).max(0.0),
-                height: 22.0,
-            },
-            font_size: 16.0,
-            line_height: 22.0,
-            color: TEXT_COLOR,
-            z_index: 1,
-        });
+        self.button.set_bounds(bounds);
+        self.button.paint(bounds, &mut self.paint_scene);
         let frame = self.paint_scene.take_frame(
             snow_ui_flake::Rect {
                 x: 0.0,
@@ -270,7 +222,7 @@ impl ApplicationHandler<NativeUserEvent> for MinimalApp {
         self.event_adapter = None;
         self.surface = None;
         self.window = None;
-        self.button_bounds = None;
+        self.button.forget_bounds();
     }
 }
 

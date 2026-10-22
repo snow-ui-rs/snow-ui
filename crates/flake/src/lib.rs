@@ -6,6 +6,8 @@ mod paint;
 mod refresh;
 mod renderer;
 mod runtime;
+mod text_cache;
+mod text_render;
 
 pub use event::{
     NativeEvent, NativeEventReceiver, NativeEventSender, NativeEventSink, PointerButton, WidgetId,
