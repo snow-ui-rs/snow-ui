@@ -1,10 +1,18 @@
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, SendError, Sender, TryRecvError};
+
+static NEXT_WIDGET_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Stable identity shared between the native backend and Snow UI controls.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct WidgetId(u64);
 
 impl WidgetId {
+    /// Allocate a new widget identity.
+    pub fn new() -> Self {
+        Self(NEXT_WIDGET_ID.fetch_add(1, Ordering::Relaxed))
+    }
+
     /// Create an identity from the Snow UI control ID or another stable key.
     pub const fn from_raw(value: u64) -> Self {
         Self(value)

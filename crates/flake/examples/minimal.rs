@@ -3,7 +3,7 @@ use std::sync::Arc;
 use snow_ui_flake::taffy::{AlignItems, Dimension, Display, JustifyContent, Size, Style};
 use snow_ui_flake::{
     Button, Color, LayoutNode, LayoutTree, NativeEvent, NativeEventReceiver, NativeEventSender,
-    NativeRefreshHandle, NativeSurface, NativeUserEvent, PaintScene, RedrawProxy,
+    NativeRefreshHandle, NativeSurface, NativeUserEvent, PaintScene, RedrawProxy, WidgetId,
     WinitEventAdapter, native_event_channel,
 };
 use winit::application::ApplicationHandler;
@@ -12,7 +12,6 @@ use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::keyboard::{Key, NamedKey};
 use winit::window::{Window, WindowId};
 
-const ROOT_ID: u64 = 1;
 const BACKGROUND: Color = Color::rgba(0.08, 0.10, 0.14, 1.0);
 
 struct MinimalApp {
@@ -30,9 +29,9 @@ struct MinimalApp {
 
 impl MinimalApp {
     fn new(event_loop: &EventLoop<NativeUserEvent>) -> Self {
-        let button = Button::new(snow_ui_flake::WidgetId::from_raw(2));
+        let button = Button::new();
         let root = LayoutNode::with_children(
-            snow_ui_flake::WidgetId::from_raw(ROOT_ID),
+            WidgetId::new(),
             Style {
                 display: Display::Flex,
                 align_items: Some(AlignItems::Center),

@@ -1,4 +1,6 @@
-use crate::{Color, LayoutRect, NativeEvent, PaintNode, PaintScene, PointerButton, Rect, TextNode, WidgetId};
+use crate::{
+    Color, LayoutRect, NativeEvent, PaintNode, PaintScene, PointerButton, Rect, TextNode, WidgetId,
+};
 
 const IDLE_COLOR: Color = Color::rgba(0.18, 0.65, 0.56, 1.0);
 const ACTIVE_COLOR: Color = Color::rgba(0.93, 0.48, 0.20, 1.0);
@@ -13,10 +15,10 @@ pub struct Button {
 }
 
 impl Button {
-    /// Create a button with a stable identity shared by layout and paint nodes.
-    pub const fn new(id: WidgetId) -> Self {
+    /// Create a button with a newly allocated identity shared by layout and paint nodes.
+    pub fn new() -> Self {
         Self {
-            id,
+            id: WidgetId::new(),
             bounds: None,
             active: false,
         }
@@ -112,5 +114,19 @@ fn rect(x: f32, y: f32, width: f32, height: f32) -> Rect {
         y,
         width,
         height,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Button;
+
+    #[test]
+    fn buttons_generate_distinct_ids_and_clones_keep_the_id() {
+        let first = Button::new();
+        let second = Button::new();
+
+        assert_ne!(first.id(), second.id());
+        assert_eq!(first.id(), first.clone().id());
     }
 }
