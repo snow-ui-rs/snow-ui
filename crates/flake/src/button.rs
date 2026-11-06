@@ -13,6 +13,7 @@ pub struct Button {
     id: WidgetId,
     bounds: Option<LayoutRect>,
     active: bool,
+    pressed_pointer_id: Option<u64>,
 }
 
 impl Button {
@@ -22,6 +23,7 @@ impl Button {
             id: WidgetId::new(),
             bounds: None,
             active: false,
+            pressed_pointer_id: None,
         }
     }
 
@@ -35,6 +37,11 @@ impl Button {
         self.active
     }
 
+    /// Return whether a pointer is currently pressing this button.
+    pub const fn is_pressed(&self) -> bool {
+        self.pressed_pointer_id.is_some()
+    }
+
     /// Set the button's logical-pixel bounds, typically from the layout tree.
     pub fn set_bounds(&mut self, bounds: LayoutRect) {
         self.bounds = Some(bounds);
@@ -43,32 +50,48 @@ impl Button {
     /// Forget the last layout bounds, such as when the surface is suspended.
     pub fn forget_bounds(&mut self) {
         self.bounds = None;
+        self.pressed_pointer_id = None;
     }
 
-    /// Handle a native event. Returns `true` when a primary press hits the button.
+    /// Handle a native event. Returns `true` when the button's visual state changes.
     pub fn handle_event(&mut self, event: &NativeEvent) -> bool {
-        let NativeEvent::PointerButton {
-            button: PointerButton::Primary,
-            pressed: true,
-            x,
-            y,
-            ..
-        } = event
-        else {
-            return false;
-        };
-
-        let Some(bounds) = self.bounds else {
-            return false;
-        };
-        let inside = *x >= f64::from(bounds.x)
-            && *x <= f64::from(bounds.x + bounds.width)
-            && *y >= f64::from(bounds.y)
-            && *y <= f64::from(bounds.y + bounds.height);
-        if inside {
-            self.active = !self.active;
+        match event {
+            NativeEvent::PointerButton {
+                pointer_id,
+                button: PointerButton::Primary,
+                pressed: true,
+                x,
+                y,
+                ..
+            } => {
+                if self.pressed_pointer_id.is_some() {
+                    return false;
+                }
+                let Some(bounds) = self.bounds else {
+                    return false;
+                };
+                let inside = *x >= f64::from(bounds.x)
+                    && *x <= f64::from(bounds.x + bounds.width)
+                    && *y >= f64::from(bounds.y)
+                    && *y <= f64::from(bounds.y + bounds.height);
+                if inside {
+                    self.active = !self.active;
+                    self.pressed_pointer_id = Some(*pointer_id);
+                }
+                inside
+            }
+            NativeEvent::PointerButton {
+                pointer_id,
+                button: PointerButton::Primary,
+                pressed: false,
+                ..
+            } if self.pressed_pointer_id == Some(*pointer_id) => {
+                self.pressed_pointer_id = None;
+                true
+            }
+            NativeEvent::FocusChanged(false) => self.pressed_pointer_id.take().is_some(),
+            _ => false,
         }
-        inside
     }
 
     /// Add or update the button's rounded rectangle and label in the retained paint scene.
@@ -76,10 +99,13 @@ impl Button {
         let Some(bounds) = self.bounds else {
             return;
         };
+        let pressed = self.is_pressed();
+        let y_offset = if pressed { 2.0 } else { 0.0 };
+        let body_y = bounds.y + y_offset;
 
         scene.upsert_rounded_rect(RoundedRectNode {
             id: self.id,
-            bounds: rect(bounds.x, bounds.y, bounds.width, bounds.height),
+            bounds: rect(bounds.x, body_y, bounds.width, bounds.height),
             corner_radius: 10.0,
             color: if self.active {
                 ACTIVE_COLOR
@@ -88,12 +114,16 @@ impl Button {
             },
             border: Some(Border {
                 width: 1.0,
-                color: Color::rgba(0.06, 0.12, 0.14, 0.45),
+                color: if pressed {
+                    Color::rgba(0.06, 0.12, 0.14, 0.6)
+                } else {
+                    Color::rgba(0.94, 1.0, 0.98, 0.55)
+                },
             }),
             shadow: Some(Shadow {
                 offset_x: 0.0,
-                offset_y: 3.0,
-                blur_radius: 4.0,
+                offset_y: if pressed { 1.0 } else { 4.0 },
+                blur_radius: if pressed { 2.0 } else { 5.0 },
                 color: Color::rgba(0.0, 0.0, 0.0, 0.3),
             }),
             z_index: 0,
@@ -108,7 +138,7 @@ impl Button {
             .to_owned(),
             bounds: rect(
                 bounds.x + 16.0,
-                bounds.y + (bounds.height - 22.0) / 2.0,
+                body_y + (bounds.height - 22.0) / 2.0,
                 (bounds.width - 32.0).max(0.0),
                 22.0,
             ),
@@ -132,7 +162,18 @@ fn rect(x: f32, y: f32, width: f32, height: f32) -> Rect {
 #[cfg(test)]
 mod tests {
     use super::Button;
-    use crate::{LayoutRect, PaintScene, Rect, RefreshBatch};
+    use crate::{LayoutRect, NativeEvent, PaintScene, PointerButton, Rect, RefreshBatch};
+
+    fn primary_button_event(pointer_id: u64, pressed: bool, x: f64, y: f64) -> NativeEvent {
+        NativeEvent::PointerButton {
+            pointer_id,
+            button: PointerButton::Primary,
+            pressed,
+            x,
+            y,
+            target: None,
+        }
+    }
 
     #[test]
     fn buttons_generate_distinct_ids_and_clones_keep_the_id() {
@@ -171,5 +212,81 @@ mod tests {
         assert_eq!(frame.rounded_rects[0].corner_radius, 10.0);
         assert!(frame.rounded_rects[0].border.is_some());
         assert!(frame.rounded_rects[0].shadow.is_some());
+        assert_eq!(frame.rounded_rects[0].shadow.unwrap().offset_y, 4.0);
+    }
+
+    #[test]
+    fn button_sinks_and_compresses_its_shadow_while_pressed() {
+        let mut button = Button::new();
+        button.set_bounds(LayoutRect {
+            x: 10.0,
+            y: 20.0,
+            width: 220.0,
+            height: 72.0,
+        });
+        let mut scene = PaintScene::default();
+        button.paint(&mut scene);
+        let _ = scene.take_frame(
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 300.0,
+                height: 200.0,
+            },
+            &RefreshBatch::default(),
+        );
+
+        assert!(button.handle_event(&primary_button_event(7, true, 30.0, 40.0)));
+        assert!(button.is_pressed());
+        assert!(button.is_active());
+        button.paint(&mut scene);
+
+        let frame = scene.take_frame(
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 300.0,
+                height: 200.0,
+            },
+            &RefreshBatch::default(),
+        );
+        let button_shape = &frame.rounded_rects[0];
+        assert_eq!(button_shape.bounds.y, 22.0);
+        let shadow = button_shape.shadow.unwrap();
+        assert_eq!(shadow.offset_y, 1.0);
+        assert_eq!(shadow.blur_radius, 2.0);
+        assert_eq!(frame.text[0].bounds.y, 47.0);
+
+        assert!(button.handle_event(&primary_button_event(7, false, 290.0, 190.0)));
+        assert!(!button.is_pressed());
+        button.paint(&mut scene);
+        let frame = scene.take_frame(
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 300.0,
+                height: 200.0,
+            },
+            &RefreshBatch::default(),
+        );
+        assert_eq!(frame.rounded_rects[0].bounds.y, 20.0);
+        assert_eq!(frame.rounded_rects[0].shadow.unwrap().offset_y, 4.0);
+    }
+
+    #[test]
+    fn releasing_an_unrelated_pointer_does_not_unpress_the_button() {
+        let mut button = Button::new();
+        button.set_bounds(LayoutRect {
+            x: 0.0,
+            y: 0.0,
+            width: 100.0,
+            height: 40.0,
+        });
+
+        assert!(button.handle_event(&primary_button_event(1, true, 10.0, 10.0)));
+        assert!(!button.handle_event(&primary_button_event(2, false, 10.0, 10.0)));
+        assert!(button.is_pressed());
+        assert!(button.handle_event(&NativeEvent::FocusChanged(false)));
+        assert!(!button.is_pressed());
     }
 }
