@@ -1,5 +1,6 @@
 use crate::{
-    Color, LayoutRect, NativeEvent, PaintNode, PaintScene, PointerButton, Rect, TextNode, WidgetId,
+    Color, LayoutRect, NativeEvent, PaintScene, PointerButton, Rect, RoundedRectNode, TextNode,
+    WidgetId,
 };
 
 const IDLE_COLOR: Color = Color::rgba(0.18, 0.65, 0.56, 1.0);
@@ -70,20 +71,22 @@ impl Button {
         inside
     }
 
-    /// Add or update the button's rectangle and label in the retained paint scene.
+    /// Add or update the button's rounded rectangle and label in the retained paint scene.
     pub fn paint(&self, scene: &mut PaintScene) {
         let Some(bounds) = self.bounds else {
             return;
         };
 
-        scene.upsert(PaintNode {
+        scene.upsert_rounded_rect(RoundedRectNode {
             id: self.id,
             bounds: rect(bounds.x, bounds.y, bounds.width, bounds.height),
+            corner_radius: 10.0,
             color: if self.active {
                 ACTIVE_COLOR
             } else {
                 IDLE_COLOR
             },
+            border: None,
             z_index: 0,
         });
         scene.upsert_text(TextNode {
@@ -120,6 +123,7 @@ fn rect(x: f32, y: f32, width: f32, height: f32) -> Rect {
 #[cfg(test)]
 mod tests {
     use super::Button;
+    use crate::{LayoutRect, PaintScene, Rect, RefreshBatch};
 
     #[test]
     fn buttons_generate_distinct_ids_and_clones_keep_the_id() {
@@ -128,5 +132,33 @@ mod tests {
 
         assert_ne!(first.id(), second.id());
         assert_eq!(first.id(), first.clone().id());
+    }
+
+    #[test]
+    fn button_paints_as_a_rounded_rectangle() {
+        let mut button = Button::new();
+        button.set_bounds(LayoutRect {
+            x: 10.0,
+            y: 20.0,
+            width: 220.0,
+            height: 72.0,
+        });
+        let mut scene = PaintScene::default();
+        button.paint(&mut scene);
+
+        let frame = scene.take_frame(
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 300.0,
+                height: 200.0,
+            },
+            &RefreshBatch::default(),
+        );
+
+        assert!(frame.commands.is_empty());
+        assert_eq!(frame.rounded_rects.len(), 1);
+        assert_eq!(frame.rounded_rects[0].id, button.id());
+        assert_eq!(frame.rounded_rects[0].corner_radius, 10.0);
     }
 }
