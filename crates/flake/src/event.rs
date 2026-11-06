@@ -160,9 +160,20 @@ impl WinitEventAdapter {
 
     /// Translate supported winit events. Unhandled events return an empty vector.
     pub fn translate(&mut self, event: &winit::event::WindowEvent) -> Vec<NativeEvent> {
+        self.translate_with_target(event, |_, _| None)
+    }
+
+    /// Translate supported events and resolve pointer targets using logical
+    /// coordinates. The resolver is called for pointer movement, buttons, and
+    /// touch events; the default `translate` leaves targets unset.
+    pub fn translate_with_target(
+        &mut self,
+        event: &winit::event::WindowEvent,
+        mut resolve_target: impl FnMut(f64, f64) -> Option<WidgetId>,
+    ) -> Vec<NativeEvent> {
         use winit::event::{ElementState, Ime, MouseButton, TouchPhase, WindowEvent};
 
-        match event {
+        let mut translated = match event {
             WindowEvent::Resized(size) => {
                 self.physical_size = [size.width, size.height];
                 vec![self.resize_event()]
@@ -240,7 +251,18 @@ impl WinitEventAdapter {
                 }
             }
             _ => Vec::new(),
+        };
+
+        for event in &mut translated {
+            match event {
+                NativeEvent::PointerMoved { x, y, target, .. }
+                | NativeEvent::PointerButton { x, y, target, .. } => {
+                    *target = resolve_target(*x, *y);
+                }
+                _ => {}
+            }
         }
+        translated
     }
 
     /// Translate and send a winit event through an application-provided sink.
@@ -253,6 +275,22 @@ impl WinitEventAdapter {
         sink: &S,
     ) -> Result<usize, SendError<NativeEvent>> {
         let translated = self.translate(event);
+        let count = translated.len();
+        for event in translated {
+            sink.send(event)?;
+        }
+        Ok(count)
+    }
+
+    /// Translate with a caller-provided hit tester and send the resulting
+    /// events through an application-provided sink.
+    pub fn dispatch_with_target<S: NativeEventSink + ?Sized>(
+        &mut self,
+        event: &winit::event::WindowEvent,
+        sink: &S,
+        resolve_target: impl FnMut(f64, f64) -> Option<WidgetId>,
+    ) -> Result<usize, SendError<NativeEvent>> {
+        let translated = self.translate_with_target(event, resolve_target);
         let count = translated.len();
         for event in translated {
             sink.send(event)?;
@@ -335,6 +373,32 @@ mod tests {
                 x: 15.0,
                 y: 25.0,
                 target: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn target_resolver_receives_logical_pointer_coordinates() {
+        let target = WidgetId::from_raw(77);
+        let mut adapter = WinitEventAdapter::new(2.0, [100, 80]);
+        let translated = adapter.translate_with_target(
+            &winit::event::WindowEvent::CursorMoved {
+                device_id: winit::event::DeviceId::dummy(),
+                position: winit::dpi::PhysicalPosition::new(30.0, 50.0),
+            },
+            |x, y| {
+                assert_eq!([x, y], [15.0, 25.0]);
+                Some(target)
+            },
+        );
+
+        assert_eq!(
+            translated,
+            vec![NativeEvent::PointerMoved {
+                pointer_id: 0,
+                x: 15.0,
+                y: 25.0,
+                target: Some(target),
             }]
         );
     }

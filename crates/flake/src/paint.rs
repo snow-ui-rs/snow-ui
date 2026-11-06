@@ -186,6 +186,15 @@ impl PaintScene {
         Some(removed)
     }
 
+    /// Remove any retained rectangle and text node for a widget, damaging all
+    /// former bounds. This is useful when `LayoutTree::remove_subtree` returns
+    /// the IDs that have left the tree.
+    pub fn remove_widget(&mut self, id: WidgetId) -> (Option<PaintNode>, Option<TextNode>) {
+        let rect = self.remove(id);
+        let text = self.remove_text(id);
+        (rect, text)
+    }
+
     /// Build a frame from accumulated geometry changes and paint invalidations.
     /// Rectangles and text include retained nodes intersecting damage regions;
     /// each primitive type is sorted by `(z_index, WidgetId)`.
@@ -345,6 +354,31 @@ mod tests {
         let frame = scene.take_frame(rect(0.0, 0.0, 100.0, 40.0), &RefreshBatch::default());
         assert_eq!(frame.commands[0].bounds, rect(12.0, 0.0, 20.0, 20.0));
         assert!(!frame.damage.is_empty());
+    }
+
+    #[test]
+    fn remove_widget_clears_rectangle_and_text_nodes() {
+        let id = WidgetId::from_raw(90);
+        let bounds = rect(4.0, 5.0, 30.0, 12.0);
+        let mut scene = PaintScene::default();
+        scene.upsert(node(id.get(), bounds, 0));
+        scene.upsert_text(TextNode {
+            id,
+            text: "label".into(),
+            bounds,
+            font_size: 12.0,
+            line_height: 14.0,
+            color: Color::rgba(0.0, 0.0, 0.0, 1.0),
+            z_index: 1,
+        });
+
+        let (rect_node, text_node) = scene.remove_widget(id);
+        assert!(rect_node.is_some());
+        assert!(text_node.is_some());
+        let frame = scene.take_frame(rect(0.0, 0.0, 100.0, 100.0), &RefreshBatch::default());
+        assert_eq!(frame.commands, Vec::<FillRect>::new());
+        assert_eq!(frame.text, Vec::<TextNode>::new());
+        assert_eq!(frame.damage, vec![bounds]);
     }
 
     #[test]
