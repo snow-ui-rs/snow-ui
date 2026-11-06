@@ -75,6 +75,15 @@ pub struct Border {
     pub color: Color,
 }
 
+/// Soft shadow drawn behind a rounded rectangle.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Shadow {
+    pub offset_x: f32,
+    pub offset_y: f32,
+    pub blur_radius: f32,
+    pub color: Color,
+}
+
 /// A retained rounded rectangle with an optional inside border.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RoundedRectNode {
@@ -83,7 +92,38 @@ pub struct RoundedRectNode {
     pub corner_radius: f32,
     pub color: Color,
     pub border: Option<Border>,
+    pub shadow: Option<Shadow>,
     pub z_index: i32,
+}
+
+impl RoundedRectNode {
+    pub(crate) fn visual_bounds(self) -> Rect {
+        let Some(shadow) = self.shadow else {
+            return self.bounds;
+        };
+        let offset_x = if shadow.offset_x.is_finite() {
+            shadow.offset_x
+        } else {
+            0.0
+        };
+        let offset_y = if shadow.offset_y.is_finite() {
+            shadow.offset_y
+        } else {
+            0.0
+        };
+        let blur_radius = if shadow.blur_radius.is_finite() {
+            shadow.blur_radius.max(0.0)
+        } else {
+            0.0
+        };
+        let outset = blur_radius * 3.0 + 1.0;
+        Rect {
+            x: self.bounds.x + offset_x - outset,
+            y: self.bounds.y + offset_y - outset,
+            width: self.bounds.width + outset * 2.0,
+            height: self.bounds.height + outset * 2.0,
+        }
+    }
 }
 
 /// A retained text run in the native paint scene.
@@ -163,9 +203,9 @@ impl PaintScene {
             }
             if let Some(node) = self.rounded_rects.get_mut(&id) {
                 if node.bounds != bounds {
-                    self.pending_damage.push(node.bounds);
-                    self.pending_damage.push(bounds);
+                    self.pending_damage.push(node.visual_bounds());
                     node.bounds = bounds;
+                    self.pending_damage.push(node.visual_bounds());
                 }
             }
             if let Some(node) = self.text_nodes.get_mut(&id) {
@@ -182,7 +222,7 @@ impl PaintScene {
     /// Add or update a rectangle, recording both old and new bounds as damage.
     pub fn upsert(&mut self, node: PaintNode) {
         if let Some(previous) = self.rounded_rects.remove(&node.id) {
-            self.add_damage(previous.bounds);
+            self.add_damage(previous.visual_bounds());
         }
         let previous = self.nodes.insert(node.id, node);
         if let Some(previous) = previous {
@@ -203,11 +243,11 @@ impl PaintScene {
         let previous = self.rounded_rects.insert(node.id, node);
         if let Some(previous) = previous {
             if previous != node {
-                self.add_damage(previous.bounds);
-                self.add_damage(node.bounds);
+                self.add_damage(previous.visual_bounds());
+                self.add_damage(node.visual_bounds());
             }
         } else {
-            self.add_damage(node.bounds);
+            self.add_damage(node.visual_bounds());
         }
     }
 
@@ -221,7 +261,7 @@ impl PaintScene {
     /// Remove a rounded rectangle and mark its former bounds for clearing.
     pub fn remove_rounded_rect(&mut self, id: WidgetId) -> Option<RoundedRectNode> {
         let removed = self.rounded_rects.remove(&id)?;
-        self.add_damage(removed.bounds);
+        self.add_damage(removed.visual_bounds());
         Some(removed)
     }
 
@@ -283,7 +323,7 @@ impl PaintScene {
                     damage.push(node.bounds);
                 }
                 if let Some(node) = self.rounded_rects.get(id) {
-                    damage.push(node.bounds);
+                    damage.push(node.visual_bounds());
                 }
                 if let Some(node) = self.text_nodes.get(id) {
                     damage.push(node.bounds);
@@ -315,7 +355,7 @@ impl PaintScene {
             .filter(|node| {
                 damage
                     .iter()
-                    .any(|region| node.bounds.intersects_or_touches(*region))
+                    .any(|region| node.visual_bounds().intersects_or_touches(*region))
             })
             .copied()
             .collect();
@@ -477,6 +517,7 @@ mod tests {
             corner_radius: 6.0,
             color: Color::rgba(0.2, 0.4, 0.8, 1.0),
             border: None,
+            shadow: None,
             z_index: 1,
         };
         let mut scene = PaintScene::default();
@@ -489,17 +530,23 @@ mod tests {
                 width: 2.0,
                 color: Color::rgba(1.0, 1.0, 1.0, 1.0),
             }),
+            shadow: Some(Shadow {
+                offset_x: 0.0,
+                offset_y: 3.0,
+                blur_radius: 4.0,
+                color: Color::rgba(0.0, 0.0, 0.0, 0.3),
+            }),
             ..original
         };
         scene.upsert_rounded_rect(updated);
         let frame = scene.take_frame(rect(0.0, 0.0, 100.0, 100.0), &RefreshBatch::default());
         assert_eq!(frame.rounded_rects, vec![updated]);
-        assert_eq!(frame.damage, vec![bounds]);
+        assert_eq!(frame.damage, vec![updated.visual_bounds()]);
 
         assert_eq!(scene.remove_widget_with_shapes(id).1, Some(updated));
         let frame = scene.take_frame(rect(0.0, 0.0, 100.0, 100.0), &RefreshBatch::default());
         assert!(frame.rounded_rects.is_empty());
-        assert_eq!(frame.damage, vec![bounds]);
+        assert_eq!(frame.damage, vec![updated.visual_bounds()]);
     }
 
     #[test]
@@ -511,6 +558,7 @@ mod tests {
             corner_radius: 4.0,
             color: Color::rgba(0.2, 0.4, 0.8, 1.0),
             border: None,
+            shadow: None,
             z_index: 1,
         };
         let mut scene = PaintScene::default();
@@ -529,6 +577,30 @@ mod tests {
             }]
         );
         assert!(frame.rounded_rects[0].z_index < frame.commands[0].z_index);
+    }
+
+    #[test]
+    fn shadow_invalidation_covers_offset_and_blur_extent() {
+        let node = RoundedRectNode {
+            id: WidgetId::from_raw(94),
+            bounds: rect(20.0, 30.0, 40.0, 20.0),
+            corner_radius: 5.0,
+            color: Color::rgba(0.2, 0.4, 0.8, 1.0),
+            border: None,
+            shadow: Some(Shadow {
+                offset_x: 4.0,
+                offset_y: 6.0,
+                blur_radius: 2.0,
+                color: Color::rgba(0.0, 0.0, 0.0, 0.4),
+            }),
+            z_index: 0,
+        };
+        let mut scene = PaintScene::default();
+        scene.upsert_rounded_rect(node);
+
+        let frame = scene.take_frame(rect(0.0, 0.0, 100.0, 100.0), &RefreshBatch::default());
+        assert_eq!(frame.damage, vec![rect(17.0, 29.0, 54.0, 34.0)]);
+        assert_eq!(frame.rounded_rects, vec![node]);
     }
 
     #[test]

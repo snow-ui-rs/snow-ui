@@ -1,6 +1,6 @@
 use crate::{
-    Color, LayoutRect, NativeEvent, PaintScene, PointerButton, Rect, RoundedRectNode, TextNode,
-    WidgetId,
+    Border, Color, LayoutRect, NativeEvent, PaintScene, PointerButton, Rect, RoundedRectNode,
+    Shadow, TextNode, WidgetId,
 };
 
 const IDLE_COLOR: Color = Color::rgba(0.18, 0.65, 0.56, 1.0);
@@ -86,7 +86,16 @@ impl Button {
             } else {
                 IDLE_COLOR
             },
-            border: None,
+            border: Some(Border {
+                width: 1.0,
+                color: Color::rgba(0.06, 0.12, 0.14, 0.45),
+            }),
+            shadow: Some(Shadow {
+                offset_x: 0.0,
+                offset_y: 3.0,
+                blur_radius: 4.0,
+                color: Color::rgba(0.0, 0.0, 0.0, 0.3),
+            }),
             z_index: 0,
         });
         scene.upsert_text(TextNode {
@@ -160,5 +169,7 @@ mod tests {
         assert_eq!(frame.rounded_rects.len(), 1);
         assert_eq!(frame.rounded_rects[0].id, button.id());
         assert_eq!(frame.rounded_rects[0].corner_radius, 10.0);
+        assert!(frame.rounded_rects[0].border.is_some());
+        assert!(frame.rounded_rects[0].shadow.is_some());
     }
 }

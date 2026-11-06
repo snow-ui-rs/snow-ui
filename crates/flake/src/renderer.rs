@@ -3,7 +3,7 @@ use std::ops::Range;
 use wgpu::util::DeviceExt;
 
 use crate::text_render::TextRenderResources;
-use crate::{Border, Color, PaintFrame, Rect, RoundedRectNode, WidgetId};
+use crate::{Border, Color, PaintFrame, Rect, RoundedRectNode, Shadow, WidgetId};
 
 const SHADER: &str = r#"
 struct VertexOutput {
@@ -14,6 +14,7 @@ struct VertexOutput {
     @location(3) corner_radius: f32,
     @location(4) border_width: f32,
     @location(5) border_color: vec4<f32>,
+    @location(6) blur_radius: f32,
 }
 
 @vertex
@@ -25,6 +26,7 @@ fn vs_main(
     @location(4) corner_radius: f32,
     @location(5) border_width: f32,
     @location(6) border_color: vec4<f32>,
+    @location(7) blur_radius: f32,
 ) -> VertexOutput {
     var output: VertexOutput;
     output.position = vec4<f32>(position, 0.0, 1.0);
@@ -34,6 +36,7 @@ fn vs_main(
     output.corner_radius = corner_radius;
     output.border_width = border_width;
     output.border_color = border_color;
+    output.blur_radius = blur_radius;
     return output;
 }
 
@@ -43,6 +46,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     let radius = clamp(input.corner_radius, 0.0, min(half_size.x, half_size.y));
     let q = abs(input.local_position - half_size) - half_size + vec2<f32>(radius);
     let distance = length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+    if input.blur_radius > 0.0 {
+        let shadow_coverage = 1.0 - smoothstep(0.0, input.blur_radius * 3.0, distance);
+        var shadow = input.fill_color;
+        shadow.a *= shadow_coverage;
+        return shadow;
+    }
     let antialias = max(fwidth(distance), 0.0001);
     let coverage = 1.0 - smoothstep(-antialias, antialias, distance);
     var color = input.fill_color;
@@ -78,14 +87,15 @@ fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 }
 "#;
 
-const VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 7] = wgpu::vertex_attr_array![
+const VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 8] = wgpu::vertex_attr_array![
     0 => Float32x2,
     1 => Float32x4,
     2 => Float32x2,
     3 => Float32x2,
     4 => Float32,
     5 => Float32,
-    6 => Float32x4
+    6 => Float32x4,
+    7 => Float32
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -276,7 +286,7 @@ impl WgpuRenderer {
             .collect();
         shapes.sort_by_key(|shape| (shape.z_index(), shape.id()));
 
-        let mut vertices: Vec<[f32; 16]> = Vec::new();
+        let mut vertices: Vec<[f32; 17]> = Vec::new();
         let mut regions = Vec::new();
 
         for damage in damage_regions {
@@ -303,15 +313,22 @@ impl WgpuRenderer {
                             None,
                         );
                     }
-                    ShapeRef::RoundedRect(command) if intersects(command.bounds, *damage) => {
-                        push_shape(
-                            &mut vertices,
-                            command.bounds,
-                            viewport,
-                            command.color,
-                            command.corner_radius,
-                            command.border,
-                        );
+                    ShapeRef::RoundedRect(command)
+                        if intersects(command.visual_bounds(), *damage) =>
+                    {
+                        if let Some(shadow) = command.shadow {
+                            push_shadow(&mut vertices, command, shadow, viewport);
+                        }
+                        if intersects(command.bounds, *damage) {
+                            push_shape(
+                                &mut vertices,
+                                command.bounds,
+                                viewport,
+                                command.color,
+                                command.corner_radius,
+                                command.border,
+                            );
+                        }
                     }
                     _ => {}
                 }
@@ -450,7 +467,7 @@ fn create_pipeline(
             entry_point: Some("vs_main"),
             compilation_options: Default::default(),
             buffers: &[wgpu::VertexBufferLayout {
-                array_stride: std::mem::size_of::<[f32; 16]>() as wgpu::BufferAddress,
+                array_stride: std::mem::size_of::<[f32; 17]>() as wgpu::BufferAddress,
                 step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &VERTEX_ATTRIBUTES,
             }],
@@ -474,17 +491,75 @@ fn create_pipeline(
 }
 
 fn push_shape(
-    vertices: &mut Vec<[f32; 16]>,
+    vertices: &mut Vec<[f32; 17]>,
     rect: Rect,
     viewport: Rect,
     color: Color,
     corner_radius: f32,
     border: Option<Border>,
 ) {
-    let x0 = rect.x / viewport.width * 2.0 - 1.0;
-    let x1 = (rect.x + rect.width) / viewport.width * 2.0 - 1.0;
-    let y0 = 1.0 - rect.y / viewport.height * 2.0;
-    let y1 = 1.0 - (rect.y + rect.height) / viewport.height * 2.0;
+    push_shape_quad(
+        vertices,
+        rect,
+        rect,
+        [0.0, 0.0],
+        viewport,
+        color,
+        corner_radius,
+        border,
+        0.0,
+    );
+}
+
+fn push_shadow(
+    vertices: &mut Vec<[f32; 17]>,
+    node: &RoundedRectNode,
+    shadow: Shadow,
+    viewport: Rect,
+) {
+    let offset_x = if shadow.offset_x.is_finite() {
+        shadow.offset_x
+    } else {
+        0.0
+    };
+    let offset_y = if shadow.offset_y.is_finite() {
+        shadow.offset_y
+    } else {
+        0.0
+    };
+    let blur_radius = if shadow.blur_radius.is_finite() {
+        shadow.blur_radius.max(0.0)
+    } else {
+        0.0
+    };
+    push_shape_quad(
+        vertices,
+        node.visual_bounds(),
+        node.bounds,
+        [offset_x, offset_y],
+        viewport,
+        shadow.color,
+        node.corner_radius,
+        None,
+        blur_radius,
+    );
+}
+
+fn push_shape_quad(
+    vertices: &mut Vec<[f32; 17]>,
+    quad: Rect,
+    shape: Rect,
+    shape_offset: [f32; 2],
+    viewport: Rect,
+    color: Color,
+    corner_radius: f32,
+    border: Option<Border>,
+    blur_radius: f32,
+) {
+    let x0 = quad.x / viewport.width * 2.0 - 1.0;
+    let x1 = (quad.x + quad.width) / viewport.width * 2.0 - 1.0;
+    let y0 = 1.0 - quad.y / viewport.height * 2.0;
+    let y1 = 1.0 - (quad.y + quad.height) / viewport.height * 2.0;
     let corner_radius = if corner_radius.is_finite() {
         corner_radius.max(0.0)
     } else {
@@ -495,7 +570,7 @@ fn push_shape(
             border
                 .width
                 .max(0.0)
-                .min(rect.width.min(rect.height).max(0.0) * 0.5)
+                .min(shape.width.min(shape.height).max(0.0) * 0.5)
         } else {
             0.0
         };
@@ -518,27 +593,58 @@ fn push_shape(
             fill_color[3],
             local_x,
             local_y,
-            rect.width,
-            rect.height,
+            shape.width,
+            shape.height,
             corner_radius,
             border_width,
             border_color[0],
             border_color[1],
             border_color[2],
             border_color[3],
+            blur_radius,
         ]
     };
     vertices.extend([
-        vertex(x0, y0, 0.0, 0.0),
-        vertex(x0, y1, 0.0, rect.height),
-        vertex(x1, y0, rect.width, 0.0),
-        vertex(x1, y0, rect.width, 0.0),
-        vertex(x0, y1, 0.0, rect.height),
-        vertex(x1, y1, rect.width, rect.height),
+        vertex(
+            x0,
+            y0,
+            quad.x - shape.x - shape_offset[0],
+            quad.y - shape.y - shape_offset[1],
+        ),
+        vertex(
+            x0,
+            y1,
+            quad.x - shape.x - shape_offset[0],
+            quad.y + quad.height - shape.y - shape_offset[1],
+        ),
+        vertex(
+            x1,
+            y0,
+            quad.x + quad.width - shape.x - shape_offset[0],
+            quad.y - shape.y - shape_offset[1],
+        ),
+        vertex(
+            x1,
+            y0,
+            quad.x + quad.width - shape.x - shape_offset[0],
+            quad.y - shape.y - shape_offset[1],
+        ),
+        vertex(
+            x0,
+            y1,
+            quad.x - shape.x - shape_offset[0],
+            quad.y + quad.height - shape.y - shape_offset[1],
+        ),
+        vertex(
+            x1,
+            y1,
+            quad.x + quad.width - shape.x - shape_offset[0],
+            quad.y + quad.height - shape.y - shape_offset[1],
+        ),
     ]);
 }
 
-fn push_rect(vertices: &mut Vec<[f32; 16]>, rect: Rect, viewport: Rect, color: Color) {
+fn push_rect(vertices: &mut Vec<[f32; 17]>, rect: Rect, viewport: Rect, color: Color) {
     push_shape(vertices, rect, viewport, color, 0.0, None);
 }
 
@@ -668,5 +774,47 @@ mod tests {
 
         assert_eq!(vertices.len(), 6);
         assert_eq!(&vertices[0][10..16], &[8.0, 3.0, 1.0, 1.0, 1.0, 1.0]);
+    }
+
+    #[test]
+    fn shadow_vertices_expand_and_preserve_offset_shape_coordinates() {
+        let shadow = Shadow {
+            offset_x: 4.0,
+            offset_y: 6.0,
+            blur_radius: 2.0,
+            color: Color::rgba(0.0, 0.0, 0.0, 0.4),
+        };
+        let node = RoundedRectNode {
+            id: WidgetId::from_raw(95),
+            bounds: Rect {
+                x: 20.0,
+                y: 30.0,
+                width: 40.0,
+                height: 20.0,
+            },
+            corner_radius: 5.0,
+            color: Color::rgba(0.2, 0.4, 0.8, 1.0),
+            border: None,
+            shadow: Some(shadow),
+            z_index: 0,
+        };
+        let mut vertices = Vec::new();
+        push_shadow(
+            &mut vertices,
+            &node,
+            shadow,
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 100.0,
+                height: 100.0,
+            },
+        );
+
+        assert_eq!(vertices.len(), 6);
+        assert!((vertices[0][0] + 0.66).abs() < f32::EPSILON);
+        assert!((vertices[0][1] - 0.42).abs() < f32::EPSILON);
+        assert_eq!(&vertices[0][6..12], &[-7.0, -7.0, 40.0, 20.0, 5.0, 0.0]);
+        assert_eq!(vertices[0][16], 2.0);
     }
 }

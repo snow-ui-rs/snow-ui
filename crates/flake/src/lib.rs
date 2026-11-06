@@ -17,7 +17,8 @@ pub use event::{
 };
 pub use layout::{LayoutNode, LayoutRect, LayoutTree, LayoutTreeError};
 pub use paint::{
-    Border, Color, FillRect, PaintFrame, PaintNode, PaintScene, Rect, RoundedRectNode, TextNode,
+    Border, Color, FillRect, PaintFrame, PaintNode, PaintScene, Rect, RoundedRectNode, Shadow,
+    TextNode,
 };
 pub use refresh::{RefreshBatch, RefreshHandle};
 pub use renderer::{RenderError, RenderViewport, WgpuRenderer};
