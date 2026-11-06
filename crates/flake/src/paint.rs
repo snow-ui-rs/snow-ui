@@ -68,6 +68,24 @@ pub struct PaintNode {
     pub z_index: i32,
 }
 
+/// Border drawn inside a rounded rectangle's bounds.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Border {
+    pub width: f32,
+    pub color: Color,
+}
+
+/// A retained rounded rectangle with an optional inside border.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RoundedRectNode {
+    pub id: WidgetId,
+    pub bounds: Rect,
+    pub corner_radius: f32,
+    pub color: Color,
+    pub border: Option<Border>,
+    pub z_index: i32,
+}
+
 /// A retained text run in the native paint scene.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextNode {
@@ -95,6 +113,7 @@ pub struct PaintFrame {
     pub full: bool,
     pub damage: Vec<Rect>,
     pub commands: Vec<FillRect>,
+    pub rounded_rects: Vec<RoundedRectNode>,
     pub text: Vec<TextNode>,
 }
 
@@ -102,6 +121,7 @@ pub struct PaintFrame {
 #[derive(Debug, Default)]
 pub struct PaintScene {
     nodes: BTreeMap<WidgetId, PaintNode>,
+    rounded_rects: BTreeMap<WidgetId, RoundedRectNode>,
     text_nodes: BTreeMap<WidgetId, TextNode>,
     pending_damage: Vec<Rect>,
 }
@@ -113,8 +133,14 @@ impl PaintScene {
     /// unknown widget leaves the scene untouched. Changed bounds mark both the
     /// previous and new rectangles as damage for the next frame.
     pub fn sync_layout(&mut self, layout: &LayoutTree) -> Result<(), LayoutTreeError> {
-        let mut updates = Vec::with_capacity(self.nodes.len() + self.text_nodes.len());
-        for id in self.nodes.keys().chain(self.text_nodes.keys()) {
+        let mut updates =
+            Vec::with_capacity(self.nodes.len() + self.rounded_rects.len() + self.text_nodes.len());
+        for id in self
+            .nodes
+            .keys()
+            .chain(self.rounded_rects.keys())
+            .chain(self.text_nodes.keys())
+        {
             let rect = layout.layout(*id)?;
             updates.push((
                 *id,
@@ -135,6 +161,13 @@ impl PaintScene {
                     node.bounds = bounds;
                 }
             }
+            if let Some(node) = self.rounded_rects.get_mut(&id) {
+                if node.bounds != bounds {
+                    self.pending_damage.push(node.bounds);
+                    self.pending_damage.push(bounds);
+                    node.bounds = bounds;
+                }
+            }
             if let Some(node) = self.text_nodes.get_mut(&id) {
                 if node.bounds != bounds {
                     self.pending_damage.push(node.bounds);
@@ -148,7 +181,26 @@ impl PaintScene {
 
     /// Add or update a rectangle, recording both old and new bounds as damage.
     pub fn upsert(&mut self, node: PaintNode) {
+        if let Some(previous) = self.rounded_rects.remove(&node.id) {
+            self.add_damage(previous.bounds);
+        }
         let previous = self.nodes.insert(node.id, node);
+        if let Some(previous) = previous {
+            if previous != node {
+                self.add_damage(previous.bounds);
+                self.add_damage(node.bounds);
+            }
+        } else {
+            self.add_damage(node.bounds);
+        }
+    }
+
+    /// Add or update a rounded rectangle, recording old and new bounds as damage.
+    pub fn upsert_rounded_rect(&mut self, node: RoundedRectNode) {
+        if let Some(previous) = self.nodes.remove(&node.id) {
+            self.add_damage(previous.bounds);
+        }
+        let previous = self.rounded_rects.insert(node.id, node);
         if let Some(previous) = previous {
             if previous != node {
                 self.add_damage(previous.bounds);
@@ -162,6 +214,13 @@ impl PaintScene {
     /// Remove a node and mark its former bounds for clearing.
     pub fn remove(&mut self, id: WidgetId) -> Option<PaintNode> {
         let removed = self.nodes.remove(&id)?;
+        self.add_damage(removed.bounds);
+        Some(removed)
+    }
+
+    /// Remove a rounded rectangle and mark its former bounds for clearing.
+    pub fn remove_rounded_rect(&mut self, id: WidgetId) -> Option<RoundedRectNode> {
+        let removed = self.rounded_rects.remove(&id)?;
         self.add_damage(removed.bounds);
         Some(removed)
     }
@@ -186,18 +245,29 @@ impl PaintScene {
         Some(removed)
     }
 
-    /// Remove any retained rectangle and text node for a widget, damaging all
-    /// former bounds. This is useful when `LayoutTree::remove_subtree` returns
-    /// the IDs that have left the tree.
+    /// Remove any retained shape and text node for a widget, damaging all former
+    /// bounds. This is useful when `LayoutTree::remove_subtree` returns the IDs
+    /// that have left the tree.
     pub fn remove_widget(&mut self, id: WidgetId) -> (Option<PaintNode>, Option<TextNode>) {
-        let rect = self.remove(id);
-        let text = self.remove_text(id);
+        let (rect, _, text) = self.remove_widget_with_shapes(id);
         (rect, text)
     }
 
+    /// Remove all retained shapes and text for a widget, including rounded
+    /// rectangles, and return the removed nodes.
+    pub fn remove_widget_with_shapes(
+        &mut self,
+        id: WidgetId,
+    ) -> (Option<PaintNode>, Option<RoundedRectNode>, Option<TextNode>) {
+        let rect = self.remove(id);
+        let rounded_rect = self.remove_rounded_rect(id);
+        let text = self.remove_text(id);
+        (rect, rounded_rect, text)
+    }
+
     /// Build a frame from accumulated geometry changes and paint invalidations.
-    /// Rectangles and text include retained nodes intersecting damage regions;
-    /// each primitive type is sorted by `(z_index, WidgetId)`.
+    /// Shapes and text include retained nodes intersecting damage regions.
+    /// Shapes are sorted together by `(z_index, WidgetId)`.
     pub fn take_frame(&mut self, viewport: Rect, refresh: &RefreshBatch) -> PaintFrame {
         let full = refresh.full;
         let mut damage = if full {
@@ -210,6 +280,9 @@ impl PaintScene {
         if !full {
             for id in &refresh.paint_nodes {
                 if let Some(node) = self.nodes.get(id) {
+                    damage.push(node.bounds);
+                }
+                if let Some(node) = self.rounded_rects.get(id) {
                     damage.push(node.bounds);
                 }
                 if let Some(node) = self.text_nodes.get(id) {
@@ -236,6 +309,17 @@ impl PaintScene {
             })
             .collect();
         commands.sort_by_key(|command| (command.z_index, command.id));
+        let mut rounded_rects: Vec<_> = self
+            .rounded_rects
+            .values()
+            .filter(|node| {
+                damage
+                    .iter()
+                    .any(|region| node.bounds.intersects_or_touches(*region))
+            })
+            .copied()
+            .collect();
+        rounded_rects.sort_by_key(|command| (command.z_index, command.id));
         let mut text: Vec<_> = self
             .text_nodes
             .values()
@@ -252,6 +336,7 @@ impl PaintScene {
             full,
             damage,
             commands,
+            rounded_rects,
             text,
         }
     }
@@ -377,8 +462,73 @@ mod tests {
         assert!(text_node.is_some());
         let frame = scene.take_frame(rect(0.0, 0.0, 100.0, 100.0), &RefreshBatch::default());
         assert_eq!(frame.commands, Vec::<FillRect>::new());
+        assert!(frame.rounded_rects.is_empty());
         assert_eq!(frame.text, Vec::<TextNode>::new());
         assert_eq!(frame.damage, vec![bounds]);
+    }
+
+    #[test]
+    fn rounded_rect_updates_and_removal_damage_its_bounds() {
+        let id = WidgetId::from_raw(91);
+        let bounds = rect(4.0, 5.0, 30.0, 20.0);
+        let original = RoundedRectNode {
+            id,
+            bounds,
+            corner_radius: 6.0,
+            color: Color::rgba(0.2, 0.4, 0.8, 1.0),
+            border: None,
+            z_index: 1,
+        };
+        let mut scene = PaintScene::default();
+        scene.upsert_rounded_rect(original);
+        let _ = scene.take_frame(rect(0.0, 0.0, 100.0, 100.0), &RefreshBatch::default());
+
+        let updated = RoundedRectNode {
+            corner_radius: 10.0,
+            border: Some(Border {
+                width: 2.0,
+                color: Color::rgba(1.0, 1.0, 1.0, 1.0),
+            }),
+            ..original
+        };
+        scene.upsert_rounded_rect(updated);
+        let frame = scene.take_frame(rect(0.0, 0.0, 100.0, 100.0), &RefreshBatch::default());
+        assert_eq!(frame.rounded_rects, vec![updated]);
+        assert_eq!(frame.damage, vec![bounds]);
+
+        assert_eq!(scene.remove_widget_with_shapes(id).1, Some(updated));
+        let frame = scene.take_frame(rect(0.0, 0.0, 100.0, 100.0), &RefreshBatch::default());
+        assert!(frame.rounded_rects.is_empty());
+        assert_eq!(frame.damage, vec![bounds]);
+    }
+
+    #[test]
+    fn rectangle_shapes_share_z_order() {
+        let rect_node = node(92, rect(0.0, 0.0, 20.0, 20.0), 2);
+        let rounded_rect = RoundedRectNode {
+            id: WidgetId::from_raw(93),
+            bounds: rect(0.0, 0.0, 20.0, 20.0),
+            corner_radius: 4.0,
+            color: Color::rgba(0.2, 0.4, 0.8, 1.0),
+            border: None,
+            z_index: 1,
+        };
+        let mut scene = PaintScene::default();
+        scene.upsert(rect_node);
+        scene.upsert_rounded_rect(rounded_rect);
+
+        let frame = scene.take_frame(rect(0.0, 0.0, 100.0, 100.0), &RefreshBatch::default());
+        assert_eq!(frame.rounded_rects, vec![rounded_rect]);
+        assert_eq!(
+            frame.commands,
+            vec![FillRect {
+                id: rect_node.id,
+                bounds: rect_node.bounds,
+                color: rect_node.color,
+                z_index: rect_node.z_index,
+            }]
+        );
+        assert!(frame.rounded_rects[0].z_index < frame.commands[0].z_index);
     }
 
     #[test]

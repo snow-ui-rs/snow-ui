@@ -3,28 +3,59 @@ use std::ops::Range;
 use wgpu::util::DeviceExt;
 
 use crate::text_render::TextRenderResources;
-use crate::{Color, PaintFrame, Rect};
+use crate::{Border, Color, PaintFrame, Rect, RoundedRectNode, WidgetId};
 
 const SHADER: &str = r#"
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
-    @location(0) color: vec4<f32>,
+    @location(0) fill_color: vec4<f32>,
+    @location(1) local_position: vec2<f32>,
+    @location(2) size: vec2<f32>,
+    @location(3) corner_radius: f32,
+    @location(4) border_width: f32,
+    @location(5) border_color: vec4<f32>,
 }
 
 @vertex
 fn vs_main(
     @location(0) position: vec2<f32>,
-    @location(1) color: vec4<f32>,
+    @location(1) fill_color: vec4<f32>,
+    @location(2) local_position: vec2<f32>,
+    @location(3) size: vec2<f32>,
+    @location(4) corner_radius: f32,
+    @location(5) border_width: f32,
+    @location(6) border_color: vec4<f32>,
 ) -> VertexOutput {
     var output: VertexOutput;
     output.position = vec4<f32>(position, 0.0, 1.0);
-    output.color = color;
+    output.fill_color = fill_color;
+    output.local_position = local_position;
+    output.size = size;
+    output.corner_radius = corner_radius;
+    output.border_width = border_width;
+    output.border_color = border_color;
     return output;
 }
 
 @fragment
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
-    return input.color;
+    let half_size = input.size * 0.5;
+    let radius = clamp(input.corner_radius, 0.0, min(half_size.x, half_size.y));
+    let q = abs(input.local_position - half_size) - half_size + vec2<f32>(radius);
+    let distance = length(max(q, vec2<f32>(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+    let antialias = max(fwidth(distance), 0.0001);
+    let coverage = 1.0 - smoothstep(-antialias, antialias, distance);
+    var color = input.fill_color;
+    if input.border_width > 0.0 {
+        let border_mix = smoothstep(
+            -input.border_width - antialias,
+            -input.border_width + antialias,
+            distance,
+        );
+        color = mix(input.fill_color, input.border_color, border_mix);
+    }
+    color.a *= coverage;
+    return color;
 }
 "#;
 
@@ -47,8 +78,15 @@ fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 }
 "#;
 
-const VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 2] =
-    wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x4];
+const VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 7] = wgpu::vertex_attr_array![
+    0 => Float32x2,
+    1 => Float32x4,
+    2 => Float32x2,
+    3 => Float32x2,
+    4 => Float32,
+    5 => Float32,
+    6 => Float32x4
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RenderError {
@@ -70,7 +108,29 @@ struct RegionDraw {
     content_vertices: Range<u32>,
 }
 
-/// Basic wgpu renderer for retained solid-rectangle paint frames.
+#[derive(Clone, Copy)]
+enum ShapeRef<'a> {
+    Rect(&'a crate::FillRect),
+    RoundedRect(&'a RoundedRectNode),
+}
+
+impl ShapeRef<'_> {
+    fn id(self) -> WidgetId {
+        match self {
+            Self::Rect(node) => node.id,
+            Self::RoundedRect(node) => node.id,
+        }
+    }
+
+    fn z_index(self) -> i32 {
+        match self {
+            Self::Rect(node) => node.z_index,
+            Self::RoundedRect(node) => node.z_index,
+        }
+    }
+}
+
+/// Basic wgpu renderer for retained rectangle, rounded-rectangle, and text frames.
 pub struct WgpuRenderer {
     format: wgpu::TextureFormat,
     pipeline: wgpu::RenderPipeline,
@@ -208,7 +268,15 @@ impl WgpuRenderer {
         } else {
             &frame.damage[..]
         };
-        let mut vertices: Vec<[f32; 6]> = Vec::new();
+        let mut shapes: Vec<_> = frame
+            .commands
+            .iter()
+            .map(ShapeRef::Rect)
+            .chain(frame.rounded_rects.iter().map(ShapeRef::RoundedRect))
+            .collect();
+        shapes.sort_by_key(|shape| (shape.z_index(), shape.id()));
+
+        let mut vertices: Vec<[f32; 16]> = Vec::new();
         let mut regions = Vec::new();
 
         for damage in damage_regions {
@@ -223,9 +291,29 @@ impl WgpuRenderer {
             let background_end =
                 u32::try_from(vertices.len()).map_err(|_| RenderError::TooManyVertices)?;
             let content_start = background_end;
-            for command in &frame.commands {
-                if intersects(command.bounds, *damage) {
-                    push_rect(&mut vertices, command.bounds, viewport, command.color);
+            for shape in &shapes {
+                match shape {
+                    ShapeRef::Rect(command) if intersects(command.bounds, *damage) => {
+                        push_shape(
+                            &mut vertices,
+                            command.bounds,
+                            viewport,
+                            command.color,
+                            0.0,
+                            None,
+                        );
+                    }
+                    ShapeRef::RoundedRect(command) if intersects(command.bounds, *damage) => {
+                        push_shape(
+                            &mut vertices,
+                            command.bounds,
+                            viewport,
+                            command.color,
+                            command.corner_radius,
+                            command.border,
+                        );
+                    }
+                    _ => {}
                 }
             }
             let end = u32::try_from(vertices.len()).map_err(|_| RenderError::TooManyVertices)?;
@@ -362,7 +450,7 @@ fn create_pipeline(
             entry_point: Some("vs_main"),
             compilation_options: Default::default(),
             buffers: &[wgpu::VertexBufferLayout {
-                array_stride: std::mem::size_of::<[f32; 6]>() as wgpu::BufferAddress,
+                array_stride: std::mem::size_of::<[f32; 16]>() as wgpu::BufferAddress,
                 step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &VERTEX_ATTRIBUTES,
             }],
@@ -385,20 +473,73 @@ fn create_pipeline(
     })
 }
 
-fn push_rect(vertices: &mut Vec<[f32; 6]>, rect: Rect, viewport: Rect, color: Color) {
+fn push_shape(
+    vertices: &mut Vec<[f32; 16]>,
+    rect: Rect,
+    viewport: Rect,
+    color: Color,
+    corner_radius: f32,
+    border: Option<Border>,
+) {
     let x0 = rect.x / viewport.width * 2.0 - 1.0;
     let x1 = (rect.x + rect.width) / viewport.width * 2.0 - 1.0;
     let y0 = 1.0 - rect.y / viewport.height * 2.0;
     let y1 = 1.0 - (rect.y + rect.height) / viewport.height * 2.0;
-    let color = [color.red, color.green, color.blue, color.alpha];
+    let corner_radius = if corner_radius.is_finite() {
+        corner_radius.max(0.0)
+    } else {
+        0.0
+    };
+    let (border_width, border_color) = border.map_or((0.0, Color::TRANSPARENT), |border| {
+        let width = if border.width.is_finite() {
+            border
+                .width
+                .max(0.0)
+                .min(rect.width.min(rect.height).max(0.0) * 0.5)
+        } else {
+            0.0
+        };
+        (width, border.color)
+    });
+    let fill_color = [color.red, color.green, color.blue, color.alpha];
+    let border_color = [
+        border_color.red,
+        border_color.green,
+        border_color.blue,
+        border_color.alpha,
+    ];
+    let vertex = |x, y, local_x, local_y| {
+        [
+            x,
+            y,
+            fill_color[0],
+            fill_color[1],
+            fill_color[2],
+            fill_color[3],
+            local_x,
+            local_y,
+            rect.width,
+            rect.height,
+            corner_radius,
+            border_width,
+            border_color[0],
+            border_color[1],
+            border_color[2],
+            border_color[3],
+        ]
+    };
     vertices.extend([
-        [x0, y0, color[0], color[1], color[2], color[3]],
-        [x0, y1, color[0], color[1], color[2], color[3]],
-        [x1, y0, color[0], color[1], color[2], color[3]],
-        [x1, y0, color[0], color[1], color[2], color[3]],
-        [x0, y1, color[0], color[1], color[2], color[3]],
-        [x1, y1, color[0], color[1], color[2], color[3]],
+        vertex(x0, y0, 0.0, 0.0),
+        vertex(x0, y1, 0.0, rect.height),
+        vertex(x1, y0, rect.width, 0.0),
+        vertex(x1, y0, rect.width, 0.0),
+        vertex(x0, y1, 0.0, rect.height),
+        vertex(x1, y1, rect.width, rect.height),
     ]);
+}
+
+fn push_rect(vertices: &mut Vec<[f32; 16]>, rect: Rect, viewport: Rect, color: Color) {
+    push_shape(vertices, rect, viewport, color, 0.0, None);
 }
 
 fn scissor_rect(rect: Rect, viewport: [u32; 2], scale_factor: f32) -> Option<[u32; 4]> {
@@ -496,6 +637,36 @@ mod tests {
         assert!((vertices[0][1] - 0.6).abs() < f32::EPSILON);
         assert!((vertices[5][0] - 0.5).abs() < f32::EPSILON);
         assert!((vertices[5][1] + 0.2).abs() < f32::EPSILON);
-        assert_eq!(&vertices[0][2..], &[0.1, 0.2, 0.3, 1.0]);
+        assert_eq!(&vertices[0][2..6], &[0.1, 0.2, 0.3, 1.0]);
+        assert_eq!(&vertices[0][6..12], &[0.0, 0.0, 50.0, 20.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn rounded_rectangle_vertices_include_radius_and_border() {
+        let mut vertices = Vec::new();
+        push_shape(
+            &mut vertices,
+            Rect {
+                x: 10.0,
+                y: 5.0,
+                width: 40.0,
+                height: 20.0,
+            },
+            Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 100.0,
+                height: 50.0,
+            },
+            Color::rgba(0.1, 0.2, 0.3, 1.0),
+            8.0,
+            Some(Border {
+                width: 3.0,
+                color: Color::rgba(1.0, 1.0, 1.0, 1.0),
+            }),
+        );
+
+        assert_eq!(vertices.len(), 6);
+        assert_eq!(&vertices[0][10..16], &[8.0, 3.0, 1.0, 1.0, 1.0, 1.0]);
     }
 }

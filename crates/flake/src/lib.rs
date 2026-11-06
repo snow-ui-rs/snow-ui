@@ -16,7 +16,9 @@ pub use event::{
     WinitEventAdapter, native_event_channel, native_event_channel_with_capacity,
 };
 pub use layout::{LayoutNode, LayoutRect, LayoutTree, LayoutTreeError};
-pub use paint::{Color, FillRect, PaintFrame, PaintNode, PaintScene, Rect, TextNode};
+pub use paint::{
+    Border, Color, FillRect, PaintFrame, PaintNode, PaintScene, Rect, RoundedRectNode, TextNode,
+};
 pub use refresh::{RefreshBatch, RefreshHandle};
 pub use renderer::{RenderError, RenderViewport, WgpuRenderer};
 pub use runtime::{
