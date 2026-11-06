@@ -1,6 +1,6 @@
 use crate::{
-    Border, Color, LayoutRect, NativeEvent, PaintScene, PointerButton, Rect, RoundedRectNode,
-    Shadow, TextNode, WidgetId,
+    Bevel, Border, Color, LayoutRect, NativeEvent, PaintScene, PointerButton, Rect,
+    RoundedRectNode, Shadow, TextNode, WidgetId,
 };
 
 const IDLE_COLOR: Color = Color::rgba(0.18, 0.65, 0.56, 1.0);
@@ -126,6 +126,9 @@ impl Button {
                 blur_radius: if pressed { 2.0 } else { 5.0 },
                 color: Color::rgba(0.0, 0.0, 0.0, 0.3),
             }),
+            bevel: Some(Bevel {
+                intensity: if pressed { 0.04 } else { 0.12 },
+            }),
             z_index: 0,
         });
         scene.upsert_text(TextNode {
@@ -213,6 +216,7 @@ mod tests {
         assert!(frame.rounded_rects[0].border.is_some());
         assert!(frame.rounded_rects[0].shadow.is_some());
         assert_eq!(frame.rounded_rects[0].shadow.unwrap().offset_y, 4.0);
+        assert_eq!(frame.rounded_rects[0].bevel.unwrap().intensity, 0.12);
     }
 
     #[test]
@@ -255,6 +259,7 @@ mod tests {
         let shadow = button_shape.shadow.unwrap();
         assert_eq!(shadow.offset_y, 1.0);
         assert_eq!(shadow.blur_radius, 2.0);
+        assert_eq!(button_shape.bevel.unwrap().intensity, 0.04);
         assert_eq!(frame.text[0].bounds.y, 47.0);
 
         assert!(button.handle_event(&primary_button_event(7, false, 290.0, 190.0)));

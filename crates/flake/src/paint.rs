@@ -84,6 +84,13 @@ pub struct Shadow {
     pub color: Color,
 }
 
+/// Vertical face shading that gives a rounded rectangle a raised appearance.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Bevel {
+    /// Brightening/darkening strength, clamped to `0.0..=1.0` by the renderer.
+    pub intensity: f32,
+}
+
 /// A retained rounded rectangle with an optional inside border.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RoundedRectNode {
@@ -93,6 +100,7 @@ pub struct RoundedRectNode {
     pub color: Color,
     pub border: Option<Border>,
     pub shadow: Option<Shadow>,
+    pub bevel: Option<Bevel>,
     pub z_index: i32,
 }
 
@@ -518,6 +526,7 @@ mod tests {
             color: Color::rgba(0.2, 0.4, 0.8, 1.0),
             border: None,
             shadow: None,
+            bevel: None,
             z_index: 1,
         };
         let mut scene = PaintScene::default();
@@ -536,6 +545,7 @@ mod tests {
                 blur_radius: 4.0,
                 color: Color::rgba(0.0, 0.0, 0.0, 0.3),
             }),
+            bevel: Some(Bevel { intensity: 0.1 }),
             ..original
         };
         scene.upsert_rounded_rect(updated);
@@ -559,6 +569,7 @@ mod tests {
             color: Color::rgba(0.2, 0.4, 0.8, 1.0),
             border: None,
             shadow: None,
+            bevel: None,
             z_index: 1,
         };
         let mut scene = PaintScene::default();
@@ -593,6 +604,7 @@ mod tests {
                 blur_radius: 2.0,
                 color: Color::rgba(0.0, 0.0, 0.0, 0.4),
             }),
+            bevel: None,
             z_index: 0,
         };
         let mut scene = PaintScene::default();

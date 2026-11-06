@@ -3,7 +3,7 @@ use std::ops::Range;
 use wgpu::util::DeviceExt;
 
 use crate::text_render::TextRenderResources;
-use crate::{Border, Color, PaintFrame, Rect, RoundedRectNode, Shadow, WidgetId};
+use crate::{Bevel, Border, Color, PaintFrame, Rect, RoundedRectNode, Shadow, WidgetId};
 
 const SHADER: &str = r#"
 struct VertexOutput {
@@ -15,6 +15,7 @@ struct VertexOutput {
     @location(4) border_width: f32,
     @location(5) border_color: vec4<f32>,
     @location(6) blur_radius: f32,
+    @location(7) bevel_strength: f32,
 }
 
 @vertex
@@ -27,6 +28,7 @@ fn vs_main(
     @location(5) border_width: f32,
     @location(6) border_color: vec4<f32>,
     @location(7) blur_radius: f32,
+    @location(8) bevel_strength: f32,
 ) -> VertexOutput {
     var output: VertexOutput;
     output.position = vec4<f32>(position, 0.0, 1.0);
@@ -37,6 +39,7 @@ fn vs_main(
     output.border_width = border_width;
     output.border_color = border_color;
     output.blur_radius = blur_radius;
+    output.bevel_strength = bevel_strength;
     return output;
 }
 
@@ -52,16 +55,27 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         shadow.a *= shadow_coverage;
         return shadow;
     }
+    let bevel_strength = clamp(input.bevel_strength, 0.0, 1.0);
+    let light_color = min(
+        input.fill_color.rgb + vec3<f32>(bevel_strength),
+        vec3<f32>(1.0),
+    );
+    let dark_color = input.fill_color.rgb * (1.0 - bevel_strength);
+    let face_position = clamp(input.local_position.y / input.size.y, 0.0, 1.0);
+    let fill_color = vec4<f32>(
+        mix(light_color, dark_color, face_position),
+        input.fill_color.a,
+    );
     let antialias = max(fwidth(distance), 0.0001);
     let coverage = 1.0 - smoothstep(-antialias, antialias, distance);
-    var color = input.fill_color;
+    var color = fill_color;
     if input.border_width > 0.0 {
         let border_mix = smoothstep(
             -input.border_width - antialias,
             -input.border_width + antialias,
             distance,
         );
-        color = mix(input.fill_color, input.border_color, border_mix);
+        color = mix(fill_color, input.border_color, border_mix);
     }
     color.a *= coverage;
     return color;
@@ -87,7 +101,7 @@ fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 }
 "#;
 
-const VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 8] = wgpu::vertex_attr_array![
+const VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 9] = wgpu::vertex_attr_array![
     0 => Float32x2,
     1 => Float32x4,
     2 => Float32x2,
@@ -95,7 +109,8 @@ const VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 8] = wgpu::vertex_attr_array![
     4 => Float32,
     5 => Float32,
     6 => Float32x4,
-    7 => Float32
+    7 => Float32,
+    8 => Float32
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -286,7 +301,7 @@ impl WgpuRenderer {
             .collect();
         shapes.sort_by_key(|shape| (shape.z_index(), shape.id()));
 
-        let mut vertices: Vec<[f32; 17]> = Vec::new();
+        let mut vertices: Vec<[f32; 18]> = Vec::new();
         let mut regions = Vec::new();
 
         for damage in damage_regions {
@@ -311,6 +326,7 @@ impl WgpuRenderer {
                             command.color,
                             0.0,
                             None,
+                            None,
                         );
                     }
                     ShapeRef::RoundedRect(command)
@@ -327,6 +343,7 @@ impl WgpuRenderer {
                                 command.color,
                                 command.corner_radius,
                                 command.border,
+                                command.bevel,
                             );
                         }
                     }
@@ -467,7 +484,7 @@ fn create_pipeline(
             entry_point: Some("vs_main"),
             compilation_options: Default::default(),
             buffers: &[wgpu::VertexBufferLayout {
-                array_stride: std::mem::size_of::<[f32; 17]>() as wgpu::BufferAddress,
+                array_stride: std::mem::size_of::<[f32; 18]>() as wgpu::BufferAddress,
                 step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &VERTEX_ATTRIBUTES,
             }],
@@ -491,12 +508,13 @@ fn create_pipeline(
 }
 
 fn push_shape(
-    vertices: &mut Vec<[f32; 17]>,
+    vertices: &mut Vec<[f32; 18]>,
     rect: Rect,
     viewport: Rect,
     color: Color,
     corner_radius: f32,
     border: Option<Border>,
+    bevel: Option<Bevel>,
 ) {
     push_shape_quad(
         vertices,
@@ -507,12 +525,13 @@ fn push_shape(
         color,
         corner_radius,
         border,
+        bevel.map_or(0.0, |bevel| bevel.intensity),
         0.0,
     );
 }
 
 fn push_shadow(
-    vertices: &mut Vec<[f32; 17]>,
+    vertices: &mut Vec<[f32; 18]>,
     node: &RoundedRectNode,
     shadow: Shadow,
     viewport: Rect,
@@ -541,12 +560,13 @@ fn push_shadow(
         shadow.color,
         node.corner_radius,
         None,
+        0.0,
         blur_radius,
     );
 }
 
 fn push_shape_quad(
-    vertices: &mut Vec<[f32; 17]>,
+    vertices: &mut Vec<[f32; 18]>,
     quad: Rect,
     shape: Rect,
     shape_offset: [f32; 2],
@@ -554,6 +574,7 @@ fn push_shape_quad(
     color: Color,
     corner_radius: f32,
     border: Option<Border>,
+    bevel_strength: f32,
     blur_radius: f32,
 ) {
     let x0 = quad.x / viewport.width * 2.0 - 1.0;
@@ -562,6 +583,11 @@ fn push_shape_quad(
     let y1 = 1.0 - (quad.y + quad.height) / viewport.height * 2.0;
     let corner_radius = if corner_radius.is_finite() {
         corner_radius.max(0.0)
+    } else {
+        0.0
+    };
+    let bevel_strength = if bevel_strength.is_finite() {
+        bevel_strength.clamp(0.0, 1.0)
     } else {
         0.0
     };
@@ -602,6 +628,7 @@ fn push_shape_quad(
             border_color[2],
             border_color[3],
             blur_radius,
+            bevel_strength,
         ]
     };
     vertices.extend([
@@ -644,8 +671,8 @@ fn push_shape_quad(
     ]);
 }
 
-fn push_rect(vertices: &mut Vec<[f32; 17]>, rect: Rect, viewport: Rect, color: Color) {
-    push_shape(vertices, rect, viewport, color, 0.0, None);
+fn push_rect(vertices: &mut Vec<[f32; 18]>, rect: Rect, viewport: Rect, color: Color) {
+    push_shape(vertices, rect, viewport, color, 0.0, None, None);
 }
 
 fn scissor_rect(rect: Rect, viewport: [u32; 2], scale_factor: f32) -> Option<[u32; 4]> {
@@ -770,10 +797,12 @@ mod tests {
                 width: 3.0,
                 color: Color::rgba(1.0, 1.0, 1.0, 1.0),
             }),
+            Some(Bevel { intensity: 0.15 }),
         );
 
         assert_eq!(vertices.len(), 6);
         assert_eq!(&vertices[0][10..16], &[8.0, 3.0, 1.0, 1.0, 1.0, 1.0]);
+        assert_eq!(vertices[0][17], 0.15);
     }
 
     #[test]
@@ -796,6 +825,7 @@ mod tests {
             color: Color::rgba(0.2, 0.4, 0.8, 1.0),
             border: None,
             shadow: Some(shadow),
+            bevel: None,
             z_index: 0,
         };
         let mut vertices = Vec::new();
