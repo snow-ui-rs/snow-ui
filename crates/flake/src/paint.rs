@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::{RefreshBatch, WidgetId};
+use crate::{LayoutTree, LayoutTreeError, RefreshBatch, WidgetId};
 
 /// Axis-aligned rectangle in logical pixels.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -107,6 +107,45 @@ pub struct PaintScene {
 }
 
 impl PaintScene {
+    /// Synchronize retained paint-node bounds with the latest computed layout.
+    ///
+    /// All layout queries are completed before any nodes are changed, so an
+    /// unknown widget leaves the scene untouched. Changed bounds mark both the
+    /// previous and new rectangles as damage for the next frame.
+    pub fn sync_layout(&mut self, layout: &LayoutTree) -> Result<(), LayoutTreeError> {
+        let mut updates = Vec::with_capacity(self.nodes.len() + self.text_nodes.len());
+        for id in self.nodes.keys().chain(self.text_nodes.keys()) {
+            let rect = layout.layout(*id)?;
+            updates.push((
+                *id,
+                Rect {
+                    x: rect.x,
+                    y: rect.y,
+                    width: rect.width,
+                    height: rect.height,
+                },
+            ));
+        }
+
+        for (id, bounds) in updates {
+            if let Some(node) = self.nodes.get_mut(&id) {
+                if node.bounds != bounds {
+                    self.pending_damage.push(node.bounds);
+                    self.pending_damage.push(bounds);
+                    node.bounds = bounds;
+                }
+            }
+            if let Some(node) = self.text_nodes.get_mut(&id) {
+                if node.bounds != bounds {
+                    self.pending_damage.push(node.bounds);
+                    self.pending_damage.push(bounds);
+                    node.bounds = bounds;
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Add or update a rectangle, recording both old and new bounds as damage.
     pub fn upsert(&mut self, node: PaintNode) {
         let previous = self.nodes.insert(node.id, node);
@@ -236,6 +275,8 @@ fn merge_damage(regions: Vec<Rect>) -> Vec<Rect> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{LayoutNode, LayoutTree};
+    use taffy::{Dimension, Display, FlexDirection, Size, Style};
 
     fn rect(x: f32, y: f32, width: f32, height: f32) -> Rect {
         Rect {
@@ -253,6 +294,57 @@ mod tests {
             color: Color::rgba(0.2, 0.4, 0.8, 1.0),
             z_index,
         }
+    }
+
+    #[test]
+    fn sync_layout_updates_bounds_and_marks_old_and_new_damage() {
+        let spacer_id = WidgetId::from_raw(101);
+        let target_id = WidgetId::from_raw(102);
+        let root = LayoutNode::with_children(
+            WidgetId::from_raw(100),
+            Style {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Row,
+                size: Size {
+                    width: Dimension::length(100.0),
+                    height: Dimension::length(40.0),
+                },
+                ..Style::default()
+            },
+            vec![
+                LayoutNode::new(
+                    spacer_id,
+                    Style {
+                        size: Size {
+                            width: Dimension::length(12.0),
+                            height: Dimension::length(20.0),
+                        },
+                        ..Style::default()
+                    },
+                ),
+                LayoutNode::new(
+                    target_id,
+                    Style {
+                        size: Size {
+                            width: Dimension::length(20.0),
+                            height: Dimension::length(20.0),
+                        },
+                        ..Style::default()
+                    },
+                ),
+            ],
+        );
+        let mut layout = LayoutTree::new(root).unwrap();
+        layout.compute_layout(100.0, 40.0).unwrap();
+
+        let mut scene = PaintScene::default();
+        scene.upsert(node(102, rect(0.0, 0.0, 20.0, 20.0), 0));
+        let _ = scene.take_frame(rect(0.0, 0.0, 100.0, 40.0), &RefreshBatch::default());
+
+        scene.sync_layout(&layout).unwrap();
+        let frame = scene.take_frame(rect(0.0, 0.0, 100.0, 40.0), &RefreshBatch::default());
+        assert_eq!(frame.commands[0].bounds, rect(12.0, 0.0, 20.0, 20.0));
+        assert!(!frame.damage.is_empty());
     }
 
     #[test]

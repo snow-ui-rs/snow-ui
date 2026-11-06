@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::mpsc::{self, Receiver, SendError, Sender, TryRecvError};
+use std::sync::mpsc::{self, Receiver, SendError, Sender, SyncSender, TryRecvError, TrySendError};
 
 static NEXT_WIDGET_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -70,19 +70,39 @@ pub trait NativeEventSink: Send + Sync {
 }
 
 #[derive(Clone)]
-pub struct NativeEventSender(Sender<NativeEvent>);
+pub struct NativeEventSender(EventSender);
+
+#[derive(Clone)]
+enum EventSender {
+    Unbounded(Sender<NativeEvent>),
+    Bounded(SyncSender<NativeEvent>),
+}
 
 pub struct NativeEventReceiver(Receiver<NativeEvent>);
 
 impl NativeEventSender {
     pub fn send(&self, event: NativeEvent) -> Result<(), SendError<NativeEvent>> {
-        self.0.send(event)
+        match &self.0 {
+            EventSender::Unbounded(sender) => sender.send(event),
+            EventSender::Bounded(sender) => sender.send(event),
+        }
+    }
+
+    /// Attempt to send without blocking. Returns the event if the bounded
+    /// channel is full or disconnected.
+    pub fn try_send(&self, event: NativeEvent) -> Result<(), TrySendError<NativeEvent>> {
+        match &self.0 {
+            EventSender::Unbounded(sender) => sender
+                .send(event)
+                .map_err(|error| TrySendError::Disconnected(error.0)),
+            EventSender::Bounded(sender) => sender.try_send(event),
+        }
     }
 }
 
 impl NativeEventSink for NativeEventSender {
     fn send(&self, event: NativeEvent) -> Result<(), SendError<NativeEvent>> {
-        self.0.send(event)
+        NativeEventSender(self.0.clone()).send(event)
     }
 }
 
@@ -99,7 +119,22 @@ impl NativeEventReceiver {
 /// Create a thread-safe channel for forwarding native events to an EventBus adapter.
 pub fn native_event_channel() -> (NativeEventSender, NativeEventReceiver) {
     let (sender, receiver) = mpsc::channel();
-    (NativeEventSender(sender), NativeEventReceiver(receiver))
+    (
+        NativeEventSender(EventSender::Unbounded(sender)),
+        NativeEventReceiver(receiver),
+    )
+}
+
+/// Create a bounded native-event channel. `send` applies backpressure when the
+/// queue is full; use `try_send` when producers must remain non-blocking.
+pub fn native_event_channel_with_capacity(
+    capacity: usize,
+) -> (NativeEventSender, NativeEventReceiver) {
+    let (sender, receiver) = mpsc::sync_channel(capacity);
+    (
+        NativeEventSender(EventSender::Bounded(sender)),
+        NativeEventReceiver(receiver),
+    )
 }
 
 /// Converts winit window events into the platform-neutral native event stream.
@@ -253,6 +288,19 @@ mod tests {
         sender.send(event.clone()).unwrap();
 
         assert_eq!(receiver.try_recv(), Ok(event));
+    }
+
+    #[test]
+    fn bounded_channel_reports_full_without_dropping_the_queued_event() {
+        let (sender, receiver) = native_event_channel_with_capacity(1);
+        let first = NativeEvent::FocusChanged(true);
+        sender.try_send(first.clone()).unwrap();
+        assert_eq!(
+            sender.try_send(NativeEvent::FocusChanged(false)),
+            Err(TrySendError::Full(NativeEvent::FocusChanged(false)))
+        );
+        assert_eq!(receiver.try_recv(), Ok(first));
+        sender.try_send(NativeEvent::FocusChanged(false)).unwrap();
     }
 
     #[test]

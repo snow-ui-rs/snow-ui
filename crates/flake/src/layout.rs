@@ -43,6 +43,7 @@ pub struct LayoutRect {
 pub enum LayoutTreeError {
     DuplicateWidgetId(WidgetId),
     UnknownWidget(WidgetId),
+    CannotRemoveRoot,
     Taffy(String),
 }
 
@@ -81,6 +82,63 @@ impl LayoutTree {
         self.tree
             .set_style(node, style)
             .map_err(|error| LayoutTreeError::Taffy(error.to_string()))
+    }
+
+    /// Append a new subtree beneath an existing node.
+    ///
+    /// Widget IDs must be unique across the entire layout tree. The new subtree
+    /// is attached only after its IDs have been validated.
+    pub fn append_child(
+        &mut self,
+        parent_id: WidgetId,
+        child: LayoutNode,
+    ) -> Result<(), LayoutTreeError> {
+        let parent_node = self.node(parent_id)?;
+        let mut ids = Vec::new();
+        collect_ids(&child, &mut ids);
+        let mut seen = HashSet::new();
+        for id in ids {
+            if self.nodes.contains_key(&id) || !seen.insert(id) {
+                return Err(LayoutTreeError::DuplicateWidgetId(id));
+            }
+        }
+
+        let child_id = child.id;
+        let child_node = self.build_node(&child, Some(parent_id), &mut HashSet::new())?;
+        self.tree
+            .add_child(parent_node, child_node)
+            .map_err(|error| LayoutTreeError::Taffy(error.to_string()))?;
+        debug_assert_eq!(self.parents.get(&child_id), Some(&Some(parent_id)));
+        Ok(())
+    }
+
+    /// Remove a node and all of its descendants. The layout root cannot be removed.
+    /// Returns removed IDs in child-before-parent order so retained paint nodes
+    /// can be cleaned up before the next layout synchronization.
+    pub fn remove_subtree(&mut self, id: WidgetId) -> Result<Vec<WidgetId>, LayoutTreeError> {
+        if id == self.root_id {
+            return Err(LayoutTreeError::CannotRemoveRoot);
+        }
+        let node = self.node(id)?;
+        let parent_id = self.parents.get(&id).copied().flatten();
+        let mut subtree = Vec::new();
+        self.collect_subtree_postorder(id, &mut subtree)?;
+
+        if let Some(parent_id) = parent_id {
+            let parent_node = self.node(parent_id)?;
+            self.tree
+                .remove_child(parent_node, node)
+                .map_err(|error| LayoutTreeError::Taffy(error.to_string()))?;
+        }
+        let removed_ids = subtree.iter().map(|(widget_id, _)| *widget_id).collect();
+        for (widget_id, node_id) in subtree {
+            self.tree
+                .remove(node_id)
+                .map_err(|error| LayoutTreeError::Taffy(error.to_string()))?;
+            self.nodes.remove(&widget_id);
+            self.parents.remove(&widget_id);
+        }
+        Ok(removed_ids)
     }
 
     /// Apply layout invalidations; Taffy propagates each dirty mark to ancestors.
@@ -177,6 +235,27 @@ impl LayoutTree {
             .copied()
             .ok_or(LayoutTreeError::UnknownWidget(id))
     }
+
+    fn collect_subtree_postorder(
+        &self,
+        id: WidgetId,
+        output: &mut Vec<(WidgetId, NodeId)>,
+    ) -> Result<(), LayoutTreeError> {
+        for (child_id, parent_id) in &self.parents {
+            if *parent_id == Some(id) {
+                self.collect_subtree_postorder(*child_id, output)?;
+            }
+        }
+        output.push((id, self.node(id)?));
+        Ok(())
+    }
+}
+
+fn collect_ids(node: &LayoutNode, ids: &mut Vec<WidgetId>) {
+    ids.push(node.id);
+    for child in &node.children {
+        collect_ids(child, ids);
+    }
 }
 
 #[cfg(test)]
@@ -210,19 +289,26 @@ mod tests {
                 },
                 ..Style::default()
             },
-            vec![LayoutNode::new(leaf_id, fixed_style(40.0, 20.0))],
+            vec![
+                LayoutNode::new(WidgetId::from_raw(4), fixed_style(10.0, 20.0)),
+                LayoutNode::new(leaf_id, fixed_style(40.0, 20.0)),
+            ],
         );
         let root = LayoutNode::with_children(
             root_id,
             Style {
                 display: Display::Flex,
+                flex_direction: FlexDirection::Row,
                 size: Size {
                     width: Dimension::length(300.0),
                     height: Dimension::length(100.0),
                 },
                 ..Style::default()
             },
-            vec![row],
+            vec![
+                LayoutNode::new(WidgetId::from_raw(5), fixed_style(5.0, 20.0)),
+                row,
+            ],
         );
         let mut tree = LayoutTree::new(root).unwrap();
 
@@ -231,7 +317,7 @@ mod tests {
         assert_eq!(
             tree.layout(leaf_id).unwrap(),
             LayoutRect {
-                x: 0.0,
+                x: 15.0,
                 y: 0.0,
                 width: 40.0,
                 height: 20.0,
@@ -284,5 +370,68 @@ mod tests {
             LayoutTree::new(root).unwrap_err(),
             LayoutTreeError::DuplicateWidgetId(duplicate)
         );
+    }
+
+    #[test]
+    fn appends_and_removes_dynamic_subtrees() {
+        let root_id = WidgetId::from_raw(20);
+        let child_id = WidgetId::from_raw(21);
+        let nested_id = WidgetId::from_raw(22);
+        let mut tree =
+            LayoutTree::new(LayoutNode::new(root_id, fixed_style(100.0, 100.0))).unwrap();
+        tree.append_child(
+            root_id,
+            LayoutNode::with_children(
+                child_id,
+                fixed_style(40.0, 40.0),
+                vec![LayoutNode::new(nested_id, fixed_style(10.0, 10.0))],
+            ),
+        )
+        .unwrap();
+        tree.compute_layout(100.0, 100.0).unwrap();
+        assert_eq!(tree.layout(nested_id).unwrap().width, 10.0);
+
+        assert_eq!(
+            tree.remove_subtree(child_id).unwrap(),
+            vec![nested_id, child_id]
+        );
+        assert_eq!(
+            tree.layout(child_id),
+            Err(LayoutTreeError::UnknownWidget(child_id))
+        );
+        assert_eq!(
+            tree.layout(nested_id),
+            Err(LayoutTreeError::UnknownWidget(nested_id))
+        );
+        tree.compute_layout(100.0, 100.0).unwrap();
+    }
+
+    #[test]
+    fn rejects_duplicate_ids_when_appending_without_mutating_tree() {
+        let root_id = WidgetId::from_raw(30);
+        let child_id = WidgetId::from_raw(31);
+        let mut tree = LayoutTree::new(LayoutNode::with_children(
+            root_id,
+            fixed_style(100.0, 100.0),
+            vec![LayoutNode::new(child_id, fixed_style(20.0, 20.0))],
+        ))
+        .unwrap();
+
+        assert_eq!(
+            tree.append_child(root_id, LayoutNode::new(child_id, fixed_style(10.0, 10.0))),
+            Err(LayoutTreeError::DuplicateWidgetId(child_id))
+        );
+        assert_eq!(tree.layout(child_id).unwrap().width, 0.0);
+    }
+
+    #[test]
+    fn refuses_to_remove_the_layout_root() {
+        let root_id = WidgetId::from_raw(40);
+        let mut tree = LayoutTree::new(LayoutNode::new(root_id, Style::default())).unwrap();
+        assert_eq!(
+            tree.remove_subtree(root_id),
+            Err(LayoutTreeError::CannotRemoveRoot)
+        );
+        assert_eq!(tree.root_id(), root_id);
     }
 }

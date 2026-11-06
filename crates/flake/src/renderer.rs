@@ -50,11 +50,12 @@ fn fs_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
 const VERTEX_ATTRIBUTES: [wgpu::VertexAttribute; 2] =
     wgpu::vertex_attr_array![0 => Float32x2, 1 => Float32x4];
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RenderError {
     InvalidViewport,
     TooManyVertices,
-    TextPrepare,
+    TextPrepare(String),
+    TextRender(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -199,7 +200,7 @@ impl WgpuRenderer {
             }
             let text = self.text.as_mut().expect("text resources were initialized");
             text.prepare(device, queue, &frame.text, viewport_size, scale_factor)
-                .map_err(|_| RenderError::TextPrepare)?;
+                .map_err(RenderError::TextPrepare)?;
         }
         let full_damage = [viewport];
         let damage_regions = if frame.full {
@@ -294,8 +295,7 @@ impl WgpuRenderer {
             }
             if !frame.text.is_empty() {
                 let text = self.text.as_mut().expect("text resources were initialized");
-                text.render(&mut pass)
-                    .map_err(|_| RenderError::TextPrepare)?;
+                text.render(&mut pass).map_err(RenderError::TextRender)?;
             }
         }
 

@@ -48,7 +48,7 @@ impl TextRenderResources {
         nodes: &[TextNode],
         viewport_size: [u32; 2],
         scale_factor: f32,
-    ) -> Result<(), ()> {
+    ) -> Result<(), String> {
         self.viewport.update(
             queue,
             Resolution {
@@ -88,13 +88,13 @@ impl TextRenderResources {
             &mut self.swash_cache,
         );
         self.buffers.trim();
-        result.map_err(|_| ())
+        result.map_err(|error| format!("{error:?}"))
     }
 
-    pub(crate) fn render(&self, pass: &mut wgpu::RenderPass<'_>) -> Result<(), ()> {
+    pub(crate) fn render(&self, pass: &mut wgpu::RenderPass<'_>) -> Result<(), String> {
         self.renderer
             .render(&self.atlas, &self.viewport, pass)
-            .map_err(|_| ())
+            .map_err(|error| format!("{error:?}"))
     }
 }
 
